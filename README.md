@@ -31,11 +31,11 @@ See `.env.example`. Required in production:
 | Variable | Purpose |
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` | `https://indiedevtest.com` (canonical / SEO / sitemap / llms.txt) |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile public key |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile public key (contact + waitlist) |
 | `TURNSTILE_SECRET_KEY` | Turnstile server verify secret |
 | `SENDGRID_API_KEY` | SendGrid API key |
 | `SENDGRID_FROM_EMAIL` | `admin@indiedevtest.com` |
-| `CONTACT_TO_EMAIL` | `contact@indiedevtest.com` (inbox only — not shown on the site) |
+| `CONTACT_TO_EMAIL` | Inbox for contact + waitlist alerts (not shown on the site) |
 | `NEXT_PUBLIC_UMAMI_SRC` | (optional) Umami script URL — both Umami vars required to enable |
 | `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | (optional) Umami website id |
 | `PUSHOVER_API_TOKEN` | (optional) Pushover app token — both Pushover vars required to enable |

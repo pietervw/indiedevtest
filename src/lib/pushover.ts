@@ -26,7 +26,6 @@ function perthTimestamp(): string {
 async function sendPushoverNotification(options: {
   title: string;
   message: string;
-  sound?: string;
 }): Promise<boolean> {
   try {
     const apiToken = process.env.PUSHOVER_API_TOKEN?.trim();
@@ -45,7 +44,7 @@ async function sendPushoverNotification(options: {
       title: options.title,
       message: options.message,
       priority: "0",
-      ...(options.sound && { sound: options.sound }),
+      sound: "incoming",
     });
 
     const response = await fetch(PUSHOVER_URL, {
@@ -89,7 +88,6 @@ export async function sendWaitlistSignupNotification(
       `Email: ${sanitizeEmail(email)}`,
       `Time: ${perthTimestamp()}`,
     ].join("\n"),
-    sound: "pushover",
   });
 }
 
@@ -110,6 +108,5 @@ export async function sendContactNotification(input: {
       `Message: ${preview}`,
       `Time: ${perthTimestamp()}`,
     ].join("\n"),
-    sound: "incoming",
   });
 }
