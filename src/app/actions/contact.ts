@@ -1,6 +1,7 @@
 "use server";
 
 import { sendContactEmail } from "@/lib/email";
+import { sendContactNotification } from "@/lib/pushover";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
@@ -51,6 +52,7 @@ export async function sendContactMessage(
 
   try {
     await sendContactEmail({ name, email, message });
+    void sendContactNotification({ name, email, message });
     return {
       ok: true,
       message: "Thanks! Your message has been sent — we'll get back to you soon.",
