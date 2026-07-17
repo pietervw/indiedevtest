@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { siteConfig } from "@/lib/site";
 
@@ -16,7 +17,7 @@ export function BrandMark({
   };
 
   return (
-    <a
+    <Link
       href="/"
       aria-label={`${siteConfig.name} home`}
       className={cn(
@@ -29,6 +30,6 @@ export function BrandMark({
       <span className="bg-brand px-1.5 text-brand-ink rounded-md border-2 border-ink">
         Test
       </span>
-    </a>
+    </Link>
   );
 }

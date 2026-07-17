@@ -1,10 +1,27 @@
+const DEFAULT_SITE_URL = "https://indiedevtest.com";
+
+/** Prefer apex host (no www). Empty/invalid env falls back to production URL. */
+function resolveSiteUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim() || DEFAULT_SITE_URL;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return DEFAULT_SITE_URL;
+    }
+    url.hostname = url.hostname.replace(/^www\./i, "");
+    return url.origin;
+  } catch {
+    return DEFAULT_SITE_URL;
+  }
+}
+
 export const siteConfig = {
   name: "IndieDevTest",
   legalName: "IndieDevTest",
   tagline: "Find 12 testers. Launch your app.",
   description:
     "Indie devs help each other launch. Reciprocal testing for Android and iOS — no more begging friends or family.",
-  url: process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://indiedevtest.io",
+  url: resolveSiteUrl(),
   locale: "en_US",
   keywords: [
     "indie app testers",
@@ -16,7 +33,7 @@ export const siteConfig = {
     "mobile app launch",
     "find app testers",
   ],
-  twitterHandle: "@indiedevtest",
+  twitterHandle: "@SlouchyPete",
   creator: "IndieDevTest",
   themeColor: "#d2e36b",
   brandInk: "#2a3812",
@@ -25,8 +42,8 @@ export const siteConfig = {
 } as const;
 
 export const socialLinks = [
-  { label: "Twitter", href: "https://twitter.com/indiedevtest" },
-  { label: "GitHub", href: "https://github.com/indiedevtest" },
+  { label: "X", href: "https://x.com/SlouchyPete" },
+  { label: "GitHub", href: "https://github.com/pietervw" },
 ] as const;
 
 export const howItWorksSteps = [
@@ -91,7 +108,15 @@ export const siteRoutes = [
 ] as const;
 
 export function absoluteUrl(path = "/"): string {
-  const base = siteConfig.url.replace(/\/$/, "");
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${base}${normalized === "/" ? "" : normalized}`;
+  return `${siteConfig.url}${normalized === "/" ? "" : normalized}`;
+}
+
+/** Shared canonical + OG URL metadata for indexable pages. */
+export function canonicalMetadata(path: string) {
+  const url = absoluteUrl(path);
+  return {
+    alternates: { canonical: url },
+    openGraph: { url },
+  };
 }
