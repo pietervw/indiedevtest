@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { UmamiAnalytics } from "@/components/umami-analytics";
 import { siteConfig } from "@/lib/site";
 import "./globals.css";
 
@@ -89,6 +90,7 @@ export default function RootLayout({
       className={`${plusJakarta.variable} ${outfit.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <UmamiAnalytics />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />

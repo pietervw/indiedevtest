@@ -36,6 +36,10 @@ See `.env.example`. Required in production:
 | `SENDGRID_API_KEY` | SendGrid API key |
 | `SENDGRID_FROM_EMAIL` | `admin@indiedevtest.com` |
 | `CONTACT_TO_EMAIL` | `contact@indiedevtest.com` (inbox only — not shown on the site) |
+| `NEXT_PUBLIC_UMAMI_SRC` | (optional) Umami script URL — both Umami vars required to enable |
+| `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | (optional) Umami website id |
+| `PUSHOVER_API_TOKEN` | (optional) Pushover app token — both Pushover vars required to enable |
+| `PUSHOVER_USER_KEY` | (optional) Pushover user/group key (waitlist + contact alerts) |
 
 `NEXT_PUBLIC_*` values are inlined at **build** time. Set them as Coolify build args / build-time env as well as runtime env.
 
@@ -50,6 +54,7 @@ This app uses Next.js `output: "standalone"` and ships a production `Dockerfile`
 5. Pass build-time args for public vars:
    - `NEXT_PUBLIC_SITE_URL=https://indiedevtest.com`
    - `NEXT_PUBLIC_TURNSTILE_SITE_KEY=…`
+   - `NEXT_PUBLIC_UMAMI_SRC=…` / `NEXT_PUBLIC_UMAMI_WEBSITE_ID=…` (optional)
 6. Persist waitlist data: mount a volume at `/app/data`.
 7. Exposed port: `3000`.
 8. Deploy.

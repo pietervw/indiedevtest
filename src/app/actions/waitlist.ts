@@ -1,5 +1,6 @@
 "use server";
 
+import { sendWaitlistSignupNotification } from "@/lib/pushover";
 import { addToWaitlist } from "@/lib/waitlist-store";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
@@ -20,6 +21,9 @@ export async function joinWaitlist(
 
   try {
     const { alreadyExists } = await addToWaitlist(email);
+    if (!alreadyExists) {
+      void sendWaitlistSignupNotification(email);
+    }
     return {
       ok: true,
       message: alreadyExists
