@@ -5,9 +5,7 @@ const APEX_HOST = "indiedevtest.com";
 const WWW_HOST = `www.${APEX_HOST}`;
 
 export function proxy(request: NextRequest) {
-  const host = (request.headers.get("host") ?? "").toLowerCase();
-  // Strip optional port (e.g. www.indiedevtest.com:443)
-  const hostname = host.split(":")[0] ?? "";
+  const hostname = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
   if (hostname !== WWW_HOST) {
     return NextResponse.next();
   }

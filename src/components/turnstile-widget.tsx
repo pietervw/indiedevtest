@@ -15,6 +15,10 @@ declare global {
   }
 }
 
+function turnstileAvailable(): boolean {
+  return typeof window !== "undefined" && Boolean(window.turnstile);
+}
+
 export function TurnstileWidget({
   action = "contact",
   resetKey = 0,
@@ -49,8 +53,12 @@ export function TurnstileWidget({
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
         strategy="afterInteractive"
-        onLoad={() => setScriptReady(true)}
-        onReady={() => setScriptReady(true)}
+        onLoad={() => {
+          if (turnstileAvailable()) setScriptReady(true);
+        }}
+        onReady={() => {
+          if (turnstileAvailable()) setScriptReady(true);
+        }}
       />
     </div>
   );
