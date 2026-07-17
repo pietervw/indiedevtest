@@ -7,6 +7,7 @@ import {
   sendNewTesterRequestEmail,
   sendRequestAcceptedEmail,
   sendRequestRejectedEmail,
+  sendTestCompletedEmail,
 } from "@/lib/email";
 import { appPath } from "@/lib/mock-data";
 import { siteConfig } from "@/lib/site";
@@ -185,4 +186,127 @@ async function resolveTesterRequest(
   void notify.catch((err) => {
     console.error(`[requests] ${outcome} email failed`, err);
   });
+}
+
+/**
+ * Dev confirms an accepted tester has joined the testing track (off-platform
+ * Play Store / TestFlight add is done). Creates the TestAssignment, links it
+ * to the request, and grants the tester a permanent "Joined" credit.
+ * (Spec §4 — Joined credit never decays.)
+ */
+export async function confirmTesterJoined(requestId: string): Promise<void> {
+  const user = await requireDbUser();
+
+  const request = await prisma.testerRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      status: true,
+      testerUserId: true,
+      testAssignmentId: true,
+      appListingId: true,
+      appListing: { select: { userId: true, platform: true } },
+    },
+  });
+
+  if (!request || request.appListing.userId !== user.id) {
+    return;
+  }
+  if (request.status !== "accepted" || request.testAssignmentId) {
+    return;
+  }
+
+  const assignment = await prisma.testAssignment.create({
+    data: {
+      appListingId: request.appListingId,
+      testerUserId: request.testerUserId,
+      platform: request.appListing.platform,
+      joinedAt: new Date(),
+      status: "active",
+    },
+  });
+  await prisma.testerRequest.update({
+    where: { id: requestId },
+    data: { testAssignmentId: assignment.id },
+  });
+  await prisma.user.update({
+    where: { id: request.testerUserId },
+    data: { profileScoreJoined: { increment: 1 } },
+  });
+
+  revalidatePath(appPath(request.appListingId));
+}
+
+/** Dev marks an active test complete — grants a Completed credit and emails the tester. */
+export async function markTestComplete(assignmentId: string): Promise<void> {
+  const user = await requireDbUser();
+  const assignment = await fetchOwnedAssignment(assignmentId, user.id);
+  if (!assignment || assignment.status !== "active") {
+    return;
+  }
+
+  await prisma.testAssignment.update({
+    where: { id: assignmentId },
+    data: { status: "completed", completedAt: new Date() },
+  });
+  await prisma.user.update({
+    where: { id: assignment.testerUserId },
+    data: { profileScoreCompleted: { increment: 1 } },
+  });
+
+  revalidatePath(appPath(assignment.appListingId));
+
+  const testerEmail = assignment.testerRequest?.testerEmail;
+  if (testerEmail) {
+    void sendTestCompletedEmail({
+      testerEmail,
+      appName: assignment.appListing.name,
+      listingUrl: `${siteConfig.url}${appPath(assignment.appListingId)}`,
+    }).catch((err) => {
+      console.error("[requests] completed email failed", err);
+    });
+  }
+}
+
+/** Dev marks a test incomplete — revokes the Completed credit if one was earned. */
+export async function markTestIncomplete(assignmentId: string): Promise<void> {
+  const user = await requireDbUser();
+  const assignment = await fetchOwnedAssignment(assignmentId, user.id);
+  if (!assignment) {
+    return;
+  }
+  if (assignment.status !== "active" && assignment.status !== "completed") {
+    return;
+  }
+
+  await prisma.testAssignment.update({
+    where: { id: assignmentId },
+    data: { status: "incomplete", completedAt: null },
+  });
+  if (assignment.status === "completed") {
+    await prisma.user.update({
+      where: { id: assignment.testerUserId },
+      data: { profileScoreCompleted: { decrement: 1 } },
+    });
+  }
+
+  revalidatePath(appPath(assignment.appListingId));
+}
+
+/** Fetch an assignment scoped to the calling owner, or null for anyone else. */
+async function fetchOwnedAssignment(assignmentId: string, userId: string) {
+  const assignment = await prisma.testAssignment.findUnique({
+    where: { id: assignmentId },
+    select: {
+      status: true,
+      testerUserId: true,
+      appListingId: true,
+      appListing: { select: { userId: true, name: true } },
+      testerRequest: { select: { testerEmail: true } },
+    },
+  });
+
+  if (!assignment || assignment.appListing.userId !== userId) {
+    return null;
+  }
+  return assignment;
 }
