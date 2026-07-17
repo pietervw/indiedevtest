@@ -12,6 +12,16 @@ npm install
 npm run dev
 ```
 
+In `.env.local`, override production defaults for local use:
+
+```bash
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+```
+
+(Those Turnstile values are Cloudflare’s Always Pass test keys.)
+
 Open [http://localhost:3000](http://localhost:3000).
 
 ## Environment variables
@@ -33,9 +43,9 @@ See `.env.example`. Required in production:
 
 This app uses Next.js `output: "standalone"` and ships a production `Dockerfile`.
 
-1. Point DNS: `A` / `AAAA` for `indiedevtest.com` → your VPS. Optionally point `www` too (the app 308-redirects `www` → apex).
+1. Point DNS: `A` / `AAAA` for `indiedevtest.com` → your VPS. Also point `www` if you want the apex redirect to work.
 2. In Coolify, create a new resource from this Git repo (Dockerfile).
-3. Set domain to `indiedevtest.com` (prefer generating cert for apex; redirect www in Coolify or rely on app proxy).
+3. Set domains/aliases for both `indiedevtest.com` and `www.indiedevtest.com` so TLS covers www before the app’s 308 redirect to apex (or terminate the www→apex redirect at the proxy with a valid www cert).
 4. Add all env vars from `.env.example`.
 5. Pass build-time args for public vars:
    - `NEXT_PUBLIC_SITE_URL=https://indiedevtest.com`

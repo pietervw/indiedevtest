@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const APEX_HOST = "indiedevtest.com";
+const WWW_HOST = `www.${APEX_HOST}`;
+
 export function proxy(request: NextRequest) {
-  const host = request.headers.get("host") ?? "";
-  if (!host.toLowerCase().startsWith("www.")) {
+  const host = (request.headers.get("host") ?? "").toLowerCase();
+  // Strip optional port (e.g. www.indiedevtest.com:443)
+  const hostname = host.split(":")[0] ?? "";
+  if (hostname !== WWW_HOST) {
     return NextResponse.next();
   }
 
   const url = request.nextUrl.clone();
-  url.hostname = host.replace(/^www\./i, "");
+  url.hostname = APEX_HOST;
   url.protocol = "https:";
   url.port = "";
 

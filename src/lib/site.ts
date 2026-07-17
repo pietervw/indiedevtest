@@ -5,6 +5,9 @@ function resolveSiteUrl(): string {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim() || DEFAULT_SITE_URL;
   try {
     const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return DEFAULT_SITE_URL;
+    }
     url.hostname = url.hostname.replace(/^www\./i, "");
     return url.origin;
   } catch {
