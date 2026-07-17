@@ -80,13 +80,14 @@ export function RequestToTestForm({
         <SubmitButton size="lg" pendingLabel="Sending…" className="w-full sm:w-auto">
           Request to test
         </SubmitButton>
-        {state.message && !state.ok ? (
-          <p className="text-sm font-semibold text-red-600" role="alert">
-            {state.message}
-          </p>
-        ) : null}
-        {state.ok && state.message ? (
-          <p className="text-sm font-semibold text-ink" role="status">
+        {state.message ? (
+          <p
+            className={cn(
+              "text-sm font-semibold",
+              state.ok ? "text-ink" : "text-red-600"
+            )}
+            role={state.ok ? "status" : "alert"}
+          >
             {state.message}
           </p>
         ) : null}

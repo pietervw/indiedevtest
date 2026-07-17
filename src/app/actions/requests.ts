@@ -132,43 +132,19 @@ export async function createTesterRequest(
 
 /** Owner accepts a pending request. Notifies the tester. */
 export async function acceptTesterRequest(requestId: string): Promise<void> {
-  const user = await requireDbUser();
-
-  const request = await prisma.testerRequest.findUnique({
-    where: { id: requestId },
-    select: {
-      status: true,
-      testerEmail: true,
-      appListingId: true,
-      appListing: { select: { userId: true, name: true } },
-    },
-  });
-
-  if (!request || request.appListing.userId !== user.id) {
-    return;
-  }
-  if (request.status !== "pending") {
-    return;
-  }
-
-  await prisma.testerRequest.update({
-    where: { id: requestId },
-    data: { status: "accepted" },
-  });
-
-  revalidatePath(appPath(request.appListingId));
-
-  void sendRequestAcceptedEmail({
-    testerEmail: request.testerEmail,
-    appName: request.appListing.name,
-    listingUrl: `${siteConfig.url}${appPath(request.appListingId)}`,
-  }).catch((err) => {
-    console.error("[requests] accepted email failed", err);
-  });
+  await resolveTesterRequest(requestId, "accepted");
 }
 
 /** Owner declines a pending request. Notifies the tester. */
 export async function rejectTesterRequest(requestId: string): Promise<void> {
+  await resolveTesterRequest(requestId, "rejected");
+}
+
+/** Shared accept/reject path: ownership + state guard, update, revalidate, notify. */
+async function resolveTesterRequest(
+  requestId: string,
+  outcome: "accepted" | "rejected"
+): Promise<void> {
   const user = await requireDbUser();
 
   const request = await prisma.testerRequest.findUnique({
@@ -190,15 +166,23 @@ export async function rejectTesterRequest(requestId: string): Promise<void> {
 
   await prisma.testerRequest.update({
     where: { id: requestId },
-    data: { status: "rejected" },
+    data: { status: outcome },
   });
 
   revalidatePath(appPath(request.appListingId));
 
-  void sendRequestRejectedEmail({
-    testerEmail: request.testerEmail,
-    appName: request.appListing.name,
-  }).catch((err) => {
-    console.error("[requests] rejected email failed", err);
+  const notify =
+    outcome === "accepted"
+      ? sendRequestAcceptedEmail({
+          testerEmail: request.testerEmail,
+          appName: request.appListing.name,
+          listingUrl: `${siteConfig.url}${appPath(request.appListingId)}`,
+        })
+      : sendRequestRejectedEmail({
+          testerEmail: request.testerEmail,
+          appName: request.appListing.name,
+        });
+  void notify.catch((err) => {
+    console.error(`[requests] ${outcome} email failed`, err);
   });
 }
