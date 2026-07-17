@@ -1,6 +1,8 @@
 import sgMail from "@sendgrid/mail";
 import { siteConfig } from "@/lib/site";
 
+const SEND_TIMEOUT_MS = 10_000;
+
 // Set the key once on module load when available. Re-applied in sendMail
 // so a key added after server start (e.g. via .env.local reload) still works.
 if (process.env.SENDGRID_API_KEY) {
@@ -40,7 +42,8 @@ async function sendMail(options: {
 }): Promise<void> {
   const { apiKey, fromEmail } = requireMailConfig();
   sgMail.setApiKey(apiKey);
-  await sgMail.send({
+
+  const sendPromise = sgMail.send({
     from: fromEmail,
     to: options.to,
     subject: options.subject,
@@ -48,6 +51,20 @@ async function sendMail(options: {
     html: options.html,
     ...(options.replyTo ? { replyTo: options.replyTo } : {}),
   });
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      sendPromise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`Email send timed out after ${SEND_TIMEOUT_MS}ms`));
+        }, SEND_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export async function sendContactEmail(msg: ContactMessage): Promise<void> {

@@ -31,7 +31,7 @@ See `.env.example`. Required in production:
 | Variable | Purpose |
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` | `https://indiedevtest.com` (canonical / SEO / sitemap / llms.txt) |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile public key |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile public key (contact + waitlist) |
 | `TURNSTILE_SECRET_KEY` | Turnstile server verify secret |
 | `SENDGRID_API_KEY` | SendGrid API key |
 | `SENDGRID_FROM_EMAIL` | `admin@indiedevtest.com` |
