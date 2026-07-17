@@ -32,7 +32,7 @@ export async function joinWaitlist(
   const turnstileToken = String(
     formData.get("cf-turnstile-response") ?? ""
   ).trim();
-  if (!(await verifyTurnstileToken(turnstileToken))) {
+  if (!(await verifyTurnstileToken(turnstileToken, { expectedAction: "waitlist" }))) {
     return {
       ok: false,
       message: "Bot check failed — please refresh the page and try again.",

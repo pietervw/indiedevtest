@@ -2,9 +2,17 @@
  * Cloudflare Turnstile server-side verification.
  * Docs: https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
  */
+
+const SITEVERIFY_URL =
+  "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+const SITEVERIFY_TIMEOUT_MS = 5_000;
+
 export async function verifyTurnstileToken(
   token: string,
-  remoteip?: string
+  options?: {
+    remoteip?: string;
+    expectedAction?: string;
+  }
 ): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
 
@@ -26,20 +34,20 @@ export async function verifyTurnstileToken(
   }
 
   try {
-    const res = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          secret,
-          response: token,
-          ...(remoteip ? { remoteip } : {}),
-        }),
-      }
-    );
+    const res = await fetch(SITEVERIFY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret,
+        response: token,
+        ...(options?.remoteip ? { remoteip: options.remoteip } : {}),
+      }),
+      signal: AbortSignal.timeout(SITEVERIFY_TIMEOUT_MS),
+    });
     const data = (await res.json()) as {
       success?: boolean;
+      action?: string;
+      hostname?: string;
       "error-codes"?: string[];
     };
     if (data.success !== true) {
@@ -48,6 +56,18 @@ export async function verifyTurnstileToken(
       });
       return false;
     }
+
+    if (
+      options?.expectedAction &&
+      data.action !== options.expectedAction
+    ) {
+      console.error("[turnstile] action mismatch", {
+        expected: options.expectedAction,
+        actual: data.action ?? null,
+      });
+      return false;
+    }
+
     return true;
   } catch (err) {
     console.error("[turnstile] siteverify failed", err);
