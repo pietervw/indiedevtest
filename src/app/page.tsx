@@ -114,8 +114,13 @@ export default async function Home() {
     <>
       <JsonLd data={jsonLd} />
 
-      <section className="relative overflow-hidden border-b-2 border-ink bg-grid">
-        <div className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand/30" />
+      <section className="relative border-b-2 border-ink bg-grid">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+        >
+          <div className="absolute -right-24 -top-24 size-72 rounded-full bg-brand/30" />
+        </div>
 
         <Container className="relative grid items-center gap-12 py-14 md:grid-cols-2 md:gap-10 md:py-20 lg:py-24">
           <div>

@@ -89,7 +89,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${plusJakarta.variable} ${outfit.variable} h-full antialiased`}
+      className={`${plusJakarta.variable} ${outfit.variable} h-full overflow-x-hidden antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider afterSignOutUrl="/">
