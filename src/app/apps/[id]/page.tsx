@@ -2,10 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppLogo } from "@/components/app-logo";
+import { RequestToTestForm } from "@/components/request-to-test-form";
+import { SubmitButton } from "@/components/submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
 import { ProgressBar } from "@/components/ui/progress";
+import { acceptTesterRequest, rejectTesterRequest } from "@/app/actions/requests";
 import { getOptionalDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import {
@@ -108,6 +111,31 @@ export default async function AppListingPage({ params }: Props) {
     notFound();
   }
 
+  const viewerRequest =
+    viewer && !isOwner
+      ? await prisma.testerRequest.findUnique({
+          where: {
+            appListingId_testerUserId: {
+              appListingId: listing.id,
+              testerUserId: viewer.id,
+            },
+          },
+          select: { status: true },
+        })
+      : null;
+
+  const pendingRequests = isOwner
+    ? await prisma.testerRequest.findMany({
+        where: { appListingId: listing.id, status: "pending" },
+        include: {
+          tester: {
+            select: { displayName: true, githubUsername: true, imageUrl: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+
   const testers = listing._count.testAssignments;
   const showReviews =
     listing.status === "open_for_testing" ||
@@ -208,18 +236,78 @@ export default async function AppListingPage({ params }: Props) {
         {acceptingRequests && !isOwner ? (
           <div className="mt-10">
             {viewer ? (
-              <Button type="button" size="lg" disabled>
-                Request to test
-              </Button>
+              <RequestToTestForm
+                listingId={listing.id}
+                existing={viewerRequest?.status ?? null}
+              />
             ) : (
               <p className="font-semibold text-ink-muted">
                 Sign in from the header to request testing.
               </p>
             )}
-            <p className="mt-2 text-sm text-ink-muted">
-              Tester requests ship next — listing details are live now.
-            </p>
           </div>
+        ) : null}
+
+        {isOwner && pendingRequests.length > 0 ? (
+          <section className="mt-14 max-w-2xl">
+            <h2 className="font-display text-xl font-extrabold text-ink">
+              Tester requests{" "}
+              <span className="text-ink-muted">
+                ({pendingRequests.length})
+              </span>
+            </h2>
+            <ul className="mt-6 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-ink bg-paper">
+              {pendingRequests.map((req) => (
+                <li
+                  key={req.id}
+                  className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    {req.tester.imageUrl ? (
+                      <Image
+                        src={req.tester.imageUrl}
+                        alt=""
+                        width={40}
+                        height={40}
+                        className="size-10 shrink-0 rounded-xl border-2 border-ink object-cover"
+                      />
+                    ) : (
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border-2 border-ink bg-paper-muted font-display text-lg font-bold text-ink">
+                        {req.tester.displayName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <Link
+                        href={profilePath(req.tester.githubUsername)}
+                        className="font-semibold text-ink hover:underline"
+                      >
+                        {req.tester.displayName}
+                      </Link>
+                      <p className="truncate text-sm text-ink-muted">
+                        {req.testerEmail}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <form action={acceptTesterRequest.bind(null, req.id)}>
+                      <SubmitButton size="sm" pendingLabel="Accepting…">
+                        Accept
+                      </SubmitButton>
+                    </form>
+                    <form action={rejectTesterRequest.bind(null, req.id)}>
+                      <SubmitButton
+                        size="sm"
+                        variant="secondary"
+                        pendingLabel="Declining…"
+                      >
+                        Decline
+                      </SubmitButton>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         ) : null}
 
         {showReviews ? (
