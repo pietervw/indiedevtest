@@ -235,6 +235,33 @@ export async function sendRequestRejectedEmail(options: {
   });
 }
 
+/** Tell a tester their test was marked complete (credits their profile). */
+export async function sendTestCompletedEmail(options: {
+  testerEmail: string;
+  appName: string;
+  listingUrl: string;
+}): Promise<void> {
+  const product = siteConfig.name;
+  await sendMail({
+    to: options.testerEmail,
+    subject: `Thanks for testing ${options.appName}`,
+    text: [
+      `The developer marked your test of ${options.appName} as complete — nice work.`,
+      "",
+      "Your Completed count on your profile just went up. Keep the reciprocity going:",
+      `Listing: ${options.listingUrl}`,
+      "",
+      `— ${product}`,
+    ].join("\n"),
+    html: [
+      `<p>The developer marked your test of <strong>${escapeHtml(options.appName)}</strong> as complete — nice work.</p>`,
+      `<p>Your <strong>Completed</strong> count on your profile just went up. Keep the reciprocity going:</p>`,
+      `<p><a href="${escapeHtml(options.listingUrl)}">View listing</a></p>`,
+      `<p style="color:#888;font-size:12px;">— ${escapeHtml(product)}</p>`,
+    ].join(""),
+  });
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

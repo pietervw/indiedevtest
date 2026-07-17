@@ -7,6 +7,7 @@ import {
   sendNewTesterRequestEmail,
   sendRequestAcceptedEmail,
   sendRequestRejectedEmail,
+  sendTestCompletedEmail,
 } from "@/lib/email";
 import { appPath } from "@/lib/mock-data";
 import { siteConfig } from "@/lib/site";
@@ -185,4 +186,154 @@ async function resolveTesterRequest(
   void notify.catch((err) => {
     console.error(`[requests] ${outcome} email failed`, err);
   });
+}
+
+/**
+ * Dev confirms an accepted tester has joined the testing track (off-platform
+ * Play Store / TestFlight add is done). Creates the TestAssignment, links it
+ * to the request, and grants the tester a permanent "Joined" credit.
+ * (Spec §4 — Joined credit never decays.)
+ */
+export async function confirmTesterJoined(requestId: string): Promise<void> {
+  const user = await requireDbUser();
+
+  const request = await prisma.testerRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      status: true,
+      testerUserId: true,
+      testAssignmentId: true,
+      appListingId: true,
+      appListing: { select: { userId: true, platform: true } },
+    },
+  });
+
+  if (!request || request.appListing.userId !== user.id) {
+    return;
+  }
+  if (request.status !== "accepted" || request.testAssignmentId) {
+    return;
+  }
+
+  // Upsert on the (listing, tester) unique key so a concurrent confirm can't
+  // throw a duplicate-key error; the update branch is a no-op.
+  const assignment = await prisma.testAssignment.upsert({
+    where: {
+      appListingId_testerUserId: {
+        appListingId: request.appListingId,
+        testerUserId: request.testerUserId,
+      },
+    },
+    create: {
+      appListingId: request.appListingId,
+      testerUserId: request.testerUserId,
+      platform: request.appListing.platform,
+      joinedAt: new Date(),
+      status: "active",
+    },
+    update: {},
+  });
+
+  // Atomically claim the request→assignment link. Only the call that wins the
+  // race grants the Joined credit, so it can never be double-counted.
+  const { count } = await prisma.testerRequest.updateMany({
+    where: { id: requestId, testAssignmentId: null },
+    data: { testAssignmentId: assignment.id },
+  });
+  if (count === 1) {
+    await prisma.user.update({
+      where: { id: request.testerUserId },
+      data: { profileScoreJoined: { increment: 1 } },
+    });
+  }
+
+  revalidatePath(appPath(request.appListingId));
+}
+
+/** Dev marks an active test complete — grants a Completed credit and emails the tester. */
+export async function markTestComplete(assignmentId: string): Promise<void> {
+  const user = await requireDbUser();
+  const assignment = await fetchOwnedAssignment(assignmentId, user.id);
+  if (!assignment) {
+    return;
+  }
+
+  // CAS: only the call that actually flips active→completed grants the credit
+  // (and emails), so concurrent submits can't double-count.
+  const { count } = await prisma.testAssignment.updateMany({
+    where: { id: assignmentId, status: "active" },
+    data: { status: "completed", completedAt: new Date() },
+  });
+  if (count !== 1) {
+    return;
+  }
+
+  await prisma.user.update({
+    where: { id: assignment.testerUserId },
+    data: { profileScoreCompleted: { increment: 1 } },
+  });
+
+  revalidatePath(appPath(assignment.appListingId));
+
+  const testerEmail = assignment.testerRequest?.testerEmail;
+  if (testerEmail) {
+    void sendTestCompletedEmail({
+      testerEmail,
+      appName: assignment.appListing.name,
+      listingUrl: `${siteConfig.url}${appPath(assignment.appListingId)}`,
+    }).catch((err) => {
+      console.error("[requests] completed email failed", err);
+    });
+  }
+}
+
+/** Dev marks a test incomplete — revokes the Completed credit if one was earned. */
+export async function markTestIncomplete(assignmentId: string): Promise<void> {
+  const user = await requireDbUser();
+  const assignment = await fetchOwnedAssignment(assignmentId, user.id);
+  if (!assignment) {
+    return;
+  }
+
+  // CAS on the prior status so concurrent submits can't double-decrement.
+  // The fetched status is the expected value; the update only applies if it
+  // still holds.
+  if (assignment.status === "completed") {
+    const { count } = await prisma.testAssignment.updateMany({
+      where: { id: assignmentId, status: "completed" },
+      data: { status: "incomplete", completedAt: null },
+    });
+    if (count === 1) {
+      await prisma.user.update({
+        where: { id: assignment.testerUserId },
+        data: { profileScoreCompleted: { decrement: 1 } },
+      });
+    }
+  } else if (assignment.status === "active") {
+    await prisma.testAssignment.updateMany({
+      where: { id: assignmentId, status: "active" },
+      data: { status: "incomplete", completedAt: null },
+    });
+  }
+
+  revalidatePath(appPath(assignment.appListingId));
+}
+
+/** Fetch an assignment scoped to the calling owner, or null for anyone else. */
+async function fetchOwnedAssignment(assignmentId: string, userId: string) {
+  const assignment = await prisma.testAssignment.findUnique({
+    where: { id: assignmentId },
+    select: {
+      status: true,
+      testerUserId: true,
+      appListingId: true,
+      appListing: { select: { userId: true, name: true } },
+      testerRequest: { select: { testerEmail: true } },
+    },
+  });
+
+  if (!assignment || assignment.appListing.userId !== userId) {
+    return null;
+  }
+  return assignment;
 }

@@ -8,7 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
 import { ProgressBar } from "@/components/ui/progress";
-import { acceptTesterRequest, rejectTesterRequest } from "@/app/actions/requests";
+import {
+  acceptTesterRequest,
+  confirmTesterJoined,
+  markTestComplete,
+  markTestIncomplete,
+  rejectTesterRequest,
+} from "@/app/actions/requests";
 import { getOptionalDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import {
@@ -133,6 +139,40 @@ export default async function AppListingPage({ params }: Props) {
           },
         },
         orderBy: { createdAt: "desc" },
+      })
+    : [];
+
+  // Accepted testers the dev hasn't confirmed as joined yet.
+  const acceptedRequests = isOwner
+    ? await prisma.testerRequest.findMany({
+        where: {
+          appListingId: listing.id,
+          status: "accepted",
+          testAssignmentId: null,
+        },
+        include: {
+          tester: {
+            select: { displayName: true, githubUsername: true, imageUrl: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+
+  // Tests the owner is managing: in-progress and completed. Completed stay
+  // visible so the owner can reverse them or review history.
+  const assignments = isOwner
+    ? await prisma.testAssignment.findMany({
+        where: {
+          appListingId: listing.id,
+          status: { in: ["active", "completed"] },
+        },
+        include: {
+          tester: {
+            select: { displayName: true, githubUsername: true, imageUrl: true },
+          },
+        },
+        orderBy: { joinedAt: "desc" },
       })
     : [];
 
@@ -262,32 +302,7 @@ export default async function AppListingPage({ params }: Props) {
                   key={req.id}
                   className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    {req.tester.imageUrl ? (
-                      <Image
-                        src={req.tester.imageUrl}
-                        alt=""
-                        width={40}
-                        height={40}
-                        className="size-10 shrink-0 rounded-xl border-2 border-ink object-cover"
-                      />
-                    ) : (
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border-2 border-ink bg-paper-muted font-display text-lg font-bold text-ink">
-                        {req.tester.displayName.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                    <div className="min-w-0">
-                      <Link
-                        href={profilePath(req.tester.githubUsername)}
-                        className="font-semibold text-ink hover:underline"
-                      >
-                        {req.tester.displayName}
-                      </Link>
-                      <p className="truncate text-sm text-ink-muted">
-                        {req.testerEmail}
-                      </p>
-                    </div>
-                  </div>
+                  <TesterRow tester={req.tester} sub={req.testerEmail} />
                   <div className="flex shrink-0 items-center gap-2">
                     <form action={acceptTesterRequest.bind(null, req.id)}>
                       <SubmitButton size="sm" pendingLabel="Accepting…">
@@ -306,6 +321,87 @@ export default async function AppListingPage({ params }: Props) {
                   </div>
                 </li>
               ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {isOwner && acceptedRequests.length > 0 ? (
+          <section className="mt-14 max-w-2xl">
+            <h2 className="font-display text-xl font-extrabold text-ink">
+              Awaiting join{" "}
+              <span className="text-ink-muted">
+                ({acceptedRequests.length})
+              </span>
+            </h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Accepted testers — once you&apos;ve added them to your Play Store /
+              TestFlight track, confirm they joined.
+            </p>
+            <ul className="mt-6 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-ink bg-paper">
+              {acceptedRequests.map((req) => (
+                <li
+                  key={req.id}
+                  className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
+                >
+                  <TesterRow tester={req.tester} sub={req.testerEmail} />
+                  <form action={confirmTesterJoined.bind(null, req.id)}>
+                    <SubmitButton size="sm" pendingLabel="Confirming…">
+                      Confirm joined
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {isOwner && assignments.length > 0 ? (
+          <section className="mt-14 max-w-2xl">
+            <h2 className="font-display text-xl font-extrabold text-ink">
+              Tests{" "}
+              <span className="text-ink-muted">({assignments.length})</span>
+            </h2>
+            <ul className="mt-6 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-ink bg-paper">
+              {assignments.map((assignment) => {
+                const done = assignment.status === "completed";
+                return (
+                  <li
+                    key={assignment.id}
+                    className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
+                  >
+                    <TesterRow
+                      tester={assignment.tester}
+                      sub={
+                        done
+                          ? `Completed ${new Date(
+                              assignment.completedAt ?? assignment.joinedAt
+                            ).toLocaleDateString()}`
+                          : `Joined ${new Date(
+                              assignment.joinedAt
+                            ).toLocaleDateString()}`
+                      }
+                    />
+                    <div className="flex shrink-0 items-center gap-2">
+                      {!done ? (
+                        <form action={markTestComplete.bind(null, assignment.id)}>
+                          <SubmitButton size="sm" pendingLabel="Marking…">
+                            Mark complete
+                          </SubmitButton>
+                        </form>
+                      ) : null}
+                      <form action={markTestIncomplete.bind(null, assignment.id)}>
+                        <SubmitButton
+                          size="sm"
+                          variant="secondary"
+                          pendingLabel="Marking…"
+                        >
+                          Mark incomplete
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ) : null}
@@ -339,6 +435,42 @@ export default async function AppListingPage({ params }: Props) {
           On {siteConfig.name} · listed for reciprocal testing
         </p>
       </Container>
+    </div>
+  );
+}
+
+type TesterInfo = {
+  displayName: string;
+  githubUsername: string;
+  imageUrl: string | null;
+};
+
+/** Shared avatar + linked name row used across the owner request/test lists. */
+function TesterRow({ tester, sub }: { tester: TesterInfo; sub?: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      {tester.imageUrl ? (
+        <Image
+          src={tester.imageUrl}
+          alt=""
+          width={40}
+          height={40}
+          className="size-10 shrink-0 rounded-xl border-2 border-ink object-cover"
+        />
+      ) : (
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border-2 border-ink bg-paper-muted font-display text-lg font-bold text-ink">
+          {tester.displayName.charAt(0).toUpperCase()}
+        </span>
+      )}
+      <div className="min-w-0">
+        <Link
+          href={profilePath(tester.githubUsername)}
+          className="font-semibold text-ink hover:underline"
+        >
+          {tester.displayName}
+        </Link>
+        {sub ? <p className="truncate text-sm text-ink-muted">{sub}</p> : null}
+      </div>
     </div>
   );
 }
