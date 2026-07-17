@@ -42,13 +42,11 @@ export async function joinWaitlist(
   try {
     const { alreadyExists } = await addToWaitlist(email);
     if (!alreadyExists) {
-      // Store is the durable outcome; mail/Pushover are best-effort so a
-      // SendGrid failure cannot leave the user "already on the list" with no notify path.
-      try {
-        await sendWaitlistEmails(email);
-      } catch (err) {
+      // Store is the durable outcome; mail/Pushover are best-effort off the
+      // request path so a slow SendGrid call cannot delay signup success.
+      void sendWaitlistEmails(email).catch((err) => {
         console.error("[waitlist] email notify failed", err);
-      }
+      });
       void sendWaitlistSignupNotification(email);
     }
     return {
