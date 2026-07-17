@@ -215,23 +215,37 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
     return;
   }
 
-  const assignment = await prisma.testAssignment.create({
-    data: {
+  // Upsert on the (listing, tester) unique key so a concurrent confirm can't
+  // throw a duplicate-key error; the update branch is a no-op.
+  const assignment = await prisma.testAssignment.upsert({
+    where: {
+      appListingId_testerUserId: {
+        appListingId: request.appListingId,
+        testerUserId: request.testerUserId,
+      },
+    },
+    create: {
       appListingId: request.appListingId,
       testerUserId: request.testerUserId,
       platform: request.appListing.platform,
       joinedAt: new Date(),
       status: "active",
     },
+    update: {},
   });
-  await prisma.testerRequest.update({
-    where: { id: requestId },
+
+  // Atomically claim the request→assignment link. Only the call that wins the
+  // race grants the Joined credit, so it can never be double-counted.
+  const { count } = await prisma.testerRequest.updateMany({
+    where: { id: requestId, testAssignmentId: null },
     data: { testAssignmentId: assignment.id },
   });
-  await prisma.user.update({
-    where: { id: request.testerUserId },
-    data: { profileScoreJoined: { increment: 1 } },
-  });
+  if (count === 1) {
+    await prisma.user.update({
+      where: { id: request.testerUserId },
+      data: { profileScoreJoined: { increment: 1 } },
+    });
+  }
 
   revalidatePath(appPath(request.appListingId));
 }
@@ -240,14 +254,20 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
 export async function markTestComplete(assignmentId: string): Promise<void> {
   const user = await requireDbUser();
   const assignment = await fetchOwnedAssignment(assignmentId, user.id);
-  if (!assignment || assignment.status !== "active") {
+  if (!assignment) {
     return;
   }
 
-  await prisma.testAssignment.update({
-    where: { id: assignmentId },
+  // CAS: only the call that actually flips active→completed grants the credit
+  // (and emails), so concurrent submits can't double-count.
+  const { count } = await prisma.testAssignment.updateMany({
+    where: { id: assignmentId, status: "active" },
     data: { status: "completed", completedAt: new Date() },
   });
+  if (count !== 1) {
+    return;
+  }
+
   await prisma.user.update({
     where: { id: assignment.testerUserId },
     data: { profileScoreCompleted: { increment: 1 } },
@@ -274,18 +294,25 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
   if (!assignment) {
     return;
   }
-  if (assignment.status !== "active" && assignment.status !== "completed") {
-    return;
-  }
 
-  await prisma.testAssignment.update({
-    where: { id: assignmentId },
-    data: { status: "incomplete", completedAt: null },
-  });
+  // CAS on the prior status so concurrent submits can't double-decrement.
+  // The fetched status is the expected value; the update only applies if it
+  // still holds.
   if (assignment.status === "completed") {
-    await prisma.user.update({
-      where: { id: assignment.testerUserId },
-      data: { profileScoreCompleted: { decrement: 1 } },
+    const { count } = await prisma.testAssignment.updateMany({
+      where: { id: assignmentId, status: "completed" },
+      data: { status: "incomplete", completedAt: null },
+    });
+    if (count === 1) {
+      await prisma.user.update({
+        where: { id: assignment.testerUserId },
+        data: { profileScoreCompleted: { decrement: 1 } },
+      });
+    }
+  } else if (assignment.status === "active") {
+    await prisma.testAssignment.updateMany({
+      where: { id: assignmentId, status: "active" },
+      data: { status: "incomplete", completedAt: null },
     });
   }
 

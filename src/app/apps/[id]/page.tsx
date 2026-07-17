@@ -159,10 +159,14 @@ export default async function AppListingPage({ params }: Props) {
       })
     : [];
 
-  // Tests in progress (tester has joined, not yet marked complete/incomplete).
-  const activeAssignments = isOwner
+  // Tests the owner is managing: in-progress and completed. Completed stay
+  // visible so the owner can reverse them or review history.
+  const assignments = isOwner
     ? await prisma.testAssignment.findMany({
-        where: { appListingId: listing.id, status: "active" },
+        where: {
+          appListingId: listing.id,
+          status: { in: ["active", "completed"] },
+        },
         include: {
           tester: {
             select: { displayName: true, githubUsername: true, imageUrl: true },
@@ -351,42 +355,53 @@ export default async function AppListingPage({ params }: Props) {
           </section>
         ) : null}
 
-        {isOwner && activeAssignments.length > 0 ? (
+        {isOwner && assignments.length > 0 ? (
           <section className="mt-14 max-w-2xl">
             <h2 className="font-display text-xl font-extrabold text-ink">
-              Active tests{" "}
-              <span className="text-ink-muted">
-                ({activeAssignments.length})
-              </span>
+              Tests{" "}
+              <span className="text-ink-muted">({assignments.length})</span>
             </h2>
             <ul className="mt-6 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-ink bg-paper">
-              {activeAssignments.map((assignment) => (
-                <li
-                  key={assignment.id}
-                  className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
-                >
-                  <TesterRow
-                    tester={assignment.tester}
-                    sub={`Joined ${new Date(assignment.joinedAt).toLocaleDateString()}`}
-                  />
-                  <div className="flex shrink-0 items-center gap-2">
-                    <form action={markTestComplete.bind(null, assignment.id)}>
-                      <SubmitButton size="sm" pendingLabel="Marking…">
-                        Mark complete
-                      </SubmitButton>
-                    </form>
-                    <form action={markTestIncomplete.bind(null, assignment.id)}>
-                      <SubmitButton
-                        size="sm"
-                        variant="secondary"
-                        pendingLabel="Marking…"
-                      >
-                        Mark incomplete
-                      </SubmitButton>
-                    </form>
-                  </div>
-                </li>
-              ))}
+              {assignments.map((assignment) => {
+                const done = assignment.status === "completed";
+                return (
+                  <li
+                    key={assignment.id}
+                    className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
+                  >
+                    <TesterRow
+                      tester={assignment.tester}
+                      sub={
+                        done
+                          ? `Completed ${new Date(
+                              assignment.completedAt ?? assignment.joinedAt
+                            ).toLocaleDateString()}`
+                          : `Joined ${new Date(
+                              assignment.joinedAt
+                            ).toLocaleDateString()}`
+                      }
+                    />
+                    <div className="flex shrink-0 items-center gap-2">
+                      {!done ? (
+                        <form action={markTestComplete.bind(null, assignment.id)}>
+                          <SubmitButton size="sm" pendingLabel="Marking…">
+                            Mark complete
+                          </SubmitButton>
+                        </form>
+                      ) : null}
+                      <form action={markTestIncomplete.bind(null, assignment.id)}>
+                        <SubmitButton
+                          size="sm"
+                          variant="secondary"
+                          pendingLabel="Marking…"
+                        >
+                          Mark incomplete
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ) : null}
