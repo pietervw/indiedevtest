@@ -1,9 +1,7 @@
 import { AppBoard } from "@/components/app-board";
 import { BrandMark } from "@/components/brand-mark";
 import { JsonLd } from "@/components/json-ld";
-import {
-  WaitlistForm,
-} from "@/components/waitlist-form";
+import { WaitlistForm } from "@/components/waitlist-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +12,15 @@ import {
 import { mockApps } from "@/lib/mock-data";
 import {
   absoluteUrl,
+  canonicalMetadata,
   howItWorksSteps,
   siteConfig,
   siteFaqs,
   socialLinks,
 } from "@/lib/site";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = canonicalMetadata("/");
 
 const reasons = [
   {

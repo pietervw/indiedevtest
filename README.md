@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IndieDevTest
 
-## Getting Started
+Reciprocal testing community for indie Android & iOS developers.
 
-First, run the development server:
+**Production:** [https://indiedevtest.com](https://indiedevtest.com) (apex — no `www`)
+
+## Local development
 
 ```bash
+cp .env.example .env.local
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See `.env.example`. Required in production:
 
-## Learn More
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SITE_URL` | `https://indiedevtest.com` (canonical / SEO / sitemap / llms.txt) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile public key |
+| `TURNSTILE_SECRET_KEY` | Turnstile server verify secret |
+| `SENDGRID_API_KEY` | SendGrid API key |
+| `SENDGRID_FROM_EMAIL` | `admin@indiedevtest.com` |
+| `CONTACT_TO_EMAIL` | `contact@indiedevtest.com` (inbox only — not shown on the site) |
 
-To learn more about Next.js, take a look at the following resources:
+`NEXT_PUBLIC_*` values are inlined at **build** time. Set them as Coolify build args / build-time env as well as runtime env.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy on Coolify (Docker)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This app uses Next.js `output: "standalone"` and ships a production `Dockerfile`.
 
-## Deploy on Vercel
+1. Point DNS: `A` / `AAAA` for `indiedevtest.com` → your VPS. Optionally point `www` too (the app 308-redirects `www` → apex).
+2. In Coolify, create a new resource from this Git repo (Dockerfile).
+3. Set domain to `indiedevtest.com` (prefer generating cert for apex; redirect www in Coolify or rely on app proxy).
+4. Add all env vars from `.env.example`.
+5. Pass build-time args for public vars:
+   - `NEXT_PUBLIC_SITE_URL=https://indiedevtest.com`
+   - `NEXT_PUBLIC_TURNSTILE_SITE_KEY=…`
+6. Persist waitlist data: mount a volume at `/app/data`.
+7. Exposed port: `3000`.
+8. Deploy.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Useful checks after go-live:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- https://indiedevtest.com/robots.txt
+- https://indiedevtest.com/sitemap.xml
+- https://indiedevtest.com/llms.txt
+- https://indiedevtest.com/llms-full.txt
+- https://www.indiedevtest.com → 308 → apex
+
+## Scripts
+
+```bash
+npm run lint
+npm run build
+npm start
+```

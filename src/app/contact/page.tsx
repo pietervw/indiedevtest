@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { ContactForm } from "@/components/contact-form";
 import { JsonLd } from "@/components/json-ld";
 import { Container, Section, SectionHeading } from "@/components/ui/section";
-import { absoluteUrl, siteConfig, siteRoutes } from "@/lib/site";
+import {
+  absoluteUrl,
+  canonicalMetadata,
+  siteConfig,
+  siteRoutes,
+} from "@/lib/site";
 
 const contactRoute = siteRoutes.find((route) => route.path === "/contact");
 
@@ -11,17 +16,16 @@ if (!contactRoute) {
 }
 
 const contactDescription = contactRoute.description;
+const contactCanonical = canonicalMetadata("/contact");
 
 export const metadata: Metadata = {
   title: "Contact",
   description: contactDescription,
-  alternates: {
-    canonical: absoluteUrl("/contact"),
-  },
+  alternates: contactCanonical.alternates,
   openGraph: {
+    ...contactCanonical.openGraph,
     title: `Contact | ${siteConfig.name}`,
     description: contactDescription,
-    url: absoluteUrl("/contact"),
   },
 };
 

@@ -17,19 +17,15 @@ declare global {
 
 export function TurnstileWidget({
   action = "contact",
-  resetKey,
+  resetKey = 0,
 }: {
   action?: string;
-  resetKey?: string | number;
+  resetKey?: number;
 }) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const [scriptReady, setScriptReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (window.turnstile) setScriptReady(true);
-  }, []);
 
   useEffect(() => {
     if (!scriptReady || !siteKey || widgetId.current) return;
@@ -41,8 +37,7 @@ export function TurnstileWidget({
   }, [scriptReady, siteKey, action]);
 
   useEffect(() => {
-    if (resetKey === undefined || resetKey === 0 || resetKey === "") return;
-    if (!widgetId.current || !window.turnstile) return;
+    if (!resetKey || !widgetId.current || !window.turnstile) return;
     window.turnstile.reset(widgetId.current);
   }, [resetKey]);
 
@@ -55,6 +50,7 @@ export function TurnstileWidget({
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
         strategy="afterInteractive"
         onLoad={() => setScriptReady(true)}
+        onReady={() => setScriptReady(true)}
       />
     </div>
   );

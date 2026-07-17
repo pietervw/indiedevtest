@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
@@ -14,12 +15,12 @@ export function SiteHeader() {
           >
             How it works
           </a>
-          <a
+          <Link
             href="/contact"
             className="hidden text-sm font-semibold text-ink-muted transition-colors hover:text-ink sm:inline"
           >
             Contact
-          </a>
+          </Link>
           <Button href="#waitlist" size="sm">
             Join waitlist
           </Button>

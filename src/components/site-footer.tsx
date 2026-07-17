@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
 import { Container } from "@/components/ui/section";
 import { siteConfig, socialLinks } from "@/lib/site";
@@ -17,18 +18,28 @@ export function SiteFooter() {
           Built by indie devs, for indie devs. Reciprocal testing so you can ship.
         </p>
         <nav aria-label="Footer" className="flex flex-wrap justify-center gap-6">
-          {links.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              {...(link.href.startsWith("http")
-                ? { target: "_blank", rel: "noopener noreferrer" }
-                : {})}
-              className="font-semibold text-ink transition-colors hover:text-brand-ink hover:underline decoration-brand underline-offset-4"
-            >
-              {link.label}
-            </a>
-          ))}
+          {links.map((link) => {
+            const className =
+              "font-semibold text-ink transition-colors hover:text-brand-ink hover:underline decoration-brand underline-offset-4";
+            if (link.href.startsWith("http")) {
+              return (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={className}
+                >
+                  {link.label}
+                </a>
+              );
+            }
+            return (
+              <Link key={link.label} href={link.href} className={className}>
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
         <p className="text-sm text-ink-muted">
           © {new Date().getFullYear()} {siteConfig.legalName}. Free forever.

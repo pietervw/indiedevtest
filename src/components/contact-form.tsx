@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { sendContactMessage, type ContactState } from "@/app/actions/contact";
 import { SubmitButton } from "@/components/submit-button";
 import { TurnstileWidget } from "@/components/turnstile-widget";
@@ -14,14 +14,17 @@ const inputClass =
 const labelClass = "mb-1.5 block text-sm font-semibold text-ink";
 
 export function ContactForm({ className }: { className?: string }) {
-  const [state, formAction] = useActionState(sendContactMessage, initialState);
   const [turnstileReset, setTurnstileReset] = useState(0);
-
-  useEffect(() => {
-    if (!state.ok && state.message) {
-      setTurnstileReset((n) => n + 1);
-    }
-  }, [state]);
+  const [state, formAction] = useActionState(
+    async (prev: ContactState, formData: FormData) => {
+      const next = await sendContactMessage(prev, formData);
+      if (!next.ok) {
+        setTurnstileReset((n) => n + 1);
+      }
+      return next;
+    },
+    initialState
+  );
 
   if (state.ok) {
     return (
