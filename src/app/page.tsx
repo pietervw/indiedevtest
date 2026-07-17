@@ -1,6 +1,9 @@
 import { AppBoard } from "@/components/app-board";
 import { BrandMark } from "@/components/brand-mark";
-import { WaitlistForm } from "@/components/waitlist-form";
+import { JsonLd } from "@/components/json-ld";
+import {
+  WaitlistForm,
+} from "@/components/waitlist-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,24 +12,13 @@ import {
   SectionHeading,
 } from "@/components/ui/section";
 import { mockApps } from "@/lib/mock-data";
-
-const steps = [
-  {
-    n: "01",
-    title: "Post your app",
-    body: "Drop your Play Store or TestFlight link in under 2 minutes.",
-  },
-  {
-    n: "02",
-    title: "Test other apps",
-    body: "Help fellow indie builders — real installs, real feedback.",
-  },
-  {
-    n: "03",
-    title: "Get to 12/14",
-    body: "Reciprocity fills your tester slots so you can ship.",
-  },
-];
+import {
+  absoluteUrl,
+  howItWorksSteps,
+  siteConfig,
+  siteFaqs,
+  socialLinks,
+} from "@/lib/site";
 
 const reasons = [
   {
@@ -47,9 +39,76 @@ const reasons = [
   },
 ];
 
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": absoluteUrl("/#organization"),
+    name: siteConfig.name,
+    legalName: siteConfig.legalName,
+    url: siteConfig.url,
+    description: siteConfig.description,
+    logo: absoluteUrl("/icon"),
+    sameAs: socialLinks.map((link) => link.href),
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": absoluteUrl("/#website"),
+    url: siteConfig.url,
+    name: siteConfig.name,
+    description: siteConfig.description,
+    publisher: { "@id": absoluteUrl("/#organization") },
+    inLanguage: "en-US",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "@id": absoluteUrl("/#app"),
+    name: siteConfig.name,
+    url: siteConfig.url,
+    description: siteConfig.description,
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Android, iOS, Web",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    provider: { "@id": absoluteUrl("/#organization") },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": absoluteUrl("/#webpage"),
+    url: absoluteUrl("/"),
+    name: `${siteConfig.name} — ${siteConfig.tagline}`,
+    description: siteConfig.description,
+    isPartOf: { "@id": absoluteUrl("/#website") },
+    about: { "@id": absoluteUrl("/#app") },
+    primaryImageOfPage: absoluteUrl("/opengraph-image"),
+    inLanguage: "en-US",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "@id": absoluteUrl("/#faq"),
+    mainEntity: siteFaqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  },
+];
+
 export default function Home() {
   return (
     <>
+      <JsonLd data={jsonLd} />
+
       <section className="relative overflow-hidden border-b-2 border-ink bg-grid">
         <div className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand/30" />
 
@@ -68,7 +127,7 @@ export default function Home() {
             <div id="waitlist" className="mt-8 scroll-mt-24">
               <WaitlistForm />
               <p className="mt-3 text-sm font-medium text-ink-muted">
-                Free forever · 500+ indie builders waiting
+                Free forever · Join our community
               </p>
             </div>
           </div>
@@ -84,7 +143,7 @@ export default function Home() {
             description="Three steps. Zero drama. Reciprocal by design."
           />
           <ol className="grid gap-8 md:grid-cols-3 md:gap-6">
-            {steps.map((step) => (
+            {howItWorksSteps.map((step) => (
               <li key={step.n} className="text-center md:text-left">
                 <span className="font-display text-5xl font-extrabold text-brand [text-shadow:3px_3px_0_var(--ink)]">
                   {step.n}
@@ -108,13 +167,13 @@ export default function Home() {
             &ldquo;I was stuck at 3 testers for weeks. IndieDevTest got me to 14
             in 2 days.&rdquo;
           </blockquote>
-          <p className="mt-6 font-semibold text-brand-ink/80">
+          <footer className="mt-6 font-semibold text-brand-ink/80">
             — Sarah, TaskMaster Pro
-          </p>
+          </footer>
         </Container>
       </Section>
 
-      <Section className="border-b-2 border-ink bg-paper">
+      <Section id="why" className="border-b-2 border-ink bg-paper">
         <Container>
           <SectionHeading
             title="Why indie devs stick"
@@ -130,6 +189,25 @@ export default function Home() {
               </li>
             ))}
           </ul>
+        </Container>
+      </Section>
+
+      <Section id="faq" className="border-b-2 border-ink bg-paper-muted">
+        <Container>
+          <SectionHeading
+            title="FAQ"
+            description="Quick answers before you join the waitlist."
+          />
+          <dl className="mx-auto max-w-3xl space-y-8">
+            {siteFaqs.map((faq) => (
+              <div key={faq.question}>
+                <dt className="font-display text-xl font-bold text-ink">
+                  {faq.question}
+                </dt>
+                <dd className="mt-2 text-ink-muted">{faq.answer}</dd>
+              </div>
+            ))}
+          </dl>
         </Container>
       </Section>
 

@@ -1,11 +1,11 @@
 import { BrandMark } from "@/components/brand-mark";
 import { Container } from "@/components/ui/section";
+import { siteConfig, socialLinks } from "@/lib/site";
 
 const links = [
-  { label: "Twitter", href: "#" },
-  { label: "GitHub", href: "#" },
-  { label: "Discord", href: "#" },
+  ...socialLinks,
   { label: "Contact", href: "/contact" },
+  { label: "llms.txt", href: "/llms.txt" },
 ];
 
 export function SiteFooter() {
@@ -16,19 +16,22 @@ export function SiteFooter() {
         <p className="max-w-md text-ink-muted">
           Built by indie devs, for indie devs. Reciprocal testing so you can ship.
         </p>
-        <div className="flex gap-6">
+        <nav aria-label="Footer" className="flex flex-wrap justify-center gap-6">
           {links.map((link) => (
             <a
               key={link.label}
               href={link.href}
+              {...(link.href.startsWith("http")
+                ? { target: "_blank", rel: "noopener noreferrer" }
+                : {})}
               className="font-semibold text-ink transition-colors hover:text-brand-ink hover:underline decoration-brand underline-offset-4"
             >
               {link.label}
             </a>
           ))}
-        </div>
+        </nav>
         <p className="text-sm text-ink-muted">
-          © {new Date().getFullYear()} IndieDevTest. Free forever.
+          © {new Date().getFullYear()} {siteConfig.legalName}. Free forever.
         </p>
       </Container>
     </footer>

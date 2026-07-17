@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { siteConfig } from "@/lib/site";
 
 export function BrandMark({
   className,
@@ -17,6 +18,7 @@ export function BrandMark({
   return (
     <a
       href="/"
+      aria-label={`${siteConfig.name} home`}
       className={cn(
         "font-display font-extrabold text-ink inline-flex items-baseline gap-0.5",
         sizes[size],

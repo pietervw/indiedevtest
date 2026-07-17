@@ -1,31 +1,25 @@
 "use server";
 
 import { addToWaitlist } from "@/lib/waitlist-store";
+import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
 export type WaitlistState = {
   ok: boolean;
   message: string;
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function isValidEmail(email: string): boolean {
-  return email.length <= 254 && EMAIL_RE.test(email);
-}
-
 export async function joinWaitlist(
   _prev: WaitlistState,
   formData: FormData
 ): Promise<WaitlistState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
 
-  if (!email || !isValidEmail(email)) {
+  if (!isValidEmail(email)) {
     return { ok: false, message: "Enter a valid email." };
   }
 
   try {
     const { alreadyExists } = await addToWaitlist(email);
-
     return {
       ok: true,
       message: alreadyExists

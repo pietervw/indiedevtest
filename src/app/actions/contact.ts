@@ -2,13 +2,12 @@
 
 import { sendContactEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
 export type ContactState = {
   ok: boolean;
   message: string;
 };
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function fail(message: string): ContactState {
   return { ok: false, message };
@@ -18,23 +17,22 @@ export async function sendContactMessage(
   _prev: ContactState,
   formData: FormData
 ): Promise<ContactState> {
-  // Honeypot: real users never see/fill this hidden field; bots usually do.
-  const honeypot = String(formData.get("company") ?? "").trim();
-  if (honeypot) {
+  // Honeypot: real users never see/fill this; bots often do.
+  if (String(formData.get("company") ?? "").trim()) {
     return {
       ok: true,
-      message: "Thanks! Your message has been sent.",
+      message: "Thanks! Your message has been sent — we'll get back to you soon.",
     };
   }
 
   const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const message = String(formData.get("message") ?? "").trim();
 
   if (!name || name.length > 100) {
     return fail("Please enter your name.");
   }
-  if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
+  if (!isValidEmail(email)) {
     return fail("Please enter a valid email address.");
   }
   if (!message || message.length < 10) {
@@ -44,8 +42,6 @@ export async function sendContactMessage(
     return fail("That message is too long (5,000 characters max).");
   }
 
-  // Cloudflare Turnstile bot check — token comes from the cf-turnstile-response
-  // hidden input that the widget injects into the form.
   const turnstileToken = String(
     formData.get("cf-turnstile-response") ?? ""
   ).trim();

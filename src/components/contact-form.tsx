@@ -1,22 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import Script from "next/script";
+import { useActionState, useEffect, useState } from "react";
 import { sendContactMessage, type ContactState } from "@/app/actions/contact";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import { cn } from "@/lib/utils";
-
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (
-        container: HTMLElement,
-        options: { sitekey: string; action?: string }
-      ) => string;
-      reset: (widgetId?: string) => void;
-    };
-  }
-}
 
 const initialState: ContactState = { ok: false, message: "" };
 
@@ -26,35 +14,12 @@ const inputClass =
 const labelClass = "mb-1.5 block text-sm font-semibold text-ink";
 
 export function ContactForm({ className }: { className?: string }) {
-  const [state, formAction, pending] = useActionState(
-    sendContactMessage,
-    initialState
-  );
+  const [state, formAction] = useActionState(sendContactMessage, initialState);
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  const [scriptReady, setScriptReady] = useState(false);
-  const turnstileRef = useRef<HTMLDivElement>(null);
-  const widgetId = useRef<string | null>(null);
-
-  // Render the widget once the script + container are ready.
   useEffect(() => {
-    if (!scriptReady || !siteKey || widgetId.current) return;
-    if (!window.turnstile || !turnstileRef.current) return;
-    widgetId.current = window.turnstile.render(turnstileRef.current, {
-      sitekey: siteKey,
-      action: "turnstile-spin-v2",
-    });
-  }, [scriptReady, siteKey]);
-
-  // Script may already be loaded from a previous navigation.
-  useEffect(() => {
-    if (window.turnstile) setScriptReady(true);
-  }, []);
-
-  // After a failed submit, reset the widget so the user can retry.
-  useEffect(() => {
-    if (!state.ok && state.message && widgetId.current && window.turnstile) {
-      window.turnstile.reset(widgetId.current);
+    if (!state.ok && state.message) {
+      setTurnstileReset((n) => n + 1);
     }
   }, [state]);
 
@@ -70,8 +35,10 @@ export function ContactForm({ className }: { className?: string }) {
   }
 
   return (
-    <form action={formAction} className={cn("flex flex-col gap-4", className)}>
-      {/* Honeypot — hidden from humans, bait for bots */}
+    <form
+      action={formAction}
+      className={cn("flex flex-col gap-4", className)}
+    >
       <div className="hidden" aria-hidden="true">
         <label htmlFor="company">Company</label>
         <input
@@ -96,7 +63,6 @@ export function ContactForm({ className }: { className?: string }) {
             maxLength={100}
             autoComplete="name"
             placeholder="Ada Lovelace"
-            disabled={pending}
             className={inputClass}
           />
         </div>
@@ -112,7 +78,6 @@ export function ContactForm({ className }: { className?: string }) {
             maxLength={254}
             autoComplete="email"
             placeholder="you@indie.dev"
-            disabled={pending}
             className={inputClass}
           />
         </div>
@@ -130,31 +95,20 @@ export function ContactForm({ className }: { className?: string }) {
           maxLength={5000}
           rows={6}
           placeholder="How can we help?"
-          disabled={pending}
           className={cn(inputClass, "resize-y")}
         />
       </div>
 
-      {siteKey ? (
-        <div>
-          <div ref={turnstileRef} />
-          <Script
-            src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-            strategy="afterInteractive"
-            onLoad={() => setScriptReady(true)}
-          />
-        </div>
-      ) : null}
+      <TurnstileWidget resetKey={turnstileReset} />
 
       <div>
-        <Button
-          type="submit"
+        <SubmitButton
           size="lg"
-          disabled={pending}
+          pendingLabel="Sending…"
           className="w-full sm:w-auto"
         >
-          {pending ? "Sending…" : "Send message"}
-        </Button>
+          Send message
+        </SubmitButton>
       </div>
 
       {state.message ? (

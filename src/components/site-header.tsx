@@ -7,7 +7,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b-2 border-ink bg-paper">
       <Container className="flex h-16 items-center justify-between">
         <BrandMark size="md" />
-        <nav className="flex items-center gap-2 sm:gap-3">
+        <nav aria-label="Primary" className="flex items-center gap-2 sm:gap-3">
           <a
             href="#how"
             className="hidden text-sm font-semibold text-ink-muted transition-colors hover:text-ink sm:inline"
