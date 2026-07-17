@@ -1,0 +1,226 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import {
+  updateAppListing,
+  type UpdateListingState,
+} from "@/app/actions/listings";
+import { SubmitButton } from "@/components/submit-button";
+import { statusOptionsFor } from "@/lib/listing-status";
+import { cn } from "@/lib/utils";
+import type { AppListingStatus } from "@/generated/prisma";
+
+const initialState: UpdateListingState = { ok: false, message: "" };
+
+const fieldClassName =
+  "w-full rounded-xl border-2 border-ink bg-paper px-4 font-medium text-ink shadow-brutal outline-none transition-shadow placeholder:text-ink-muted focus:shadow-brutal-brand-lg disabled:opacity-50";
+
+const labelClassName = "mb-1.5 block text-sm font-semibold text-ink";
+
+export type EditListingDefaults = {
+  name: string;
+  description: string;
+  category: string;
+  platform: string;
+  logoUrl: string;
+  status: AppListingStatus;
+  storeLink: string;
+};
+
+export function EditAppListingForm({
+  listingId,
+  defaults,
+  className,
+}: {
+  listingId: string;
+  defaults: EditListingDefaults;
+  className?: string;
+}) {
+  const action = updateAppListing.bind(null, listingId);
+  const [state, formAction] = useActionState(action, initialState);
+  const [status, setStatus] = useState<AppListingStatus>(defaults.status);
+  const statusOptions = statusOptionsFor(defaults.status);
+
+  return (
+    <form action={formAction} className={cn("flex w-full max-w-xl flex-col gap-5", className)}>
+      <div>
+        <label htmlFor="edit-app-name" className={labelClassName}>
+          App name
+        </label>
+        <input
+          id="edit-app-name"
+          name="name"
+          type="text"
+          required
+          minLength={2}
+          maxLength={80}
+          defaultValue={defaults.name}
+          className={cn(fieldClassName, "h-12")}
+          aria-invalid={Boolean(state.fieldErrors?.name)}
+        />
+        {state.fieldErrors?.name ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.name}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <label htmlFor="edit-app-description" className={labelClassName}>
+          Short description
+        </label>
+        <textarea
+          id="edit-app-description"
+          name="description"
+          required
+          minLength={20}
+          maxLength={2000}
+          rows={4}
+          defaultValue={defaults.description}
+          className={cn(fieldClassName, "resize-y py-3")}
+          aria-invalid={Boolean(state.fieldErrors?.description)}
+        />
+        {state.fieldErrors?.description ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.description}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label htmlFor="edit-app-category" className={labelClassName}>
+            Category
+          </label>
+          <select
+            id="edit-app-category"
+            name="category"
+            required
+            defaultValue={defaults.category}
+            className={cn(fieldClassName, "h-12")}
+            aria-invalid={Boolean(state.fieldErrors?.category)}
+          >
+            <option value="game">Game</option>
+            <option value="utility">Utility</option>
+            <option value="productivity">Productivity</option>
+          </select>
+          {state.fieldErrors?.category ? (
+            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              {state.fieldErrors.category}
+            </p>
+          ) : null}
+        </div>
+
+        <div>
+          <label htmlFor="edit-app-platform" className={labelClassName}>
+            Platform
+          </label>
+          <select
+            id="edit-app-platform"
+            name="platform"
+            required
+            defaultValue={defaults.platform}
+            className={cn(fieldClassName, "h-12")}
+            aria-invalid={Boolean(state.fieldErrors?.platform)}
+          >
+            <option value="android">Android</option>
+            <option value="ios">iOS</option>
+          </select>
+          {state.fieldErrors?.platform ? (
+            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              {state.fieldErrors.platform}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="edit-app-logo" className={labelClassName}>
+          Logo URL <span className="font-medium text-ink-muted">(optional)</span>
+        </label>
+        <input
+          id="edit-app-logo"
+          name="logoUrl"
+          type="url"
+          maxLength={500}
+          defaultValue={defaults.logoUrl}
+          placeholder="https://…"
+          className={cn(fieldClassName, "h-12")}
+          aria-invalid={Boolean(state.fieldErrors?.logoUrl)}
+        />
+        {state.fieldErrors?.logoUrl ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.logoUrl}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <label htmlFor="edit-app-status" className={labelClassName}>
+          Status
+        </label>
+        <select
+          id="edit-app-status"
+          name="status"
+          required
+          value={status}
+          onChange={(e) => setStatus(e.target.value as AppListingStatus)}
+          className={cn(fieldClassName, "h-12")}
+          aria-invalid={Boolean(state.fieldErrors?.status)}
+        >
+          {statusOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1.5 text-sm text-ink-muted">
+          Flow: Draft → Open for testing → Closed (optional) → Testing complete →
+          Launched
+        </p>
+        {state.fieldErrors?.status ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.status}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <label htmlFor="edit-app-store" className={labelClassName}>
+          Store link{" "}
+          {status === "launched" ? (
+            <span className="font-medium text-ink">(required for Launched)</span>
+          ) : (
+            <span className="font-medium text-ink-muted">(optional)</span>
+          )}
+        </label>
+        <input
+          id="edit-app-store"
+          name="storeLink"
+          type="url"
+          maxLength={500}
+          defaultValue={defaults.storeLink}
+          placeholder="https://play.google.com/store/apps/…"
+          required={status === "launched"}
+          className={cn(fieldClassName, "h-12")}
+          aria-invalid={Boolean(state.fieldErrors?.storeLink)}
+        />
+        {state.fieldErrors?.storeLink ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.storeLink}
+          </p>
+        ) : null}
+      </div>
+
+      <SubmitButton size="lg" pendingLabel="Saving…" className="w-full sm:w-auto">
+        Save changes
+      </SubmitButton>
+
+      {state.message && !state.ok ? (
+        <p className="text-sm font-semibold text-red-600" role="alert">
+          {state.message}
+        </p>
+      ) : null}
+    </form>
+  );
+}
