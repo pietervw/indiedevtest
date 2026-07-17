@@ -43,3 +43,6 @@ next-env.d.ts
 
 # waitlist signups (local file store)
 /data/waitlist.json
+
+# Prisma generated client
+/src/generated/prisma

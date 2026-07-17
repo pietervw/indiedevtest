@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AppCategory {
+  game
+  utility
+  productivity
+}
+
+enum Platform {
+  android
+  ios
+}
+
+enum AppListingStatus {
+  draft
+  open_for_testing
+  closed_for_testing
+  testing_complete
+  launched
+}
+
+enum TesterRequestStatus {
+  pending
+  accepted
+  rejected
+  expired
+}
+
+enum TestAssignmentStatus {
+  active
+  completed
+  incomplete
+  cancelled
+}
+
+enum BadgeType {
+  first_12
+  super_tester
+  helpful_dev
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  clerkId               String    @unique @map("clerk_id")
+  githubId              String    @unique @map("github_id")
+  githubUsername        String    @unique @map("github_username")
+  displayName           String    @map("display_name")
+  imageUrl              String?   @map("image_url")
+  bio                   String?
+  twitterHandle         String?   @map("twitter_handle")
+  profileScoreJoined    Int       @default(0) @map("profile_score_joined")
+  profileScoreCompleted Int       @default(0) @map("profile_score_completed")
+  reviewsWrittenCount   Int       @default(0) @map("reviews_written_count")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+  profileCompletedAt    DateTime? @map("profile_completed_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  appListings     AppListing[]
+  testerRequests  TesterRequest[]
+  testAssignments TestAssignment[]
+  reviews         Review[]
+  badges          UserBadge[]
+
+  @@map("users")
+}
+
+model AppListing {
+  id                    String           @id @default(cuid())
+  userId                String           @map("user_id")
+  name                  String
+  logoUrl               String           @map("logo_url")
+  description           String
+  category              AppCategory
+  platform              Platform
+  status                AppListingStatus @default(draft)
+  storeLink             String?          @map("store_link")
+  maxTestersPerPlatform Int              @default(14) @map("max_testers_per_platform")
+  reminderSentAt        DateTime?        @map("reminder_sent_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testerRequests  TesterRequest[]
+  testAssignments TestAssignment[]
+  reviews         Review[]
+
+  @@index([status])
+  @@index([userId])
+  @@map("app_listings")
+}
+
+model TesterRequest {
+  id               String              @id @default(cuid())
+  appListingId     String              @map("app_listing_id")
+  testerUserId     String              @map("tester_user_id")
+  testerEmail      String              @map("tester_email")
+  status           TesterRequestStatus @default(pending)
+  expiresAt        DateTime            @map("expires_at")
+  testAssignmentId String?             @unique @map("test_assignment_id")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  appListing     AppListing      @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+  tester         User            @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
+  testAssignment TestAssignment? @relation(fields: [testAssignmentId], references: [id])
+
+  @@unique([appListingId, testerUserId])
+  @@index([testerUserId])
+  @@index([status])
+  @@map("tester_requests")
+}
+
+model TestAssignment {
+  id           String               @id @default(cuid())
+  appListingId String               @map("app_listing_id")
+  testerUserId String               @map("tester_user_id")
+  platform     Platform
+  joinedAt     DateTime             @map("joined_at")
+  completedAt  DateTime?            @map("completed_at")
+  status       TestAssignmentStatus @default(active)
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  appListing    AppListing     @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+  tester        User           @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
+  testerRequest TesterRequest?
+
+  @@unique([appListingId, testerUserId])
+  @@index([testerUserId])
+  @@index([status])
+  @@map("test_assignments")
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  appListingId String   @map("app_listing_id")
+  testerUserId String   @map("tester_user_id")
+  content      String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  appListing AppListing @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+  tester     User       @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
+
+  @@unique([appListingId, testerUserId])
+  @@map("reviews")
+}
+
+model UserBadge {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  badgeType BadgeType @map("badge_type")
+  earnedAt  DateTime  @default(now()) @map("earned_at")
+  metadata  Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeType])
+  @@map("user_badges")
+}

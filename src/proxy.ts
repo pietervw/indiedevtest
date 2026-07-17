@@ -1,13 +1,16 @@
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 const APEX_HOST = "indiedevtest.com";
 const WWW_HOST = `www.${APEX_HOST}`;
 
-export function proxy(request: NextRequest) {
-  const hostname = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
+export default clerkMiddleware(async (_auth, request) => {
+  const hostname = (request.headers.get("host") ?? "")
+    .toLowerCase()
+    .split(":")[0];
+
   if (hostname !== WWW_HOST) {
-    return NextResponse.next();
+    return;
   }
 
   const url = request.nextUrl.clone();
@@ -16,10 +19,12 @@ export function proxy(request: NextRequest) {
   url.port = "";
 
   return NextResponse.redirect(url, 308);
-}
+});
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+    "/__clerk/(.*)",
   ],
 };

@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { EnsureUser } from "@/components/ensure-user";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { UmamiAnalytics } from "@/components/umami-analytics";
@@ -90,10 +92,13 @@ export default function RootLayout({
       className={`${plusJakarta.variable} ${outfit.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <UmamiAnalytics />
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <ClerkProvider afterSignOutUrl="/">
+          <UmamiAnalytics />
+          <EnsureUser />
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+          <SiteFooter />
+        </ClerkProvider>
       </body>
     </html>
   );

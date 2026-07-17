@@ -9,7 +9,7 @@ import {
   Section,
   SectionHeading,
 } from "@/components/ui/section";
-import { mockApps } from "@/lib/mock-data";
+import { getTopAppsNeedingTesters } from "@/lib/listings";
 import {
   absoluteUrl,
   canonicalMetadata,
@@ -19,6 +19,7 @@ import {
   socialLinks,
 } from "@/lib/site";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = canonicalMetadata("/");
 
@@ -106,7 +107,9 @@ const jsonLd = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const topApps = await getTopAppsNeedingTesters(5);
+
   return (
     <>
       <JsonLd data={jsonLd} />
@@ -134,7 +137,29 @@ export default function Home() {
             </div>
           </div>
 
-          <AppBoard apps={mockApps} />
+          <div>
+            {topApps.length > 0 ? (
+              <>
+                <AppBoard apps={topApps} />
+                <p className="mt-3 text-center text-sm text-ink-muted md:text-left">
+                  <Link
+                    href="/browse"
+                    className="font-semibold text-ink underline decoration-brand decoration-2 underline-offset-4"
+                  >
+                    Browse all apps
+                  </Link>
+                </p>
+              </>
+            ) : (
+              <p className="rounded-2xl border-2 border-ink bg-paper p-8 text-ink-muted shadow-brutal">
+                No apps waiting on testers yet.{" "}
+                <Link href="/browse" className="font-semibold text-ink underline">
+                  Browse
+                </Link>{" "}
+                or list yours after signing in.
+              </p>
+            )}
+          </div>
         </Container>
       </section>
 
