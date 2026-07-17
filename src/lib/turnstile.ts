@@ -20,7 +20,10 @@ export async function verifyTurnstileToken(
     return false;
   }
 
-  if (!token) return false;
+  if (!token) {
+    console.warn("[turnstile] missing cf-turnstile-response token");
+    return false;
+  }
 
   try {
     const res = await fetch(
@@ -35,8 +38,17 @@ export async function verifyTurnstileToken(
         }),
       }
     );
-    const data = (await res.json()) as { success?: boolean };
-    return data.success === true;
+    const data = (await res.json()) as {
+      success?: boolean;
+      "error-codes"?: string[];
+    };
+    if (data.success !== true) {
+      console.error("[turnstile] siteverify rejected", {
+        errorCodes: data["error-codes"] ?? [],
+      });
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("[turnstile] siteverify failed", err);
     return false;

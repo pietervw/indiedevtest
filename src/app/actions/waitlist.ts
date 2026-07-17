@@ -1,5 +1,6 @@
 "use server";
 
+import { sendWaitlistEmails } from "@/lib/email";
 import { sendWaitlistSignupNotification } from "@/lib/pushover";
 import { addToWaitlist } from "@/lib/waitlist-store";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
@@ -22,6 +23,13 @@ export async function joinWaitlist(
   try {
     const { alreadyExists } = await addToWaitlist(email);
     if (!alreadyExists) {
+      // Store is the durable outcome; mail/Pushover are best-effort so a
+      // SendGrid failure cannot leave the user "already on the list" with no notify path.
+      try {
+        await sendWaitlistEmails(email);
+      } catch (err) {
+        console.error("[waitlist] email notify failed", err);
+      }
       void sendWaitlistSignupNotification(email);
     }
     return {
