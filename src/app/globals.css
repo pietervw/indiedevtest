@@ -1,26 +1,65 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Soft citrus — toned-down from acid lime */
+  --brand: #d2e36b;
+  --brand-hover: #c5d65c;
+  --brand-ink: #2a3812;
+  --ink: #0a0a0a;
+  --ink-muted: #525252;
+  --paper: #ffffff;
+  --paper-muted: #f4f4f5;
+  --line: #e4e4e7;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-ink: var(--brand-ink);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-paper: var(--paper);
+  --color-paper-muted: var(--paper-muted);
+  --color-line: var(--line);
+  --color-ring: var(--brand);
+  --font-sans: var(--font-plus-jakarta);
+  --font-display: var(--font-outfit);
+  --shadow-brutal: 4px 4px 0 0 var(--ink);
+  --shadow-brutal-lg: 6px 6px 0 0 var(--ink);
+  --shadow-brutal-brand: 4px 4px 0 0 var(--brand);
+  --shadow-brutal-brand-lg: 6px 6px 0 0 var(--brand);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-plus-jakarta), system-ui, sans-serif;
+  }
+
+  ::selection {
+    background: var(--brand);
+    color: var(--ink);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .font-display {
+    font-family: var(--font-outfit), system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  .bg-grid {
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--ink) 4%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--ink) 4%, transparent) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
 }
