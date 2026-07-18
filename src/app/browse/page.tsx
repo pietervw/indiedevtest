@@ -1,17 +1,11 @@
-import Link from "next/link";
 import { AppBoard } from "@/components/app-board";
-import { Button } from "@/components/ui/button";
+import { BrowseAddButton, BrowseEmptyCta } from "@/components/browse-add-button";
+import { BrowseFilters } from "@/components/browse-filters";
 import { Container, SectionHeading } from "@/components/ui/section";
-import { getOptionalDbUser } from "@/lib/auth-guards";
-import { prisma } from "@/lib/db";
-import {
-  categoryLabel,
-  platformLabel,
-  profilePath,
-  appPath,
-} from "@/lib/mock-data";
+import { getBrowseApps, parseBrowseFilters } from "@/lib/browse-apps";
 import { canonicalMetadata, siteConfig } from "@/lib/site";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 
 export const metadata: Metadata = {
   ...canonicalMetadata("/browse"),
@@ -19,46 +13,16 @@ export const metadata: Metadata = {
   description: `Browse open testing listings on ${siteConfig.name}.`,
 };
 
-export default async function BrowsePage() {
-  const viewer = await getOptionalDbUser();
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-  const listings = process.env.DATABASE_URL
-    ? await prisma.appListing.findMany({
-        where: { status: "open_for_testing" },
-        include: {
-          user: {
-            select: {
-              displayName: true,
-              imageUrl: true,
-              githubUsername: true,
-            },
-          },
-          _count: {
-            select: {
-              testAssignments: {
-                where: { status: { in: ["active", "completed"] } },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      })
-    : [];
-
-  const apps = listings.map((listing) => ({
-    id: listing.id,
-    name: listing.name,
-    logoUrl: listing.logoUrl?.trim() || undefined,
-    category: categoryLabel[listing.category] ?? listing.category,
-    platform: platformLabel[listing.platform] ?? listing.platform,
-    testers: listing._count.testAssignments,
-    href: appPath(listing.id),
-    developer: {
-      displayName: listing.user.displayName,
-      imageUrl: listing.user.imageUrl,
-      profileHref: profilePath(listing.user.githubUsername),
-    },
-  }));
+export default async function BrowsePage({ searchParams }: Props) {
+  await connection();
+  const params = await searchParams;
+  const filters = parseBrowseFilters(params);
+  const apps = await getBrowseApps(filters);
+  const hasActiveFilters = Boolean(filters.category || filters.platform);
 
   return (
     <div className="flex-1 border-b-2 border-ink bg-grid">
@@ -69,29 +33,22 @@ export default async function BrowsePage() {
             title="Browse"
             description="Apps open for testing from fellow indie developers."
           />
-          {viewer ? (
-            <Button href="/apps/new" size="sm" className="shrink-0 self-start sm:self-auto">
-              + Add
-            </Button>
-          ) : null}
+          <BrowseAddButton />
         </div>
+
+        <BrowseFilters filters={filters} />
 
         {apps.length > 0 ? (
           <AppBoard apps={apps} className="max-w-2xl" />
-        ) : (
-          <p className="max-w-lg text-lg text-ink-muted">
-            No open listings yet.{" "}
-            {viewer ? (
-              <>
-                <Link href="/apps/new" className="font-semibold text-ink underline">
-                  List your app
-                </Link>{" "}
-                to get started.
-              </>
-            ) : (
-              "Sign in to list an app or check back soon."
-            )}
+        ) : hasActiveFilters ? (
+          <p className="max-w-md text-ink-muted">
+            No open listings match these filters.{" "}
+            <a href="/browse" className="font-semibold text-ink underline">
+              Clear filters
+            </a>
           </p>
+        ) : (
+          <BrowseEmptyCta />
         )}
       </Container>
     </div>

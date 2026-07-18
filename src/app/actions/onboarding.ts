@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { AppCategory, Platform } from "@/generated/prisma";
 import { requireDbUser, requireOnboardingPending } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
+import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
+import { field, isHttpUrl } from "@/lib/validation";
 
 export type AppListingFormState = {
   ok: boolean;
@@ -15,10 +17,6 @@ export type AppListingFormState = {
 
 const CATEGORIES = new Set<string>(Object.values(AppCategory));
 const PLATFORMS = new Set<string>(Object.values(Platform));
-
-function field(formData: FormData, key: string) {
-  return String(formData.get(key) ?? "").trim();
-}
 
 function validateListing(formData: FormData): {
   data?: {
@@ -51,7 +49,7 @@ function validateListing(formData: FormData): {
   if (!PLATFORMS.has(platform)) {
     fieldErrors.platform = "Pick a platform.";
   }
-  if (logoUrl && !/^https?:\/\//i.test(logoUrl)) {
+  if (logoUrl && !isHttpUrl(logoUrl)) {
     fieldErrors.logoUrl = "Logo must be an http(s) URL.";
   }
 
@@ -118,6 +116,11 @@ export async function createAppListing(
   if (!created) {
     redirect(needsProfile ? "/onboarding/profile" : "/browse");
   }
+
+  invalidatePublicCaches({
+    listingId: created.id,
+    githubUsernames: user.githubUsername,
+  });
 
   redirect(
     claimedFirstListing || needsProfile ? "/onboarding/profile" : "/browse"

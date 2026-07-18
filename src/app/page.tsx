@@ -9,7 +9,7 @@ import {
   Section,
   SectionHeading,
 } from "@/components/ui/section";
-import { getTopAppsNeedingTesters } from "@/lib/listings";
+import { getHomeTopAppsNeedingTesters } from "@/lib/home-top-apps";
 import {
   absoluteUrl,
   canonicalMetadata,
@@ -19,9 +19,15 @@ import {
   socialLinks,
 } from "@/lib/site";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import Link from "next/link";
 
 export const metadata: Metadata = canonicalMetadata("/");
+
+/**
+ * Request-time render (real DATABASE_URL) + 5h in-memory board cache.
+ * SSR is still SEO-friendly; we avoid baking an empty board at Docker build.
+ */
 
 const reasons = [
   {
@@ -108,7 +114,8 @@ const jsonLd = [
 ];
 
 export default async function Home() {
-  const topApps = await getTopAppsNeedingTesters(5);
+  await connection();
+  const topApps = await getHomeTopAppsNeedingTesters();
 
   return (
     <>

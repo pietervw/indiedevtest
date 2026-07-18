@@ -9,8 +9,10 @@ import {
 } from "@/generated/prisma";
 import { requireDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
+import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { isAllowedStatusTransition } from "@/lib/listing-status";
-import { appPath } from "@/lib/mock-data";
+import { appPath, profilePath } from "@/lib/mock-data";
+import { field, isHttpUrl } from "@/lib/validation";
 
 export type UpdateListingState = {
   ok: boolean;
@@ -32,10 +34,6 @@ export type UpdateListingState = {
 const CATEGORIES = new Set<string>(Object.values(AppCategory));
 const PLATFORMS = new Set<string>(Object.values(Platform));
 const STATUSES = new Set<string>(Object.values(AppListingStatus));
-
-function field(formData: FormData, key: string) {
-  return String(formData.get(key) ?? "").trim();
-}
 
 export async function updateAppListing(
   listingId: string,
@@ -74,7 +72,7 @@ export async function updateAppListing(
   if (!PLATFORMS.has(platform)) {
     fieldErrors.platform = "Pick a platform.";
   }
-  if (logoUrl && !/^https?:\/\//i.test(logoUrl)) {
+  if (logoUrl && !isHttpUrl(logoUrl)) {
     fieldErrors.logoUrl = "Logo must be an http(s) URL.";
   }
   if (!STATUSES.has(status)) {
@@ -92,10 +90,10 @@ export async function updateAppListing(
   if (status === "launched") {
     if (!storeLink) {
       fieldErrors.storeLink = "Store link is required when marking as Launched.";
-    } else if (!/^https?:\/\//i.test(storeLink)) {
+    } else if (!isHttpUrl(storeLink)) {
       fieldErrors.storeLink = "Store link must be an http(s) URL.";
     }
-  } else if (storeLink && !/^https?:\/\//i.test(storeLink)) {
+  } else if (storeLink && !isHttpUrl(storeLink)) {
     fieldErrors.storeLink = "Store link must be an http(s) URL.";
   }
 
@@ -123,6 +121,95 @@ export async function updateAppListing(
   revalidatePath("/");
   revalidatePath(appPath(listingId));
   revalidatePath(`/apps/${listingId}/edit`);
+  invalidatePublicCaches({
+    listingId,
+    githubUsernames: user.githubUsername,
+  });
 
   redirect(appPath(listingId));
+}
+
+/**
+ * Owner deletes a listing. Spec §7:
+ * - Cancel ongoing tests (rows cascade-delete with the listing)
+ * - Revoke Completed credits; keep Joined credits
+ * - Expire pending requests (cascade-delete)
+ * - Reviews cascade-delete with the listing
+ */
+export async function deleteAppListing(listingId: string): Promise<void> {
+  const user = await requireDbUser();
+
+  const listing = await prisma.appListing.findUnique({
+    where: { id: listingId },
+    select: { id: true, userId: true },
+  });
+
+  if (!listing || listing.userId !== user.id) {
+    redirect("/browse");
+  }
+
+  const testerSelect = {
+    testerUserId: true,
+    tester: { select: { githubUsername: true } },
+  } as const;
+
+  // Read counters inside the transaction so concurrent completes/reviews
+  // can't be cascade-deleted without a matching decrement.
+  const { completedAssignments, reviews } = await prisma.$transaction(
+    async (tx) => {
+      // Lock listing + all assignment rows so markComplete/Incomplete can't race.
+      await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listingId} FOR UPDATE`;
+      await tx.$executeRaw`SELECT id FROM test_assignments WHERE app_listing_id = ${listingId} FOR UPDATE`;
+      await tx.$executeRaw`SELECT id FROM reviews WHERE app_listing_id = ${listingId} FOR UPDATE`;
+
+      const [completedAssignments, reviews] = await Promise.all([
+        tx.testAssignment.findMany({
+          where: { appListingId: listingId, status: "completed" },
+          select: testerSelect,
+        }),
+        tx.review.findMany({
+          where: { appListingId: listingId },
+          select: testerSelect,
+        }),
+      ]);
+
+      await Promise.all([
+        ...completedAssignments.map((assignment) =>
+          tx.user.update({
+            where: { id: assignment.testerUserId },
+            data: { profileScoreCompleted: { decrement: 1 } },
+          })
+        ),
+        ...reviews.map((review) =>
+          tx.user.update({
+            where: { id: review.testerUserId },
+            data: { reviewsWrittenCount: { decrement: 1 } },
+          })
+        ),
+      ]);
+
+      await tx.appListing.delete({ where: { id: listingId } });
+      return { completedAssignments, reviews };
+    }
+  );
+
+  const affectedUsernames = new Set([
+    user.githubUsername,
+    ...completedAssignments.map((a) => a.tester.githubUsername),
+    ...reviews.map((r) => r.tester.githubUsername),
+  ]);
+
+  revalidatePath("/browse");
+  revalidatePath("/");
+  revalidatePath(appPath(listingId));
+  for (const username of affectedUsernames) {
+    revalidatePath(profilePath(username));
+  }
+  // Explicit usernames — avoid clearing every profile cache.
+  invalidatePublicCaches({
+    listingId,
+    githubUsernames: [...affectedUsernames],
+  });
+
+  redirect(profilePath(user.githubUsername));
 }

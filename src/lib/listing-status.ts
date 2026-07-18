@@ -40,3 +40,38 @@ export function statusOptionsFor(current: AppListingStatus) {
     label: statusLabel[value] ?? value,
   }));
 }
+
+export const PUBLIC_LISTING_STATUSES = [
+  "open_for_testing",
+  "closed_for_testing",
+  "testing_complete",
+  "launched",
+] as const satisfies readonly AppListingStatus[];
+
+/** Listings that can receive reviews on their public wall. */
+export const REVIEWABLE_LISTING_STATUSES = [
+  "open_for_testing",
+  "closed_for_testing",
+] as const satisfies readonly AppListingStatus[];
+
+/** Assignments that count toward tester slots / review eligibility. */
+export const COUNTED_ASSIGNMENT_STATUSES = ["active", "completed"] as const;
+
+export function isPublicListingStatus(status: AppListingStatus): boolean {
+  return (PUBLIC_LISTING_STATUSES as readonly AppListingStatus[]).includes(
+    status
+  );
+}
+
+export function isReviewableListingStatus(status: AppListingStatus): boolean {
+  return (REVIEWABLE_LISTING_STATUSES as readonly AppListingStatus[]).includes(
+    status
+  );
+}
+
+/** Type guard for {@link COUNTED_ASSIGNMENT_STATUSES} (also narrows the enum). */
+export function isCountedAssignmentStatus(
+  status: string
+): status is (typeof COUNTED_ASSIGNMENT_STATUSES)[number] {
+  return (COUNTED_ASSIGNMENT_STATUSES as readonly string[]).includes(status);
+}

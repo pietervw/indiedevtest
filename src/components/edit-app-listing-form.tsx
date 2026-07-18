@@ -5,6 +5,7 @@ import {
   updateAppListing,
   type UpdateListingState,
 } from "@/app/actions/listings";
+import { DeleteListingButton } from "@/components/delete-listing-button";
 import { SubmitButton } from "@/components/submit-button";
 import { statusOptionsFor } from "@/lib/listing-status";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ export function EditAppListingForm({
   const statusOptions = statusOptionsFor(defaults.status);
 
   return (
+    <>
     <form action={formAction} className={cn("flex w-full max-w-xl flex-col gap-5", className)}>
       <div>
         <label htmlFor="edit-app-name" className={labelClassName}>
@@ -222,5 +224,16 @@ export function EditAppListingForm({
         </p>
       ) : null}
     </form>
+
+    <div className="mt-12 max-w-xl border-t-2 border-line pt-8">
+      <h2 className="font-display text-lg font-extrabold text-ink">Danger zone</h2>
+      <p className="mt-2 text-sm text-ink-muted">
+        Permanently remove this listing and cancel related tests.
+      </p>
+      <div className="mt-4">
+        <DeleteListingButton listingId={listingId} />
+      </div>
+    </div>
+    </>
   );
 }

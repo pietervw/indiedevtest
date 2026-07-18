@@ -3,16 +3,14 @@
 import { redirect } from "next/navigation";
 import { requireProfileSetupPending } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
+import { invalidateDevProfileCache } from "@/lib/dev-profile";
+import { field } from "@/lib/validation";
 
 export type ProfileSetupState = {
   ok: boolean;
   message: string;
   fieldErrors?: Partial<Record<"bio" | "twitterHandle", string>>;
 };
-
-function field(formData: FormData, key: string) {
-  return String(formData.get(key) ?? "").trim();
-}
 
 function normalizeTwitterHandle(raw: string): string {
   return raw.replace(/^@+/, "").trim();
@@ -49,6 +47,8 @@ export async function completeProfileSetup(
       profileCompletedAt: new Date(),
     },
   });
+
+  invalidateDevProfileCache(user.githubUsername);
 
   redirect("/browse");
 }
