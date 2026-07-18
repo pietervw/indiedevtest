@@ -4,7 +4,8 @@ import { PUBLIC_LISTING_STATUSES } from "@/lib/listing-status";
 import { appPath, profilePath } from "@/lib/mock-data";
 import { absoluteUrl, siteRoutes } from "@/lib/site";
 
-export const dynamic = "force-dynamic";
+/** Refresh sitemap at most hourly — listings change infrequently. */
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const ogImage = absoluteUrl("/opengraph-image");

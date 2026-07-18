@@ -123,7 +123,7 @@ export async function updateAppListing(
   revalidatePath(`/apps/${listingId}/edit`);
   invalidatePublicCaches({
     listingId,
-    githubUsername: user.githubUsername,
+    githubUsernames: user.githubUsername,
   });
 
   redirect(appPath(listingId));
@@ -157,8 +157,10 @@ export async function deleteAppListing(listingId: string): Promise<void> {
   // can't be cascade-deleted without a matching decrement.
   const { completedAssignments, reviews } = await prisma.$transaction(
     async (tx) => {
-      // Serialize against concurrent credit/review writes on this listing.
+      // Lock listing + all assignment rows so markComplete/Incomplete can't race.
       await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listingId} FOR UPDATE`;
+      await tx.$executeRaw`SELECT id FROM test_assignments WHERE app_listing_id = ${listingId} FOR UPDATE`;
+      await tx.$executeRaw`SELECT id FROM reviews WHERE app_listing_id = ${listingId} FOR UPDATE`;
 
       const [completedAssignments, reviews] = await Promise.all([
         tx.testAssignment.findMany({
@@ -203,8 +205,11 @@ export async function deleteAppListing(listingId: string): Promise<void> {
   for (const username of affectedUsernames) {
     revalidatePath(profilePath(username));
   }
-  // No githubUsername → clears all profile memory caches (testers + owner).
-  invalidatePublicCaches({ listingId });
+  // Explicit usernames — avoid clearing every profile cache.
+  invalidatePublicCaches({
+    listingId,
+    githubUsernames: [...affectedUsernames],
+  });
 
   redirect(profilePath(user.githubUsername));
 }

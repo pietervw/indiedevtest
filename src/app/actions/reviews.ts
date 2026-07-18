@@ -127,7 +127,7 @@ export async function createReview(
   revalidatePath(profilePath(user.githubUsername));
   invalidatePublicCaches({
     listingId: listing.id,
-    githubUsername: user.githubUsername,
+    githubUsernames: user.githubUsername,
   });
 
   return { ok: true, message: "Review published — thanks for the feedback." };

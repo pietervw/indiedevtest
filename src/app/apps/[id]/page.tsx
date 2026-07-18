@@ -21,8 +21,8 @@ import {
   profilePath,
   statusLabel,
 } from "@/lib/mock-data";
-import { getPublicListing } from "@/lib/public-listing";
-import { isPublicListingStatus, isReviewableListingStatus } from "@/lib/listing-status";
+import { getOwnerListing, getPublicListing } from "@/lib/public-listing";
+import { isReviewableListingStatus } from "@/lib/listing-status";
 import { canonicalMetadata, siteConfig } from "@/lib/site";
 import type { Metadata } from "next";
 
@@ -30,6 +30,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
+  // Public loader only — drafts never leak name/description via metadata.
   const listing = await getPublicListing(id);
 
   if (!listing) {
@@ -40,9 +41,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ...canonicalMetadata(appPath(id)),
     title: listing.name,
     description: listing.description.slice(0, 160),
-    ...(listing.status === "draft"
-      ? { robots: { index: false, follow: false } }
-      : {}),
   };
 }
 
@@ -50,19 +48,15 @@ export default async function AppListingPage({ params }: Props) {
   await connection();
   const { id } = await params;
 
-  const listing = await getPublicListing(id);
+  let listing = await getPublicListing(id);
+  if (!listing) {
+    const viewer = await getOptionalDbUser();
+    if (viewer) {
+      listing = await getOwnerListing(id, viewer.id);
+    }
+  }
   if (!listing) {
     notFound();
-  }
-
-  const isPublic = isPublicListingStatus(listing.status);
-
-  // Drafts (and any non-public status) are owner-only — requires auth once.
-  if (!isPublic) {
-    const viewer = await getOptionalDbUser();
-    if (!viewer || viewer.id !== listing.userId) {
-      notFound();
-    }
   }
 
   const showReviews = isReviewableListingStatus(listing.status);

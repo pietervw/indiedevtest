@@ -1,6 +1,9 @@
 import type { AppCategory, AppListingStatus, Platform } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
-import { COUNTED_ASSIGNMENT_STATUSES } from "@/lib/listing-status";
+import {
+  COUNTED_ASSIGNMENT_STATUSES,
+  PUBLIC_LISTING_STATUSES,
+} from "@/lib/listing-status";
 
 /** Public listing payload — 10 min memory cache per id. */
 export const PUBLIC_LISTING_TTL_MS = 10 * 60 * 1000;
@@ -47,6 +50,37 @@ type CacheEntry = {
 
 const memoryCache = new Map<string, CacheEntry>();
 
+const listingInclude = {
+  user: {
+    select: {
+      id: true,
+      displayName: true,
+      imageUrl: true,
+      githubUsername: true,
+    },
+  },
+  reviews: {
+    include: {
+      tester: {
+        select: {
+          displayName: true,
+          imageUrl: true,
+          githubUsername: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" as const },
+    take: 50,
+  },
+  _count: {
+    select: {
+      testAssignments: {
+        where: { status: { in: [...COUNTED_ASSIGNMENT_STATUSES] } },
+      },
+    },
+  },
+};
+
 export function invalidatePublicListingCache(listingId?: string) {
   if (listingId) {
     memoryCache.delete(listingId);
@@ -56,7 +90,7 @@ export function invalidatePublicListingCache(listingId?: string) {
 }
 
 function toPublicListing(
-  row: NonNullable<Awaited<ReturnType<typeof fetchListing>>>
+  row: NonNullable<Awaited<ReturnType<typeof fetchPublicListingRow>>>
 ): PublicListing {
   return {
     id: row.id,
@@ -80,43 +114,26 @@ function toPublicListing(
   };
 }
 
-async function fetchListing(id: string) {
-  return prisma.appListing.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          displayName: true,
-          imageUrl: true,
-          githubUsername: true,
-        },
-      },
-      reviews: {
-        include: {
-          tester: {
-            select: {
-              displayName: true,
-              imageUrl: true,
-              githubUsername: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      },
-      _count: {
-        select: {
-          testAssignments: {
-            where: { status: { in: [...COUNTED_ASSIGNMENT_STATUSES] } },
-          },
-        },
-      },
+/** Public statuses only — never returns or caches drafts. */
+async function fetchPublicListingRow(id: string) {
+  return prisma.appListing.findFirst({
+    where: {
+      id,
+      status: { in: [...PUBLIC_LISTING_STATUSES] },
     },
+    include: listingInclude,
   });
 }
 
-/** Cached listing for /apps/[id] page + generateMetadata. */
+/** Owner draft/non-public preview — uncached, scoped to ownerId. */
+async function fetchOwnerListingRow(id: string, ownerId: string) {
+  return prisma.appListing.findFirst({
+    where: { id, userId: ownerId },
+    include: listingInclude,
+  });
+}
+
+/** Cached public listing for /apps/[id] metadata + anonymous/public views. */
 export async function getPublicListing(
   id: string
 ): Promise<PublicListing | null> {
@@ -131,7 +148,7 @@ export async function getPublicListing(
   }
 
   try {
-    const row = await fetchListing(id);
+    const row = await fetchPublicListingRow(id);
     const listing = row ? toPublicListing(row) : null;
     if (memoryCache.size >= PUBLIC_LISTING_CACHE_MAX) {
       memoryCache.clear();
@@ -141,5 +158,23 @@ export async function getPublicListing(
   } catch (err) {
     console.error("[public-listing] query failed", err);
     return hit?.listing ?? null;
+  }
+}
+
+/** Uncached owner-only listing (drafts and other non-public statuses). */
+export async function getOwnerListing(
+  id: string,
+  ownerId: string
+): Promise<PublicListing | null> {
+  if (!process.env.DATABASE_URL) {
+    return null;
+  }
+
+  try {
+    const row = await fetchOwnerListingRow(id, ownerId);
+    return row ? toPublicListing(row) : null;
+  } catch (err) {
+    console.error("[public-listing] owner query failed", err);
+    return null;
   }
 }

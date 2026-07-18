@@ -22,10 +22,14 @@ export function DeleteListingButton({ listingId }: { listingId: string }) {
 
       <dialog
         ref={dialogRef}
+        aria-labelledby="delete-listing-title"
         className="m-auto max-w-md rounded-2xl border-2 border-ink bg-paper p-0 shadow-brutal open:flex open:flex-col backdrop:bg-ink/40"
       >
         <form method="dialog" className="flex flex-col gap-4 p-6">
-          <h2 className="font-display text-xl font-extrabold text-ink">
+          <h2
+            id="delete-listing-title"
+            className="font-display text-xl font-extrabold text-ink"
+          >
             Delete this listing?
           </h2>
           <p className="text-sm leading-relaxed text-ink-muted">

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireProfileSetupPending } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
-import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
+import { invalidateDevProfileCache } from "@/lib/dev-profile";
 import { field } from "@/lib/validation";
 
 export type ProfileSetupState = {
@@ -48,7 +48,7 @@ export async function completeProfileSetup(
     },
   });
 
-  invalidatePublicCaches({ githubUsername: user.githubUsername });
+  invalidateDevProfileCache(user.githubUsername);
 
   redirect("/browse");
 }

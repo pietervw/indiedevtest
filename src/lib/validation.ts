@@ -1,5 +1,4 @@
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const HTTP_URL_RE = /^https?:\/\//i;
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -9,9 +8,17 @@ export function isValidEmail(email: string): boolean {
   return email.length > 0 && email.length <= 254 && EMAIL_RE.test(email);
 }
 
-/** True for http(s) URLs (scheme check only — not full URL validation). */
+/** True for parseable http(s) URLs with a host (rejects bare `https://`). */
 export function isHttpUrl(value: string): boolean {
-  return HTTP_URL_RE.test(value);
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      Boolean(url.host)
+    );
+  } catch {
+    return false;
+  }
 }
 
 /** Trimmed string field from FormData ("" when absent). */

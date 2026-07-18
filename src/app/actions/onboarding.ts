@@ -119,7 +119,7 @@ export async function createAppListing(
 
   invalidatePublicCaches({
     listingId: created.id,
-    githubUsername: user.githubUsername,
+    githubUsernames: user.githubUsername,
   });
 
   redirect(
