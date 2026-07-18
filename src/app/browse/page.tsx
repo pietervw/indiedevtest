@@ -25,7 +25,7 @@ export default async function BrowsePage({ searchParams }: Props) {
   const hasActiveFilters = Boolean(filters.category || filters.platform);
 
   return (
-    <div className="flex-1 border-b-2 border-ink bg-grid">
+    <div className="flex-1 bg-grid">
       <Container className="py-14 md:py-20">
         <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <SectionHeading

@@ -1,6 +1,7 @@
 import { AppBoard } from "@/components/app-board";
 import { BrandMark } from "@/components/brand-mark";
 import { JsonLd } from "@/components/json-ld";
+import { LeaderboardBoards } from "@/components/leaderboard-boards";
 import { WaitlistForm } from "@/components/waitlist-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import {
   SectionHeading,
 } from "@/components/ui/section";
 import { getHomeTopAppsNeedingTesters } from "@/lib/home-top-apps";
+import { getLeaderboards } from "@/lib/leaderboards";
 import {
   absoluteUrl,
   canonicalMetadata,
@@ -24,10 +26,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = canonicalMetadata("/");
 
-/**
- * Request-time render (real DATABASE_URL) + 5h in-memory board cache.
- * SSR is still SEO-friendly; we avoid baking an empty board at Docker build.
- */
+/** Request-time homepage: live DB queries with short in-memory caches. */
 
 const reasons = [
   {
@@ -115,7 +114,10 @@ const jsonLd = [
 
 export default async function Home() {
   await connection();
-  const topApps = await getHomeTopAppsNeedingTesters();
+  const [topApps, leaderboards] = await Promise.all([
+    getHomeTopAppsNeedingTesters(),
+    getLeaderboards(),
+  ]);
 
   return (
     <>
@@ -231,7 +233,17 @@ export default async function Home() {
         </Container>
       </Section>
 
-      <Section id="faq" className="border-b-2 border-ink bg-paper-muted">
+      <Section id="leaderboards" className="border-b-2 border-ink bg-paper-muted">
+        <Container>
+          <SectionHeading
+            title="Leaderboards"
+            description="Climb by testing, launching, and leaving useful feedback."
+          />
+          <LeaderboardBoards boards={leaderboards} />
+        </Container>
+      </Section>
+
+      <Section id="faq" className="border-b-2 border-ink bg-paper">
         <Container>
           <SectionHeading
             title="FAQ"
