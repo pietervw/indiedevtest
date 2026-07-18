@@ -98,6 +98,14 @@ export const siteRoutes = [
     priority: 1,
   },
   {
+    path: "/browse",
+    title: "Browse",
+    description:
+      "Browse open testing listings from fellow indie Android and iOS developers.",
+    changeFrequency: "hourly" as const,
+    priority: 0.9,
+  },
+  {
     path: "/contact",
     title: "Contact",
     description:

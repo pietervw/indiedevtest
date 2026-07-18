@@ -26,7 +26,7 @@ export function RequestToTestForm({
   const action = createTesterRequest.bind(null, listingId);
   const [state, formAction] = useActionState(action, initialState);
 
-  if (existing === "pending") {
+  if (existing === "pending" || state.ok) {
     return (
       <p className="font-display text-lg font-bold text-ink">
         Request sent — waiting for the developer to respond.

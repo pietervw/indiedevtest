@@ -9,6 +9,8 @@ import {
   sendRequestRejectedEmail,
   sendTestCompletedEmail,
 } from "@/lib/email";
+import { invalidateDevProfileCache } from "@/lib/dev-profile";
+import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath } from "@/lib/mock-data";
 import { siteConfig } from "@/lib/site";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
@@ -113,6 +115,7 @@ export async function createTesterRequest(
   }
 
   revalidatePath(appPath(listing.id));
+  invalidatePublicCaches({ listingId: listing.id });
 
   void sendNewTesterRequestEmail({
     devClerkId: listing.user.clerkId,
@@ -171,6 +174,8 @@ async function resolveTesterRequest(
   });
 
   revalidatePath(appPath(request.appListingId));
+  // Reject drops pending count used by browse "most requested" sort.
+  invalidatePublicCaches({ listingId: request.appListingId });
 
   const notify =
     outcome === "accepted"
@@ -204,7 +209,14 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
       testerUserId: true,
       testAssignmentId: true,
       appListingId: true,
-      appListing: { select: { userId: true, platform: true } },
+      tester: { select: { githubUsername: true } },
+      appListing: {
+        select: {
+          userId: true,
+          platform: true,
+          user: { select: { githubUsername: true } },
+        },
+      },
     },
   });
 
@@ -248,6 +260,11 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
   }
 
   revalidatePath(appPath(request.appListingId));
+  invalidatePublicCaches({
+    listingId: request.appListingId,
+    githubUsername: request.tester.githubUsername,
+  });
+  invalidateDevProfileCache(request.appListing.user.githubUsername);
 }
 
 /** Dev marks an active test complete — grants a Completed credit and emails the tester. */
@@ -274,6 +291,10 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
   });
 
   revalidatePath(appPath(assignment.appListingId));
+  invalidatePublicCaches({
+    listingId: assignment.appListingId,
+    githubUsername: assignment.tester.githubUsername,
+  });
 
   const testerEmail = assignment.testerRequest?.testerEmail;
   if (testerEmail) {
@@ -317,6 +338,11 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
   }
 
   revalidatePath(appPath(assignment.appListingId));
+  invalidatePublicCaches({
+    listingId: assignment.appListingId,
+    githubUsername: assignment.tester.githubUsername,
+  });
+  invalidateDevProfileCache(assignment.appListing.user.githubUsername);
 }
 
 /** Fetch an assignment scoped to the calling owner, or null for anyone else. */
@@ -327,7 +353,14 @@ async function fetchOwnedAssignment(assignmentId: string, userId: string) {
       status: true,
       testerUserId: true,
       appListingId: true,
-      appListing: { select: { userId: true, name: true } },
+      tester: { select: { githubUsername: true } },
+      appListing: {
+        select: {
+          userId: true,
+          name: true,
+          user: { select: { githubUsername: true } },
+        },
+      },
       testerRequest: { select: { testerEmail: true } },
     },
   });

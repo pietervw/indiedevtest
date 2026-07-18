@@ -136,6 +136,8 @@ model TestAssignment {
   @@unique([appListingId, testerUserId])
   @@index([testerUserId])
   @@index([status])
+  /** Speeds homepage/browse counts: JOIN … ON app_listing_id AND status IN (…) */
+  @@index([appListingId, status])
   @@map("test_assignments")
 }
 

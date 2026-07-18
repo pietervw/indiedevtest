@@ -25,11 +25,13 @@ ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-# prisma generate needs a placeholder URL at build time (real URL at runtime)
-ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require"
-ENV DIRECT_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require"
 
-RUN npm run build
+# prisma generate needs DIRECT_URL via prisma.config.ts. Clear DATABASE_URL before
+# `next build` so prerender does not attempt to query the unreachable placeholder.
+RUN DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require" \
+    DIRECT_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require" \
+    npx prisma generate \
+ && DATABASE_URL= DIRECT_URL= npx next build
 
 FROM base AS runner
 WORKDIR /app

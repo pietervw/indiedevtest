@@ -36,6 +36,30 @@ export function appPath(id: string) {
   return `/apps/${id}`;
 }
 
+/**
+ * Map a listing row (raw-SQL or Prisma) into the public {@link App} board
+ * shape. Single source of truth for the label/trim/href transform used by
+ * home, browse, and dev-profile — keeps empty/whitespace logos consistent.
+ */
+export function mapListingToApp(row: {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  category: string;
+  platform: string;
+  testers: number;
+}): App {
+  return {
+    id: row.id,
+    name: row.name,
+    logoUrl: row.logoUrl?.trim() || undefined,
+    category: categoryLabel[row.category] ?? row.category,
+    platform: platformLabel[row.platform] ?? row.platform,
+    testers: row.testers,
+    href: appPath(row.id),
+  };
+}
+
 export const statusLabel: Record<string, string> = {
   draft: "Draft",
   open_for_testing: "Open for testing",

@@ -1,16 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { AppBoard } from "@/components/app-board";
 import { Badge } from "@/components/ui/badge";
 import { Container } from "@/components/ui/section";
-import { prisma } from "@/lib/db";
-import {
-  categoryLabel,
-  platformLabel,
-  profilePath,
-  appPath,
-} from "@/lib/mock-data";
+import { getDevProfile } from "@/lib/dev-profile";
+import { profilePath } from "@/lib/mock-data";
 import { canonicalMetadata, siteConfig } from "@/lib/site";
 import type { Metadata } from "next";
 
@@ -19,57 +15,36 @@ type Props = { params: Promise<{ username: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   const decoded = decodeURIComponent(username);
+  const profile = await getDevProfile(decoded);
+
+  if (!profile) {
+    return {
+      ...canonicalMetadata(profilePath(decoded)),
+      title: `${decoded} · Developer`,
+      description: `${decoded}'s profile on ${siteConfig.name}.`,
+    };
+  }
+
+  const description =
+    profile.bio?.trim().slice(0, 160) ||
+    `${profile.displayName} (@${profile.githubUsername}) on ${siteConfig.name} — ${profile.apps.length} app${profile.apps.length === 1 ? "" : "s"}, ${profile.profileScoreCompleted} tests completed.`;
+
   return {
-    ...canonicalMetadata(profilePath(decoded)),
-    title: `${decoded} · Developer`,
-    description: `${decoded}'s profile on ${siteConfig.name}.`,
+    ...canonicalMetadata(profilePath(profile.githubUsername)),
+    title: `${profile.displayName} · Developer`,
+    description,
   };
 }
 
 export default async function DevProfilePage({ params }: Props) {
+  await connection();
   const { username } = await params;
   const decoded = decodeURIComponent(username);
-
-  if (!process.env.DATABASE_URL) {
-    notFound();
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { githubUsername: decoded },
-    include: {
-      appListings: {
-        where: {
-          status: {
-            in: ["open_for_testing", "closed_for_testing", "testing_complete", "launched"],
-          },
-        },
-        include: {
-          _count: {
-            select: {
-              testAssignments: {
-                where: { status: { in: ["active", "completed"] } },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+  const user = await getDevProfile(decoded);
 
   if (!user) {
     notFound();
   }
-
-  const apps = user.appListings.map((listing) => ({
-    id: listing.id,
-    name: listing.name,
-    logoUrl: listing.logoUrl?.trim() || undefined,
-    category: categoryLabel[listing.category] ?? listing.category,
-    platform: platformLabel[listing.platform] ?? listing.platform,
-    testers: listing._count.testAssignments,
-    href: appPath(listing.id),
-  }));
 
   return (
     <div className="flex-1 border-b-2 border-ink bg-grid">
@@ -134,8 +109,8 @@ export default async function DevProfilePage({ params }: Props) {
 
         <section className="mt-12">
           <h2 className="font-display text-2xl font-extrabold text-ink">Apps</h2>
-          {apps.length > 0 ? (
-            <AppBoard apps={apps} className="mt-6 max-w-2xl" />
+          {user.apps.length > 0 ? (
+            <AppBoard apps={user.apps} className="mt-6 max-w-2xl" />
           ) : (
             <p className="mt-4 text-ink-muted">No public app listings yet.</p>
           )}
