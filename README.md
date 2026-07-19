@@ -69,6 +69,10 @@ This app uses Next.js `output: "standalone"` and ships a production `Dockerfile`
    - `NEXT_PUBLIC_SITE_URL=https://indiedevtest.com`
    - `NEXT_PUBLIC_TURNSTILE_SITE_KEY=…`
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=…`
+   - `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`
+   - `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
+   - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/onboarding`
+   - `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/onboarding`
    - `NEXT_PUBLIC_UMAMI_SRC=…` / `NEXT_PUBLIC_UMAMI_WEBSITE_ID=…` (optional)
 6. Run `npx prisma migrate deploy` against production `DIRECT_URL` before or on first deploy.
 7. Persist waitlist data: mount a volume at `/app/data`.

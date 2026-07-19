@@ -6,12 +6,7 @@ export const metadata = authPageMetadata("Sign in");
 export default function SignInPage() {
   return (
     <AuthPageShell>
-      <SignIn
-        routing="path"
-        path="/sign-in"
-        signUpUrl="/sign-up"
-        forceRedirectUrl="/onboarding"
-      />
+      <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
     </AuthPageShell>
   );
 }

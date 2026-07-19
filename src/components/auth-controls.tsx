@@ -9,20 +9,12 @@ export function AuthControls() {
   return (
     <>
       <Show when="signed-out">
-        <SignInButton
-          mode="redirect"
-          forceRedirectUrl="/onboarding"
-          signUpForceRedirectUrl="/onboarding"
-        >
+        <SignInButton mode="redirect">
           <button type="button" className={navLinkClassName}>
             Sign in
           </button>
         </SignInButton>
-        <SignUpButton
-          mode="redirect"
-          forceRedirectUrl="/onboarding"
-          signInForceRedirectUrl="/onboarding"
-        >
+        <SignUpButton mode="redirect">
           <button type="button" className={navLinkClassName}>
             Sign up
           </button>
