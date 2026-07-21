@@ -70,6 +70,7 @@ export async function ensureDbUser() {
     }
 
     // First local profile: only the unique-insert winner may notify (CAS on clerkId).
+    let uniqueConflict: unknown;
     try {
       const created = await prisma.user.create({
         data: {
@@ -89,12 +90,31 @@ export async function ensureDbUser() {
       ) {
         throw err;
       }
+      uniqueConflict = err;
     }
 
-    return await prisma.user.update({
-      where: { clerkId: clerkUser.id },
-      data: profileUpdate,
+    // A GitHub account is the stable identity for this GitHub-only product.
+    // Clerk may present a new Clerk user id after a Clerk migration, instance
+    // reset, or account recreation. Rebind the existing local profile by the
+    // immutable GitHub provider id rather than treating it as a new user.
+    const githubIdentity = await prisma.user.findUnique({
+      where: { githubId: github.providerUserId },
+      select: { id: true },
     });
+    if (githubIdentity) {
+      console.info("[user] rebinding local profile to Clerk user", {
+        githubId: github.providerUserId,
+        clerkId: clerkUser.id,
+      });
+      return await prisma.user.update({
+        where: { id: githubIdentity.id },
+        data: { ...profileUpdate, clerkId: clerkUser.id },
+      });
+    }
+
+    // A collision on another unique field (for example a username) must not
+    // be auto-linked: only GitHub's immutable provider id proves ownership.
+    throw uniqueConflict;
   } catch (err) {
     console.error("[user] ensureDbUser failed", err);
     return null;
