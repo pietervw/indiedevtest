@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   updateProfileSettings,
   type ProfileSettingsState,
@@ -25,10 +26,15 @@ export function ProfileSettingsForm({
   twitterHandle: string | null;
   trustMrrProfileUrl: string | null;
 }) {
+  const router = useRouter();
   const [state, formAction] = useActionState(updateProfileSettings, initialState);
   const defaultValue = verifiedEmails.includes(currentEmail ?? "")
     ? currentEmail!
     : verifiedEmails[0] ?? "";
+
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [router, state.ok]);
 
   return (
     <form action={formAction} className="mt-8 flex max-w-xl flex-col gap-5">
@@ -95,7 +101,7 @@ export function ProfileSettingsForm({
         </label>
         <input id="settings-trustmrr" name="trustMrrProfileUrl" type="url" defaultValue={trustMrrProfileUrl ?? ""} placeholder="https://trustmrr.com/founder/your-name" className={cn(fieldClassName, "h-12")} aria-invalid={Boolean(state.fieldErrors?.trustMrrProfileUrl)} />
         <p className="mt-1 text-sm text-ink-muted">
-          Displayed on your public profile. Not sure what TrustMRR is?{" "}
+          Displayed on your public profile. Learn about{" "}
           <a href="https://trustmrr.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink underline">Visit TrustMRR ↗</a>
         </p>
         {state.fieldErrors?.trustMrrProfileUrl ? <p className="mt-1 text-sm font-semibold text-red-600" role="alert">{state.fieldErrors.trustMrrProfileUrl}</p> : null}

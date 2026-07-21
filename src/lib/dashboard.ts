@@ -4,6 +4,7 @@ import type {
   Platform,
   TesterActivityType,
   TesterFeedbackSeverity,
+  TesterFeedbackStatus,
 } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
 import {
@@ -64,8 +65,14 @@ export type DashboardTesterFeedback = {
   title: string;
   details: string;
   steps: string | null;
+  device: string | null;
+  status: TesterFeedbackStatus;
   createdAt: string;
   tester: { displayName: string; profileSlug: string };
+};
+
+export type DashboardSubmittedFeedback = Omit<DashboardTesterFeedback, "tester"> & {
+  listing: { id: string; name: string; logoUrl: string; platform: Platform };
 };
 
 type DashboardListingRef = {
@@ -133,6 +140,7 @@ export type DashboardData = {
   activeAssignments: DashboardActiveAssignment[];
   completedAssignments: DashboardPastAssignment[];
   incompleteAssignments: DashboardPastAssignment[];
+  submittedFeedback: DashboardSubmittedFeedback[];
 };
 
 const EMPTY_DASHBOARD: DashboardData = {
@@ -143,6 +151,7 @@ const EMPTY_DASHBOARD: DashboardData = {
   activeAssignments: [],
   completedAssignments: [],
   incompleteAssignments: [],
+  submittedFeedback: [],
 };
 
 const listingSummarySelect = {
@@ -198,7 +207,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
 
   const now = new Date();
 
-  const [listings, incomingRequests, testerRequests, assignments] = await Promise.all([
+  const [listings, incomingRequests, testerRequests, assignments, submittedFeedback] = await Promise.all([
     prisma.appListing.findMany({
       where: { userId },
       select: {
@@ -243,6 +252,8 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
             title: true,
             details: true,
             steps: true,
+            device: true,
+            status: true,
             createdAt: true,
             tester: { select: { displayName: true, profileSlug: true } },
           },
@@ -297,6 +308,16 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         appListing: { select: testerListingSelect },
       },
       orderBy: { joinedAt: "desc" },
+    }),
+    prisma.testerFeedback.findMany({
+      where: { testerUserId: userId },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: {
+        id: true, severity: true, title: true, details: true, steps: true,
+        device: true, status: true, createdAt: true,
+        appListing: { select: { id: true, name: true, logoUrl: true, platform: true } },
+      },
     }),
   ]);
 
@@ -445,5 +466,10 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     activeAssignments,
     completedAssignments,
     incompleteAssignments,
+    submittedFeedback: submittedFeedback.map((feedback) => ({
+      ...feedback,
+      listing: { ...feedback.appListing, logoUrl: feedback.appListing.logoUrl.trim() },
+      createdAt: feedback.createdAt.toISOString(),
+    })),
   };
 }

@@ -9,6 +9,7 @@ import {
   resendTesterInvitation,
   undoTesterRequestDecline,
 } from "@/app/actions/requests";
+import { updateTesterFeedbackStatus } from "@/app/actions/feedback";
 import { SubmitButton } from "@/components/submit-button";
 import { DeclineTesterButton } from "@/components/decline-tester-button";
 import { Badge } from "@/components/ui/badge";
@@ -110,7 +111,7 @@ export function DashboardTesterTable({
                     <TesterStatus tester={tester} />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <form action={approve}>
                         <SubmitButton
                           size="sm"
@@ -202,6 +203,16 @@ export function DashboardTesterTable({
                 <p><Badge variant="dark" size="sm">{item.severity}</Badge> <span className="ml-2 font-semibold">{item.title}</span></p>
                 <p className="mt-2 whitespace-pre-wrap text-ink-muted">{item.details}</p>
                 {item.steps ? <p className="mt-2 whitespace-pre-wrap text-ink-muted"><span className="font-semibold text-ink">Steps:</span> {item.steps}</p> : null}
+                {item.device ? <p className="mt-2 text-ink-muted"><span className="font-semibold text-ink">Device:</span> {item.device}</p> : null}
+                <form action={updateTesterFeedbackStatus.bind(null, item.id)} className="mt-3 flex flex-wrap items-center gap-2">
+                  <label className="font-semibold text-ink" htmlFor={`feedback-status-${item.id}`}>Status</label>
+                  <select id={`feedback-status-${item.id}`} name="status" defaultValue={item.status} className="h-9 rounded-lg border-2 border-ink bg-paper px-2 text-sm">
+                    <option value="unresolved">Unresolved</option>
+                    <option value="fixed">Fixed</option>
+                    <option value="skipped">Skipped</option>
+                  </select>
+                  <SubmitButton size="sm" variant="secondary" pendingLabel="Saving…">Save</SubmitButton>
+                </form>
               </li>
             ))}
           </ul>
@@ -210,7 +221,7 @@ export function DashboardTesterTable({
 
       <dialog
         ref={dialogRef}
-        className="w-[min(32rem,calc(100%-2rem))] rounded-2xl border-2 border-ink bg-paper p-0 text-ink shadow-brutal backdrop:bg-ink/50"
+        className="fixed inset-0 m-auto h-fit w-[min(32rem,calc(100%-2rem))] rounded-2xl border-2 border-ink bg-paper p-0 text-ink shadow-brutal backdrop:bg-ink/50"
         onClose={() => setConfirming(null)}
       >
         <div className="p-6">

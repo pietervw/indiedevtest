@@ -42,7 +42,7 @@ export function buildLlmsTxt(): string {
     "",
     "## Key facts",
     `- Official site: ${siteConfig.url}`,
-    `- Product: reciprocal indie app testing waitlist / community`,
+    `- Product: reciprocal indie app testing community`,
     `- Platforms: Android (Google Play closed testing), iOS (TestFlight)`,
     `- Contact: ${absoluteUrl("/contact")}`,
     "",
