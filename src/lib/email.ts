@@ -197,7 +197,7 @@ export async function sendNewTesterRequestEmail(options: {
 }): Promise<void> {
   const devEmail = await primaryEmailForClerkUser(options.devClerkId);
   if (!devEmail) {
-    // GitHub OAuth via Clerk doesn't always expose an email — skip silently.
+    // Some Clerk sign-in methods do not expose an email — skip silently.
     console.warn("[email] dev has no email on file; skipping request notice", {
       devClerkId: options.devClerkId,
     });
@@ -253,9 +253,42 @@ export async function sendRequestAcceptedEmail(options: {
   testerEmail: string;
   appName: string;
   listingUrl: string;
+  developerContactEmail?: string | null;
+  testingAccessUrl?: string | null;
+  testerInstructions?: string | null;
 }): Promise<void> {
   const product = siteConfig.name;
   const subject = `You're accepted to test ${options.appName}`;
+  const testingAccessUrl = safeTestingAccessUrl(options.testingAccessUrl);
+  const testerInstructions = options.testerInstructions?.trim() || null;
+  const developerContactEmail = options.developerContactEmail?.trim() || null;
+
+  const textInvitation = [
+    testingAccessUrl ? `Testing access: ${testingAccessUrl}` : null,
+    developerContactEmail
+      ? `Developer contact: ${developerContactEmail}`
+      : null,
+    testerInstructions
+      ? `Instructions:\n${testerInstructions}`
+      : null,
+  ].filter((section): section is string => section !== null);
+
+  const htmlInvitation = [
+    testingAccessUrl
+      ? emailCtaButton(testingAccessUrl, "Open testing access")
+      : null,
+    developerContactEmail
+      ? emailParagraphHtml(
+          `Need help joining? Contact the developer at ${emailLink(
+            `mailto:${developerContactEmail}`,
+            developerContactEmail
+          )}.`
+        )
+      : null,
+    testerInstructions
+      ? emailParagraphHtml(escapeHtmlWithBreaks(testerInstructions))
+      : null,
+  ].filter((section): section is string => section !== null);
 
   await sendMail({
     to: options.testerEmail,
@@ -263,9 +296,13 @@ export async function sendRequestAcceptedEmail(options: {
     text: [
       `Great news — the developer accepted your request to test ${options.appName}.`,
       "",
+      ...textInvitation,
+      ...(textInvitation.length > 0 ? [""] : []),
       `Listing: ${options.listingUrl}`,
       "",
-      "They'll be in touch (via the email you shared) with next steps to join the testing track.",
+      textInvitation.length > 0
+        ? "Follow the developer's invitation details above. You can use the email you shared if you need help joining the testing track."
+        : "They'll be in touch (via the email you shared) with next steps to join the testing track.",
       "",
       `— ${product}`,
     ].join("\n"),
@@ -277,14 +314,32 @@ export async function sendRequestAcceptedEmail(options: {
         emailParagraphHtml(
           `Great news — the developer accepted your request to test ${emailStrong(options.appName)}.`
         ),
+        ...htmlInvitation,
         emailCtaButton(options.listingUrl, "View listing"),
         emailParagraph(
-          "They'll be in touch (via the email you shared) with next steps to join the testing track."
+          htmlInvitation.length > 0
+            ? "Follow the developer's invitation details above. You can use the email you shared if you need help joining the testing track."
+            : "They'll be in touch (via the email you shared) with next steps to join the testing track."
         ),
         emailMutedNote(product),
       ].join(""),
     }),
   });
+}
+
+/** Restrict email CTAs to normal web URLs; stored data must not create a script link. */
+function safeTestingAccessUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Tell a tester their request was declined. */
@@ -376,7 +431,7 @@ export async function sendListing14DayReminderEmail(options: {
 }): Promise<void> {
   const devEmail = await primaryEmailForClerkUser(options.devClerkId);
   if (!devEmail) {
-    // GitHub OAuth via Clerk doesn't always expose an email — skip silently.
+    // Some Clerk sign-in methods do not expose an email — skip silently.
     // Caller still treats this as success so cron won't retry forever.
     console.warn("[email] dev has no email on file; skipping 14-day reminder", {
       devClerkId: options.devClerkId,

@@ -11,6 +11,7 @@ import {
 } from "@/lib/expire-pending-tester-requests";
 import { COUNTED_ASSIGNMENT_STATUSES } from "@/lib/listing-status";
 import { testingPeriodProgress } from "@/lib/mock-data";
+import { isHttpUrl } from "@/lib/validation";
 
 export type DashboardListing = {
   id: string;
@@ -36,10 +37,31 @@ type DashboardAssignmentListingRef = {
   logoUrl: string;
 };
 
+export type DashboardTesterInvitation = {
+  testingAccessUrl: string | null;
+  testerInstructions: string | null;
+  developerContactEmail: string | null;
+};
+
 /** Pending or accepted-awaiting-join request row for the activity list. */
 export type DashboardRequestItem = {
   id: string;
   listing: DashboardListingRef;
+};
+
+export type DashboardAcceptedRequest = DashboardRequestItem & {
+  invitation: DashboardTesterInvitation;
+};
+
+/** A request received by one of the user's own listings. */
+export type DashboardIncomingRequest = {
+  id: string;
+  listing: DashboardListingRef;
+  testerEmail: string;
+  tester: {
+    displayName: string;
+    imageUrl: string | null;
+  };
 };
 
 export type DashboardActiveAssignment = {
@@ -47,6 +69,7 @@ export type DashboardActiveAssignment = {
   platform: Platform;
   daysRemainingLabel: string | null;
   listing: DashboardAssignmentListingRef;
+  invitation: DashboardTesterInvitation;
 };
 
 /** Completed or incomplete assignment row for the activity list. */
@@ -58,8 +81,9 @@ export type DashboardPastAssignment = {
 
 export type DashboardData = {
   listings: DashboardListing[];
+  incomingRequests: DashboardIncomingRequest[];
   pendingRequests: DashboardRequestItem[];
-  acceptedAwaitingJoin: DashboardRequestItem[];
+  acceptedAwaitingJoin: DashboardAcceptedRequest[];
   activeAssignments: DashboardActiveAssignment[];
   completedAssignments: DashboardPastAssignment[];
   incompleteAssignments: DashboardPastAssignment[];
@@ -67,6 +91,7 @@ export type DashboardData = {
 
 const EMPTY_DASHBOARD: DashboardData = {
   listings: [],
+  incomingRequests: [],
   pendingRequests: [],
   acceptedAwaitingJoin: [],
   activeAssignments: [],
@@ -81,9 +106,36 @@ const listingSummarySelect = {
   platform: true,
 } as const;
 
+const testerSelect = {
+  displayName: true,
+  imageUrl: true,
+} as const;
+
+const testerListingSelect = {
+  ...listingSummarySelect,
+  testingAccessUrl: true,
+  testerInstructions: true,
+  user: { select: { contactEmail: true } },
+} as const;
+
+function testerInvitation(listing: {
+  testingAccessUrl: string | null;
+  testerInstructions: string | null;
+  user: { contactEmail: string | null };
+}): DashboardTesterInvitation {
+  return {
+    testingAccessUrl:
+      listing.testingAccessUrl && isHttpUrl(listing.testingAccessUrl)
+        ? listing.testingAccessUrl
+        : null,
+    testerInstructions: listing.testerInstructions,
+    developerContactEmail: listing.user.contactEmail,
+  };
+}
+
 /**
- * Private activity centre payload for the signed-in user.
- * Never selects tester emails or other requester-private fields.
+ * Private activity centre payload for the signed-in user. Tester contact email
+ * is selected only for the owner of the listing that received the request.
  */
 export async function getDashboardData(userId: string): Promise<DashboardData> {
   if (!process.env.DATABASE_URL) {
@@ -98,7 +150,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
 
   const now = new Date();
 
-  const [listings, testerRequests, assignments] = await Promise.all([
+  const [listings, incomingRequests, testerRequests, assignments] = await Promise.all([
     prisma.appListing.findMany({
       where: { userId },
       select: {
@@ -123,6 +175,20 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     }),
     prisma.testerRequest.findMany({
       where: {
+        status: "pending",
+        expiresAt: { gt: now },
+        appListing: { userId },
+      },
+      select: {
+        id: true,
+        testerEmail: true,
+        tester: { select: testerSelect },
+        appListing: { select: listingSummarySelect },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.testerRequest.findMany({
+      where: {
         testerUserId: userId,
         ...openTesterRequestWhere(now),
       },
@@ -130,7 +196,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         id: true,
         status: true,
         testAssignmentId: true,
-        appListing: { select: listingSummarySelect },
+        appListing: { select: testerListingSelect },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -144,14 +210,14 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         status: true,
         platform: true,
         joinedAt: true,
-        appListing: { select: listingSummarySelect },
+        appListing: { select: testerListingSelect },
       },
       orderBy: { joinedAt: "desc" },
     }),
   ]);
 
   const pendingRequests: DashboardRequestItem[] = [];
-  const acceptedAwaitingJoin: DashboardRequestItem[] = [];
+  const acceptedAwaitingJoin: DashboardAcceptedRequest[] = [];
 
   for (const request of testerRequests) {
     const listing = {
@@ -166,7 +232,11 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       request.status === "accepted" &&
       request.testAssignmentId == null
     ) {
-      acceptedAwaitingJoin.push({ id: request.id, listing });
+      acceptedAwaitingJoin.push({
+        id: request.id,
+        listing,
+        invitation: testerInvitation(request.appListing),
+      });
     }
   }
 
@@ -187,6 +257,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         platform: row.platform,
         daysRemainingLabel: progress.label,
         listing,
+        invitation: testerInvitation(row.appListing),
       });
     } else if (row.status === "completed") {
       completedAssignments.push({
@@ -213,6 +284,17 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       status: listing.status,
       liveTesterCount: listing._count.testAssignments,
       pendingRequestCount: listing._count.testerRequests,
+    })),
+    incomingRequests: incomingRequests.map((request) => ({
+      id: request.id,
+      testerEmail: request.testerEmail,
+      tester: request.tester,
+      listing: {
+        id: request.appListing.id,
+        name: request.appListing.name,
+        logoUrl: request.appListing.logoUrl.trim(),
+        platform: request.appListing.platform,
+      },
     })),
     pendingRequests,
     acceptedAwaitingJoin,

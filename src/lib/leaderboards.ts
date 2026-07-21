@@ -20,7 +20,7 @@ export type Leaderboards = {
 type RankRow = {
   displayName: string;
   imageUrl: string | null;
-  githubUsername: string;
+  profileSlug: string;
   value: number;
 };
 
@@ -39,7 +39,7 @@ function toEntries(rows: RankRow[]): LeaderboardEntry[] {
   return rows.map((row) => ({
     displayName: row.displayName,
     imageUrl: row.imageUrl,
-    profileHref: profilePath(row.githubUsername),
+    profileHref: profilePath(row.profileSlug),
     value: row.value,
   }));
 }
@@ -53,7 +53,7 @@ async function loadLeaderboards(): Promise<Leaderboards> {
       select: {
         displayName: true,
         imageUrl: true,
-        githubUsername: true,
+        profileSlug: true,
         profileScoreCompleted: true,
       },
     }),
@@ -61,7 +61,7 @@ async function loadLeaderboards(): Promise<Leaderboards> {
       SELECT
         u.display_name AS "displayName",
         u.image_url AS "imageUrl",
-        u.github_username AS "githubUsername",
+        u.profile_slug AS "profileSlug",
         COUNT(al.id)::int AS value
       FROM users u
       INNER JOIN app_listings al
@@ -78,7 +78,7 @@ async function loadLeaderboards(): Promise<Leaderboards> {
       select: {
         displayName: true,
         imageUrl: true,
-        githubUsername: true,
+        profileSlug: true,
         reviewsWrittenCount: true,
       },
     }),
@@ -89,7 +89,7 @@ async function loadLeaderboards(): Promise<Leaderboards> {
       mostTested.map((u) => ({
         displayName: u.displayName,
         imageUrl: u.imageUrl,
-        githubUsername: u.githubUsername,
+        profileSlug: u.profileSlug,
         value: u.profileScoreCompleted,
       }))
     ),
@@ -98,7 +98,7 @@ async function loadLeaderboards(): Promise<Leaderboards> {
       mostReviews.map((u) => ({
         displayName: u.displayName,
         imageUrl: u.imageUrl,
-        githubUsername: u.githubUsername,
+        profileSlug: u.profileSlug,
         value: u.reviewsWrittenCount,
       }))
     ),

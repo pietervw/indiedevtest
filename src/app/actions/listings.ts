@@ -25,6 +25,8 @@ export type UpdateListingState = {
       | "category"
       | "platform"
       | "logoUrl"
+      | "testingAccessUrl"
+      | "testerInstructions"
       | "status"
       | "storeLink",
       string
@@ -56,6 +58,8 @@ export async function updateAppListing(
   const category = field(formData, "category");
   const platform = field(formData, "platform");
   const logoUrl = field(formData, "logoUrl");
+  const testingAccessUrl = field(formData, "testingAccessUrl");
+  const testerInstructions = field(formData, "testerInstructions");
   const status = field(formData, "status");
   const storeLink = field(formData, "storeLink");
 
@@ -75,6 +79,15 @@ export async function updateAppListing(
   }
   if (logoUrl && !isHttpUrl(logoUrl)) {
     fieldErrors.logoUrl = "Logo must be an http(s) URL.";
+  }
+  if (testingAccessUrl && !isHttpUrl(testingAccessUrl)) {
+    fieldErrors.testingAccessUrl = "Testing link must be an http(s) URL.";
+  }
+  if (testingAccessUrl.length > 500) {
+    fieldErrors.testingAccessUrl = "Testing link must be 500 characters or fewer.";
+  }
+  if (testerInstructions.length > 2000) {
+    fieldErrors.testerInstructions = "Instructions must be 2,000 characters or fewer.";
   }
   if (!STATUSES.has(status)) {
     fieldErrors.status = "Pick a valid status.";
@@ -110,6 +123,8 @@ export async function updateAppListing(
       category: category as AppCategory,
       platform: platform as Platform,
       logoUrl: logoUrl || "",
+      testingAccessUrl: testingAccessUrl || null,
+      testerInstructions: testerInstructions || null,
       status: status as AppListingStatus,
       storeLink:
         status === "launched"
@@ -124,7 +139,7 @@ export async function updateAppListing(
   revalidatePath(editPath(listingId));
   invalidatePublicCaches({
     listingId,
-    githubUsernames: user.githubUsername,
+    profileSlugs: user.profileSlug,
   });
 
   redirect(appPath(listingId));
@@ -151,7 +166,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
 
   const testerSelect = {
     testerUserId: true,
-    tester: { select: { githubUsername: true } },
+    tester: { select: { profileSlug: true } },
   } as const;
 
   // Read counters inside the transaction so concurrent completes/reviews
@@ -239,23 +254,23 @@ export async function deleteAppListing(listingId: string): Promise<void> {
     }
   );
 
-  const affectedUsernames = new Set([
-    user.githubUsername,
-    ...completedAssignments.map((a) => a.tester.githubUsername),
-    ...reviews.map((r) => r.tester.githubUsername),
+  const affectedProfileSlugs = new Set([
+    user.profileSlug,
+    ...completedAssignments.map((a) => a.tester.profileSlug),
+    ...reviews.map((r) => r.tester.profileSlug),
   ]);
 
   revalidatePath("/browse");
   revalidatePath("/");
   revalidatePath(appPath(listingId));
-  for (const username of affectedUsernames) {
-    revalidatePath(profilePath(username));
+  for (const slug of affectedProfileSlugs) {
+    revalidatePath(profilePath(slug));
   }
-  // Explicit usernames — avoid clearing every profile cache.
+  // Explicit profile slugs — avoid clearing every profile cache.
   invalidatePublicCaches({
     listingId,
-    githubUsernames: [...affectedUsernames],
+    profileSlugs: [...affectedProfileSlugs],
   });
 
-  redirect(profilePath(user.githubUsername));
+  redirect(profilePath(user.profileSlug));
 }

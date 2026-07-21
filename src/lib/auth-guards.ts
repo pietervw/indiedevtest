@@ -22,7 +22,7 @@ export async function requireDbUser(): Promise<User> {
 export async function requireOnboardingPending(): Promise<User> {
   const user = await requireDbUser();
   if (user.onboardingCompletedAt) {
-    if (!user.profileCompletedAt) {
+    if (!user.profileCompletedAt || !user.contactEmail) {
       redirect("/onboarding/profile");
     }
     redirect("/browse");
@@ -30,25 +30,25 @@ export async function requireOnboardingPending(): Promise<User> {
   return user;
 }
 
-/** Listing done; profile bio/Twitter step still open. */
+/** Listing done; profile bio/Twitter/contact step still open. */
 export async function requireProfileSetupPending(): Promise<User> {
   const user = await requireDbUser();
   if (!user.onboardingCompletedAt) {
     redirect("/onboarding");
   }
-  if (user.profileCompletedAt) {
+  if (user.profileCompletedAt && user.contactEmail) {
     redirect("/browse");
   }
   return user;
 }
 
-/** Finished listing + profile onboarding. */
+/** Finished listing + profile onboarding (including contact email). */
 export async function requireOnboarded(): Promise<User> {
   const user = await requireDbUser();
   if (!user.onboardingCompletedAt) {
     redirect("/onboarding");
   }
-  if (!user.profileCompletedAt) {
+  if (!user.profileCompletedAt || !user.contactEmail) {
     redirect("/onboarding/profile");
   }
   return user;

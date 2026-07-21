@@ -9,6 +9,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useActionState,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ import {
   markTestComplete,
   markTestIncomplete,
   rejectTesterRequest,
+  resendTesterInvitation,
   withdrawTesterRequest,
 } from "@/app/actions/requests";
 import { RequestToTestForm } from "@/components/request-to-test-form";
@@ -98,7 +100,7 @@ function useListingSession() {
 
 type TesterInfo = {
   displayName: string;
-  githubUsername: string;
+  profileSlug: string;
   imageUrl: string | null;
 };
 
@@ -120,13 +122,36 @@ function TesterRow({ tester, sub }: { tester: TesterInfo; sub?: string }) {
       )}
       <div className="min-w-0">
         <Link
-          href={profilePath(tester.githubUsername)}
+          href={profilePath(tester.profileSlug)}
           className="font-semibold text-ink hover:underline"
         >
           {tester.displayName}
         </Link>
         {sub ? <p className="truncate text-sm text-ink-muted">{sub}</p> : null}
       </div>
+    </div>
+  );
+}
+
+function ResendInvitationButton({ requestId }: { requestId: string }) {
+  const action = resendTesterInvitation.bind(null, requestId);
+  const [state, formAction] = useActionState(action, { ok: false, message: "" });
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <form action={formAction}>
+        <SubmitButton size="sm" variant="secondary" pendingLabel="Resending…">
+          Resend invitation
+        </SubmitButton>
+      </form>
+      {state.message ? (
+        <p
+          className={`text-right text-xs font-semibold ${state.ok ? "text-ink-muted" : "text-red-600"}`}
+          role={state.ok ? "status" : "alert"}
+        >
+          {state.message}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -257,26 +282,37 @@ export function ListingSessionPanels({
           {session == null && !failed ? (
             <p className="text-sm text-ink-muted">Checking sign-in…</p>
           ) : viewer ? (
-            <RequestToTestForm
-              // Remount when session status changes so useActionState can't keep a stale ok after withdraw.
-              key={`${session?.viewerRequestStatus ?? "none"}:${session?.viewerHasJoined ? "joined" : "open"}`}
-              listingId={listingId}
-              existing={session?.viewerRequestStatus ?? null}
-              hasJoined={session?.viewerHasJoined ?? false}
-              onRequestSuccess={refreshSession}
-              onWithdraw={
-                session?.viewerHasJoined
-                  ? undefined
-                  : afterAction(() =>
-                      withdrawTesterRequest(
-                        listingId,
-                        session?.viewerRequestStatus === "accepted"
-                          ? "accepted"
-                          : "pending"
+            session?.viewerHasContactEmail ? (
+              <RequestToTestForm
+                // Remount when session status changes so useActionState can't keep a stale ok after withdraw.
+                key={`${session?.viewerRequestStatus ?? "none"}:${session?.viewerHasJoined ? "joined" : "open"}`}
+                listingId={listingId}
+                existing={session?.viewerRequestStatus ?? null}
+                hasJoined={session?.viewerHasJoined ?? false}
+                invitation={session?.viewerInvitation ?? null}
+                onRequestSuccess={refreshSession}
+                onWithdraw={
+                  session?.viewerHasJoined
+                    ? undefined
+                    : afterAction(() =>
+                        withdrawTesterRequest(
+                          listingId,
+                          session?.viewerRequestStatus === "accepted"
+                            ? "accepted"
+                            : "pending"
+                        )
                       )
-                    )
-              }
-            />
+                }
+              />
+            ) : (
+              <p className="font-semibold text-ink-muted">
+                Add your testing contact email in{" "}
+                <Link href="/onboarding/profile" className="text-ink underline">
+                  your profile
+                </Link>{" "}
+                before requesting to test.
+              </p>
+            )
           ) : (
             <p className="font-semibold text-ink-muted">
               Sign in from the header to request testing.
@@ -358,6 +394,9 @@ export function ListingSessionPanels({
                     Confirm joined
                   </SubmitButton>
                 </form>
+                {session.ownerHasPrivateInvitation ? (
+                  <ResendInvitationButton requestId={req.id} />
+                ) : null}
               </li>
             ))}
           </ul>

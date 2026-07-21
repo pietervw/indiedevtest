@@ -11,7 +11,16 @@ export type AppListingFormState = {
   ok: boolean;
   message: string;
   fieldErrors?: Partial<
-    Record<"name" | "description" | "category" | "platform" | "logoUrl", string>
+    Record<
+      | "name"
+      | "description"
+      | "category"
+      | "platform"
+      | "logoUrl"
+      | "testingAccessUrl"
+      | "testerInstructions",
+      string
+    >
   >;
 };
 
@@ -25,6 +34,8 @@ function validateListing(formData: FormData): {
     category: AppCategory;
     platform: Platform;
     logoUrl: string;
+    testingAccessUrl: string;
+    testerInstructions: string;
   };
   fieldErrors?: AppListingFormState["fieldErrors"];
   message?: string;
@@ -34,6 +45,8 @@ function validateListing(formData: FormData): {
   const category = field(formData, "category");
   const platform = field(formData, "platform");
   const logoUrl = field(formData, "logoUrl");
+  const testingAccessUrl = field(formData, "testingAccessUrl");
+  const testerInstructions = field(formData, "testerInstructions");
 
   const fieldErrors: AppListingFormState["fieldErrors"] = {};
 
@@ -52,6 +65,15 @@ function validateListing(formData: FormData): {
   if (logoUrl && !isHttpUrl(logoUrl)) {
     fieldErrors.logoUrl = "Logo must be an http(s) URL.";
   }
+  if (testingAccessUrl && !isHttpUrl(testingAccessUrl)) {
+    fieldErrors.testingAccessUrl = "Testing link must be an http(s) URL.";
+  }
+  if (testingAccessUrl.length > 500) {
+    fieldErrors.testingAccessUrl = "Testing link must be 500 characters or fewer.";
+  }
+  if (testerInstructions.length > 2000) {
+    fieldErrors.testerInstructions = "Instructions must be 2,000 characters or fewer.";
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, message: "Fix the highlighted fields." };
@@ -64,6 +86,8 @@ function validateListing(formData: FormData): {
       category: category as AppCategory,
       platform: platform as Platform,
       logoUrl: logoUrl || "",
+      testingAccessUrl,
+      testerInstructions,
     },
   };
 }
@@ -108,6 +132,8 @@ export async function createAppListing(
         category: listing.category,
         platform: listing.platform,
         logoUrl: listing.logoUrl,
+        testingAccessUrl: listing.testingAccessUrl || null,
+        testerInstructions: listing.testerInstructions || null,
         status: "open_for_testing",
       },
     });
@@ -119,7 +145,7 @@ export async function createAppListing(
 
   invalidatePublicCaches({
     listingId: created.id,
-    githubUsernames: user.githubUsername,
+    profileSlugs: user.profileSlug,
   });
 
   redirect(

@@ -30,7 +30,7 @@ type BrowseRow = {
   createdAt: Date;
   displayName: string;
   imageUrl: string | null;
-  githubUsername: string;
+  profileSlug: string;
   testers: number;
   requests: number;
 };
@@ -107,7 +107,7 @@ async function loadBrowseApps(): Promise<CachedApp[]> {
         al.created_at AS "createdAt",
         u.display_name AS "displayName",
         u.image_url AS "imageUrl",
-        u.github_username AS "githubUsername",
+        u.profile_slug AS "profileSlug",
         (
           SELECT COUNT(*)::int
           FROM test_assignments ta
@@ -147,7 +147,7 @@ async function loadBrowseApps(): Promise<CachedApp[]> {
       developer: {
         displayName: row.displayName,
         imageUrl: row.imageUrl,
-        profileHref: profilePath(row.githubUsername),
+        profileHref: profilePath(row.profileSlug),
       },
     }));
 

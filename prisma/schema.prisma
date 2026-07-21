@@ -49,10 +49,13 @@ enum BadgeType {
 model User {
   id                    String    @id @default(cuid())
   clerkId               String    @unique @map("clerk_id")
-  githubId              String    @unique @map("github_id")
-  githubUsername        String    @unique @map("github_username")
+  githubId              String?   @unique @map("github_id")
+  profileSlug           String    @unique @map("profile_slug")
+  githubUsername        String?   @unique @map("github_username")
+  githubLogin           String?   @unique @map("github_login")
   displayName           String    @map("display_name")
   imageUrl              String?   @map("image_url")
+  contactEmail          String?   @map("contact_email")
   bio                   String?
   twitterHandle         String?   @map("twitter_handle")
   profileScoreJoined    Int       @default(0) @map("profile_score_joined")
@@ -82,6 +85,8 @@ model AppListing {
   platform              Platform
   status                AppListingStatus @default(draft)
   storeLink             String?          @map("store_link")
+  testingAccessUrl      String?          @map("testing_access_url")
+  testerInstructions    String?          @map("tester_instructions")
   maxTestersPerPlatform Int              @default(14) @map("max_testers_per_platform")
   reminderSentAt        DateTime?        @map("reminder_sent_at")
   createdAt             DateTime         @default(now()) @map("created_at")

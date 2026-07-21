@@ -1,9 +1,19 @@
 import Link from "next/link";
+import {
+  acceptTesterRequest,
+  rejectTesterRequest,
+} from "@/app/actions/requests";
 import { AppLogo } from "@/components/app-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
-import type { DashboardData, DashboardListing } from "@/lib/dashboard";
+import type {
+  DashboardData,
+  DashboardIncomingRequest,
+  DashboardListing,
+  DashboardTesterInvitation,
+} from "@/lib/dashboard";
+import { SubmitButton } from "@/components/submit-button";
 import type { Platform } from "@/generated/prisma";
 import {
   TESTER_SLOT_MAX,
@@ -98,6 +108,27 @@ export function DashboardActivity({
           )}
         </section>
 
+        {data.incomingRequests.length > 0 ? (
+          <section aria-labelledby="incoming-requests-heading" className="mt-14">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2
+                id="incoming-requests-heading"
+                className="font-display text-2xl font-extrabold text-ink"
+              >
+                Tester requests
+              </h2>
+              <p className="text-sm font-semibold text-ink-muted">
+                {data.incomingRequests.length} awaiting your decision
+              </p>
+            </div>
+            <ul className="divide-y-2 divide-ink overflow-hidden rounded-2xl border-2 border-ink bg-paper shadow-brutal">
+              {data.incomingRequests.map((request) => (
+                <IncomingRequestRow key={request.id} request={request} />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <section aria-labelledby="testing-heading" className="mt-14">
           <div className="mb-4 flex items-baseline justify-between gap-3">
             <h2
@@ -127,13 +158,14 @@ export function DashboardActivity({
               {data.acceptedAwaitingJoin.length > 0 ? (
                 <ActivityGroup title="Accepted — awaiting join">
                   {data.acceptedAwaitingJoin.map((item) => (
-                    <ActivityRow
+                    <TesterActivityRow
                       key={item.id}
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
                       badge="Join the track"
                       meta={`${platformLabel[item.listing.platform] ?? item.listing.platform} · Accepted`}
+                      invitation={item.invitation}
                     />
                   ))}
                 </ActivityGroup>
@@ -141,13 +173,14 @@ export function DashboardActivity({
               {data.activeAssignments.length > 0 ? (
                 <ActivityGroup title="Active tests">
                   {data.activeAssignments.map((item) => (
-                    <ActivityRow
+                    <TesterActivityRow
                       key={item.id}
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
                       badge="Active"
                       meta={activeAssignmentMeta(item)}
+                      invitation={item.invitation}
                     />
                   ))}
                 </ActivityGroup>
@@ -195,6 +228,48 @@ export function DashboardActivity({
         </section>
       </Container>
     </div>
+  );
+}
+
+function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) {
+  const approve = acceptTesterRequest.bind(null, request.id);
+  const decline = rejectTesterRequest.bind(null, request.id);
+
+  return (
+    <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="flex min-w-0 items-start gap-3">
+        <AppLogo name={request.listing.name} logoUrl={request.listing.logoUrl} size="sm" />
+        <div className="min-w-0">
+          <p className="font-display text-lg font-bold text-ink">
+            {request.tester.displayName} wants to test {request.listing.name}
+          </p>
+          <p className="mt-1 text-sm text-ink-muted">
+            {platformLabel[request.listing.platform] ?? request.listing.platform}{" · "}
+            <a href={`mailto:${request.testerEmail}`} className="font-semibold text-ink underline">
+              {request.testerEmail}
+            </a>
+          </p>
+          <Link
+            href={appPath(request.listing.id)}
+            className="mt-2 inline-block text-sm font-semibold text-ink underline"
+          >
+            View listing
+          </Link>
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        <form action={approve}>
+          <SubmitButton size="sm" pendingLabel="Approving…">
+            Approve tester
+          </SubmitButton>
+        </form>
+        <form action={decline}>
+          <SubmitButton size="sm" variant="secondary" pendingLabel="Declining…">
+            Decline
+          </SubmitButton>
+        </form>
+      </div>
+    </li>
   );
 }
 
@@ -286,6 +361,89 @@ function ActivityRow({
           {badge}
         </Badge>
       </Link>
+    </li>
+  );
+}
+
+function TesterActivityRow({
+  href,
+  name,
+  logoUrl,
+  badge,
+  meta,
+  invitation,
+}: {
+  href: string;
+  name: string;
+  logoUrl: string;
+  badge: string;
+  meta: string;
+  invitation: DashboardTesterInvitation;
+}) {
+  const hasInvitation = Boolean(
+    invitation.testingAccessUrl ||
+      invitation.testerInstructions ||
+      invitation.developerContactEmail
+  );
+
+  return (
+    <li className="flex flex-col gap-4 p-4 sm:px-5">
+      <div className="flex flex-wrap items-start gap-3">
+        <AppLogo name={name} logoUrl={logoUrl} size="xs" />
+        <div className="min-w-0 flex-1">
+          <Link
+            href={href}
+            className="font-display font-bold text-ink underline-offset-2 hover:underline"
+          >
+            {name}
+          </Link>
+          <p className="mt-0.5 text-sm text-ink-muted">{meta}</p>
+        </div>
+        <Badge variant="outline" size="sm" className="shrink-0">
+          {badge}
+        </Badge>
+      </div>
+
+      {hasInvitation ? (
+        <div className="ml-10 rounded-xl border-2 border-ink bg-paper-muted p-3 text-sm">
+          <p className="font-display font-bold text-ink">Testing instructions</p>
+          {invitation.testerInstructions ? (
+            <p className="mt-1 whitespace-pre-wrap text-ink-muted">
+              {invitation.testerInstructions}
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-3">
+            {invitation.testingAccessUrl ? (
+              <Button
+                href={invitation.testingAccessUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="sm"
+              >
+                Open testing link ↗
+              </Button>
+            ) : null}
+            {invitation.developerContactEmail ? (
+              <a
+                href={`mailto:${invitation.developerContactEmail}`}
+                className="inline-flex items-center font-semibold text-ink underline"
+              >
+                Contact developer
+              </a>
+            ) : null}
+            <Link href={href} className="inline-flex items-center font-semibold text-ink underline">
+              View app details
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <Link
+          href={href}
+          className="ml-10 text-sm font-semibold text-ink underline"
+        >
+          View app details
+        </Link>
+      )}
     </li>
   );
 }

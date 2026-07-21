@@ -53,8 +53,8 @@ export default function TermsPage() {
 
         <LegalSection title="Accounts">
           <p>
-            You need a GitHub account and must sign in through Clerk to use
-            member features. Keep your GitHub account secure. You are
+            You need a Clerk account to use member features. You can sign in
+            with email or GitHub. Keep your sign-in method secure; you are
             responsible for activity under your signed-in profile.
           </p>
         </LegalSection>
@@ -69,9 +69,9 @@ export default function TermsPage() {
 
         <LegalSection title="Tester emails">
           <p>
-            If you request to test an app, you agree that the email you provide
-            will be shared with that listing’s owner so they can add you as a
-            tester. Use an address you are willing to share for that purpose.
+            Your saved testing contact email is shared with the owner when you
+            request to test an app, and with an accepted tester for your own
+            app. Use an address you are willing to share for that purpose.
           </p>
         </LegalSection>
 

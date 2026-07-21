@@ -1,12 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { AppBoard } from "@/components/app-board";
 import { ProfileBadges } from "@/components/profile-badges";
 import { Badge } from "@/components/ui/badge";
 import { Container } from "@/components/ui/section";
-import { getDevProfile } from "@/lib/dev-profile";
+import {
+  getDevProfile,
+  getProfileSlugForLegacyGithubUsername,
+} from "@/lib/dev-profile";
 import { profilePath } from "@/lib/mock-data";
 import { canonicalMetadata, siteConfig } from "@/lib/site";
 import type { Metadata } from "next";
@@ -19,6 +22,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = await getDevProfile(decoded);
 
   if (!profile) {
+    const legacyProfileSlug = await getProfileSlugForLegacyGithubUsername(decoded);
+    if (legacyProfileSlug) {
+      return canonicalMetadata(profilePath(legacyProfileSlug));
+    }
     return {
       ...canonicalMetadata(profilePath(decoded)),
       title: `${decoded} · Developer`,
@@ -28,10 +35,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const description =
     profile.bio?.trim().slice(0, 160) ||
-    `${profile.displayName} (@${profile.githubUsername}) on ${siteConfig.name} — ${profile.apps.length} app${profile.apps.length === 1 ? "" : "s"}, ${profile.profileScoreCompleted} tests completed.`;
+    `${profile.displayName}${profile.githubLogin ? ` (@${profile.githubLogin})` : ""} on ${siteConfig.name} — ${profile.apps.length} app${profile.apps.length === 1 ? "" : "s"}, ${profile.profileScoreCompleted} tests completed.`;
 
   return {
-    ...canonicalMetadata(profilePath(profile.githubUsername)),
+    ...canonicalMetadata(profilePath(profile.profileSlug)),
     title: `${profile.displayName} · Developer`,
     description,
   };
@@ -44,6 +51,10 @@ export default async function DevProfilePage({ params }: Props) {
   const user = await getDevProfile(decoded);
 
   if (!user) {
+    const legacyProfileSlug = await getProfileSlugForLegacyGithubUsername(decoded);
+    if (legacyProfileSlug) {
+      permanentRedirect(profilePath(legacyProfileSlug));
+    }
     notFound();
   }
 
@@ -69,14 +80,16 @@ export default async function DevProfilePage({ params }: Props) {
               {user.displayName}
             </h1>
             <p className="mt-1 text-ink-muted">
-              <Link
-                href={`https://github.com/${user.githubUsername}`}
-                className="font-semibold text-ink underline-offset-2 hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                @{user.githubUsername}
-              </Link>
+              {user.githubId && user.githubLogin ? (
+                <Link
+                  href={`https://github.com/${user.githubLogin}`}
+                  className="font-semibold text-ink underline-offset-2 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  @{user.githubLogin}
+                </Link>
+              ) : null}
               {user.twitterHandle ? (
                 <>
                   {" · "}

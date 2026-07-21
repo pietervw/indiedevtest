@@ -6,7 +6,7 @@ import {
 } from "@/lib/listing-status";
 import { mapListingToApp, type App } from "@/lib/mock-data";
 
-/** Dev profiles — 30 min memory cache per username. */
+/** Dev profiles — 30 min memory cache per public slug. */
 export const DEV_PROFILE_TTL_MS = 30 * 60 * 1000;
 /** Upper bound on cached profiles — guards against unbounded growth from
  *  distinct usernames (e.g. a crawler hitting many /dev/<x> URLs). */
@@ -15,7 +15,9 @@ const DEV_PROFILE_CACHE_MAX = 1000;
 export type DevProfile = {
   id: string;
   displayName: string;
-  githubUsername: string;
+  githubId: string | null;
+  profileSlug: string;
+  githubLogin: string | null;
   imageUrl: string | null;
   bio: string | null;
   twitterHandle: string | null;
@@ -33,23 +35,23 @@ type CacheEntry = {
 
 const memoryCache = new Map<string, CacheEntry>();
 
-export function invalidateDevProfileCache(githubUsername?: string) {
-  if (githubUsername) {
+export function invalidateDevProfileCache(profileSlug?: string) {
+  if (profileSlug) {
     // Match the case the DB is queried with (see getDevProfile) — the unique
     // lookup is case-sensitive, so the cache key must be too, otherwise
     // /dev/JOHN and /dev/john would share an entry and poison each other.
-    memoryCache.delete(githubUsername);
+    memoryCache.delete(profileSlug);
     return;
   }
   memoryCache.clear();
 }
 
-/** Cached public developer profile for /dev/[username]. */
+/** Cached public developer profile for /dev/[profileSlug]. */
 export async function getDevProfile(
-  githubUsername: string
+  profileSlug: string
 ): Promise<DevProfile | null> {
   const now = Date.now();
-  const hit = memoryCache.get(githubUsername);
+  const hit = memoryCache.get(profileSlug);
   if (hit && hit.expiresAt > now) {
     return hit.profile;
   }
@@ -60,7 +62,7 @@ export async function getDevProfile(
 
   try {
     const user = await prisma.user.findUnique({
-      where: { githubUsername },
+      where: { profileSlug },
       include: {
         badges: {
           select: { badgeType: true, earnedAt: true },
@@ -88,7 +90,9 @@ export async function getDevProfile(
       ? {
           id: user.id,
           displayName: user.displayName,
-          githubUsername: user.githubUsername,
+          githubId: user.githubId,
+          profileSlug: user.profileSlug,
+          githubLogin: user.githubLogin,
           imageUrl: user.imageUrl,
           bio: user.bio,
           twitterHandle: user.twitterHandle,
@@ -112,7 +116,7 @@ export async function getDevProfile(
     if (memoryCache.size >= DEV_PROFILE_CACHE_MAX) {
       memoryCache.clear();
     }
-    memoryCache.set(githubUsername, {
+    memoryCache.set(profileSlug, {
       expiresAt: now + DEV_PROFILE_TTL_MS,
       profile,
     });
@@ -120,5 +124,23 @@ export async function getDevProfile(
   } catch (err) {
     console.error("[dev-profile] query failed", err);
     return hit?.profile ?? null;
+  }
+}
+
+/** Resolves a pre-slug GitHub profile URL so old shared links keep working. */
+export async function getProfileSlugForLegacyGithubUsername(
+  githubUsername: string
+): Promise<string | null> {
+  if (!process.env.DATABASE_URL) return null;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { githubUsername },
+      select: { profileSlug: true },
+    });
+    return user?.profileSlug ?? null;
+  } catch (err) {
+    console.error("[dev-profile] legacy URL lookup failed", err);
+    return null;
   }
 }

@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import {
   completeProfileSetup,
-  skipProfileSetup,
   type ProfileSetupState,
 } from "@/app/actions/profile";
 import { SubmitButton } from "@/components/submit-button";
@@ -16,12 +15,64 @@ const fieldClassName =
 
 const labelClassName = "mb-1.5 block text-sm font-semibold text-ink";
 
-export function ProfileSetupForm({ className }: { className?: string }) {
+export function ProfileSetupForm({
+  className,
+  defaultContactEmail,
+  defaultBio = "",
+  defaultTwitterHandle = "",
+  verifiedContactEmails,
+}: {
+  className?: string;
+  defaultContactEmail: string;
+  defaultBio?: string;
+  defaultTwitterHandle?: string;
+  verifiedContactEmails: string[];
+}) {
   const [state, formAction] = useActionState(completeProfileSetup, initialState);
 
   return (
     <div className={cn("w-full max-w-xl", className)}>
       <form action={formAction} className="flex flex-col gap-5">
+        <div>
+          <label htmlFor="profile-contact-email" className={labelClassName}>
+            Testing contact email
+          </label>
+          <select
+            id="profile-contact-email"
+            name="contactEmail"
+            required
+            defaultValue={defaultContactEmail}
+            className={cn(fieldClassName, "h-12")}
+            aria-invalid={Boolean(state.fieldErrors?.contactEmail)}
+            disabled={verifiedContactEmails.length === 0}
+          >
+            {verifiedContactEmails.length === 0 ? (
+              <option value="">No verified email addresses found</option>
+            ) : (
+              verifiedContactEmails.map((email) => (
+                <option key={email} value={email}>
+                  {email}
+                </option>
+              ))
+            )}
+          </select>
+          <p className="mt-1 text-sm text-ink-muted">
+            Shared only with developers whose apps you request to test, and with
+            testers you accept for your own app. We never display it publicly.
+          </p>
+          {verifiedContactEmails.length === 0 ? (
+            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              Add and verify an email address in the Clerk account menu, then
+              refresh this page.
+            </p>
+          ) : null}
+          {state.fieldErrors?.contactEmail ? (
+            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              {state.fieldErrors.contactEmail}
+            </p>
+          ) : null}
+        </div>
+
         <div>
           <label htmlFor="profile-bio" className={labelClassName}>
             Short bio{" "}
@@ -32,6 +83,7 @@ export function ProfileSetupForm({ className }: { className?: string }) {
             name="bio"
             maxLength={280}
             rows={3}
+            defaultValue={defaultBio}
             placeholder="Indie Android dev. Shipping small tools. Always down to test."
             className={cn(fieldClassName, "resize-y py-3")}
             aria-invalid={Boolean(state.fieldErrors?.bio)}
@@ -60,6 +112,7 @@ export function ProfileSetupForm({ className }: { className?: string }) {
               maxLength={16}
               autoComplete="off"
               spellCheck={false}
+              defaultValue={defaultTwitterHandle}
               placeholder="yourhandle"
               className={cn(fieldClassName, "h-12 pl-8")}
               aria-invalid={Boolean(state.fieldErrors?.twitterHandle)}
@@ -72,7 +125,12 @@ export function ProfileSetupForm({ className }: { className?: string }) {
           ) : null}
         </div>
 
-        <SubmitButton size="lg" pendingLabel="Saving…" className="w-full sm:w-auto">
+        <SubmitButton
+          size="lg"
+          pendingLabel="Saving…"
+          disabled={verifiedContactEmails.length === 0}
+          className="w-full sm:w-auto"
+        >
           Save profile
         </SubmitButton>
 
@@ -83,14 +141,6 @@ export function ProfileSetupForm({ className }: { className?: string }) {
         ) : null}
       </form>
 
-      <form action={skipProfileSetup} className="mt-8 border-t-2 border-line pt-6">
-        <button
-          type="submit"
-          className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-ink-muted transition-colors hover:text-ink"
-        >
-          Skip for now — browse apps
-        </button>
-      </form>
     </div>
   );
 }

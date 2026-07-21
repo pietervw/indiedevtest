@@ -57,7 +57,7 @@ export async function createReview(
       id: true,
       status: true,
       userId: true,
-      user: { select: { githubUsername: true } },
+      user: { select: { profileSlug: true } },
     },
   });
 
@@ -130,10 +130,10 @@ export async function createReview(
   }
 
   revalidatePath(appPath(listing.id));
-  revalidatePath(profilePath(user.githubUsername));
+  revalidatePath(profilePath(user.profileSlug));
   invalidatePublicCaches({
     listingId: listing.id,
-    githubUsernames: user.githubUsername,
+    profileSlugs: user.profileSlug,
   });
 
   return { ok: true, message: "Review published — thanks for the feedback." };

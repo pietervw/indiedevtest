@@ -111,10 +111,10 @@ export async function sendContactNotification(input: {
   });
 }
 
-/** Alert the admin once when a GitHub user first receives a local profile. */
+/** Alert the admin once when a Clerk user first receives a local profile. */
 export async function sendFirstUserSignupNotification(input: {
   displayName: string;
-  githubUsername: string;
+  profileHandle: string;
 }): Promise<boolean> {
   const product = siteConfig.name;
   return sendPushoverNotification({
@@ -123,7 +123,7 @@ export async function sendFirstUserSignupNotification(input: {
       `A new user joined ${product}.`,
       "",
       `Name: ${input.displayName}`,
-      `GitHub: @${input.githubUsername}`,
+      `Profile: @${input.profileHandle}`,
       `Time: ${perthTimestamp()}`,
     ].join("\n"),
   });

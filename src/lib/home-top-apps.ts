@@ -17,7 +17,7 @@ type HomeTopAppRow = {
   platform: string;
   displayName: string;
   imageUrl: string | null;
-  githubUsername: string;
+  profileSlug: string;
   testers: number;
 };
 
@@ -57,7 +57,7 @@ export async function getHomeTopAppsNeedingTesters(): Promise<App[]> {
         al.platform::text AS platform,
         u.display_name AS "displayName",
         u.image_url AS "imageUrl",
-        u.github_username AS "githubUsername",
+        u.profile_slug AS "profileSlug",
         COUNT(ta.id)::int AS testers
       FROM app_listings al
       INNER JOIN users u ON u.id = al.user_id
@@ -81,7 +81,7 @@ export async function getHomeTopAppsNeedingTesters(): Promise<App[]> {
       developer: {
         displayName: row.displayName,
         imageUrl: row.imageUrl,
-        profileHref: profilePath(row.githubUsername),
+        profileHref: profilePath(row.profileSlug),
       },
     }));
 

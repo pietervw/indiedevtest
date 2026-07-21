@@ -9,18 +9,15 @@ import type { TesterRequestStatus } from "@/generated/prisma";
 
 const initialState: RequestState = { ok: false, message: "" };
 
-const inputClassName =
-  "h-14 w-full rounded-xl border-2 border-ink bg-paper px-4 font-medium text-ink shadow-brutal outline-none transition-shadow placeholder:text-ink-muted focus:shadow-brutal-brand-lg disabled:opacity-50";
-
 /**
- * Tester-facing "Request to test" form. When the viewer already has an active
- * request we surface its state instead of the form; declined/expired requests
- * can be re-submitted.
+ * Tester-facing request button. Contact email is collected once in profile
+ * setup, then the server snapshots it onto each request for audit/history.
  */
 export function RequestToTestForm({
   listingId,
   existing,
   hasJoined = false,
+  invitation = null,
   onWithdraw,
   onRequestSuccess,
 }: {
@@ -28,6 +25,11 @@ export function RequestToTestForm({
   existing: TesterRequestStatus | null;
   /** Owner already confirmed join — withdraw is no longer allowed. */
   hasJoined?: boolean;
+  invitation?: {
+    testingAccessUrl: string | null;
+    testerInstructions: string | null;
+    developerContactEmail: string | null;
+  } | null;
   onWithdraw?: () => Promise<void>;
   /** Refresh listing session after a successful create so status stays authoritative. */
   onRequestSuccess?: () => void;
@@ -45,9 +47,47 @@ export function RequestToTestForm({
   // Session status wins over optimistic state.ok so an accept cannot stay
   // masked behind a stale "waiting" / pending-withdraw UI.
   if (existing === "accepted") {
+    const hasInvitation = Boolean(
+      invitation?.testingAccessUrl ||
+        invitation?.testerInstructions ||
+        invitation?.developerContactEmail
+    );
+
     return (
       <div>
         <p className="font-display text-lg font-bold text-ink">You&apos;re in! 🎉</p>
+        {hasInvitation ? (
+          <div className="mt-4 rounded-xl border-2 border-ink bg-paper-muted p-4 text-sm text-ink">
+            <p className="font-display text-base font-bold">Your testing invitation</p>
+            {invitation?.testerInstructions ? (
+              <p className="mt-2 whitespace-pre-wrap text-ink-muted">
+                {invitation.testerInstructions}
+              </p>
+            ) : null}
+            {invitation?.testingAccessUrl ? (
+              <a
+                href={invitation.testingAccessUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex font-semibold text-ink underline decoration-brand decoration-2 underline-offset-4"
+              >
+                Open testing access link ↗
+              </a>
+            ) : null}
+            {invitation?.developerContactEmail ? (
+              <p className="mt-3 text-ink-muted">
+                Need help joining? Contact the developer at{" "}
+                <a
+                  href={`mailto:${invitation.developerContactEmail}`}
+                  className="font-semibold text-ink underline"
+                >
+                  {invitation.developerContactEmail}
+                </a>
+                .
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {hasJoined ? (
           <p className="mt-1 text-sm text-ink-muted">
             You&apos;re on the testing track for this app.
@@ -55,7 +95,9 @@ export function RequestToTestForm({
         ) : (
           <>
             <p className="mt-1 text-sm text-ink-muted">
-              The developer will email you next steps to join the testing track.
+              {hasInvitation
+                ? "Use the invitation above, then wait for the developer to confirm you joined."
+                : "The developer will email you next steps to join the testing track."}
             </p>
             {onWithdraw ? (
               <form action={onWithdraw} className="mt-3">
@@ -97,32 +139,10 @@ export function RequestToTestForm({
         Request to test
       </h2>
       <p className="mt-2 text-sm text-ink-muted">
-        Share your email so the developer can add you to their Play Store /
-        TestFlight track. Everything else happens off-platform over email.
+        Your saved testing contact email will be shared with this developer so
+        they can add you to their Play Store / TestFlight track.
       </p>
       <form action={formAction} className="mt-4 flex flex-col gap-3">
-        <label className="sr-only" htmlFor="request-email">
-          Your email
-        </label>
-        <input
-          id="request-email"
-          name="email"
-          type="email"
-          required
-          maxLength={254}
-          autoComplete="email"
-          placeholder="you@indie.dev"
-          className={cn(
-            inputClassName,
-            state.fieldErrors?.email ? "border-red-600" : ""
-          )}
-          aria-invalid={Boolean(state.fieldErrors?.email)}
-        />
-        {state.fieldErrors?.email ? (
-          <p className="text-sm font-semibold text-red-600" role="alert">
-            {state.fieldErrors.email}
-          </p>
-        ) : null}
         <SubmitButton size="lg" pendingLabel="Sending…" className="w-full sm:w-auto">
           Request to test
         </SubmitButton>

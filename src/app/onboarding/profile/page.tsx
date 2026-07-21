@@ -1,6 +1,7 @@
 import { ProfileSetupForm } from "@/components/profile-setup-form";
 import { Container } from "@/components/ui/section";
 import { requireProfileSetupPending } from "@/lib/auth-guards";
+import { getVerifiedClerkEmails } from "@/lib/verified-clerk-emails";
 import { canonicalMetadata } from "@/lib/site";
 import type { Metadata } from "next";
 
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
 };
 
 export default async function OnboardingProfilePage() {
-  await requireProfileSetupPending();
+  const user = await requireProfileSetupPending();
+  const verifiedContactEmails = await getVerifiedClerkEmails();
 
   return (
     <div className="relative flex-1 overflow-hidden bg-grid">
@@ -24,10 +26,16 @@ export default async function OnboardingProfilePage() {
           Set up your profile
         </h1>
         <p className="mt-4 max-w-lg text-lg text-ink-muted">
-          A short bio and X handle help other indie testers know who you are.
+          Add the email address you want to share for testing. A short bio and X
+          handle help other indie testers know who you are.
         </p>
         <div className="mt-10">
-          <ProfileSetupForm />
+          <ProfileSetupForm
+            defaultContactEmail={user.contactEmail ?? verifiedContactEmails[0] ?? ""}
+            defaultBio={user.bio ?? ""}
+            defaultTwitterHandle={user.twitterHandle ?? ""}
+            verifiedContactEmails={verifiedContactEmails}
+          />
         </div>
       </Container>
     </div>

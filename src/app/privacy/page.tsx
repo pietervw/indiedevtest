@@ -47,24 +47,25 @@ export default function PrivacyPage() {
           </p>
         </LegalSection>
 
-        <LegalSection title="Accounts (GitHub + Clerk)">
+        <LegalSection title="Accounts (Clerk, email, and optional GitHub)">
           <p>
-            You sign in with GitHub through Clerk. Clerk holds your
-            authentication session and the GitHub account details needed to sign
-            you in.
+            You sign in through Clerk using email or, if you choose, GitHub.
+            Clerk holds your authentication session and any linked provider
+            details needed to sign you in.
           </p>
           <p>
             After you sign in, we keep a local profile in our database with
-            information such as your Clerk user id, GitHub id, GitHub username,
-            display name, and profile image URL. You can also add an optional bio
-            and X/Twitter handle during onboarding.
+            information such as your Clerk user id, display name, profile image
+            URL, and an optional linked GitHub id and username. You can also add
+            a testing contact email, optional bio, and X/Twitter handle during
+            onboarding.
           </p>
         </LegalSection>
 
         <LegalSection title="Public profiles and listings">
           <p>
             Developer profiles and app listings you publish are meant to be
-            public. That typically includes your display name, GitHub username,
+            public. That typically includes your display name, profile handle,
             photo, bio, social handle if you added one, and the app details you
             post (name, description, logo, store or TestFlight link, platform,
             and status).
@@ -77,10 +78,11 @@ export default function PrivacyPage() {
 
         <LegalSection title="Tester emails">
           <p>
-            When you request to test someone’s app, you share an email address so
-            that listing’s owner can add you in Play Console or TestFlight. That
-            email is stored with the request and shown only to the owner of that
-            listing — not to other testers or the public browse pages.
+            Your saved testing contact email is stored on your private profile.
+            When you request to test someone’s app, we snapshot and share it
+            with that listing’s owner. When you accept a tester for your own
+            app, we share your saved contact email with that tester. It is never
+            shown on public browse pages or public profiles.
           </p>
         </LegalSection>
 

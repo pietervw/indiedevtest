@@ -20,14 +20,17 @@ import {
 } from "@/lib/expire-pending-tester-requests";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
-import { takeRateLimit, checkRateLimit } from "@/lib/rate-limit";
+import { takeRateLimit, checkRateLimit, releaseRateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site";
-import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
 export type RequestState = {
   ok: boolean;
   message: string;
-  fieldErrors?: { email?: string };
+};
+
+export type ResendInvitationState = {
+  ok: boolean;
+  message: string;
 };
 
 function revalidateListingActivity(listingId: string) {
@@ -36,7 +39,7 @@ function revalidateListingActivity(listingId: string) {
 }
 
 /**
- * Tester asks to test an app. Shares their email with the dev.
+ * Tester asks to test an app. Their saved profile email is shared with the dev.
  * One active request per (listing, tester); re-requesting after a
  * decline/expiry reactivates the existing row.
  */
@@ -45,6 +48,9 @@ export async function createTesterRequest(
   _prev: RequestState,
   formData: FormData
 ): Promise<RequestState> {
+  // The saved profile address is authoritative; this button has no fields.
+  void _prev;
+  void formData;
   const user = await requireDbUser();
 
   const listing = await prisma.appListing.findUnique({
@@ -54,7 +60,7 @@ export async function createTesterRequest(
       name: true,
       status: true,
       userId: true,
-      user: { select: { clerkId: true, displayName: true, githubUsername: true } },
+      user: { select: { clerkId: true, displayName: true, profileSlug: true } },
     },
   });
 
@@ -65,12 +71,11 @@ export async function createTesterRequest(
     return { ok: false, message: "You can't request to test your own app." };
   }
 
-  const email = normalizeEmail(String(formData.get("email") ?? ""));
-  if (!isValidEmail(email)) {
+  const email = user.contactEmail;
+  if (!email) {
     return {
       ok: false,
-      message: "Enter a valid email.",
-      fieldErrors: { email: "Enter a valid email address." },
+      message: "Add your testing contact email in your profile before requesting a test.",
     };
   }
 
@@ -155,7 +160,7 @@ export async function createTesterRequest(
   revalidateListingActivity(listing.id);
   invalidatePublicCaches({
     listingId: listing.id,
-    githubUsernames: listing.user.githubUsername,
+    profileSlugs: listing.user.profileSlug,
   });
 
   void sendNewTesterRequestEmail({
@@ -198,7 +203,7 @@ export async function withdrawTesterRequest(
     },
     select: {
       id: true,
-      appListing: { select: { user: { select: { githubUsername: true } } } },
+      appListing: { select: { user: { select: { profileSlug: true } } } },
     },
   });
   if (!request) return;
@@ -218,7 +223,7 @@ export async function withdrawTesterRequest(
   revalidateListingActivity(listingId);
   invalidatePublicCaches({
     listingId,
-    githubUsernames: [user.githubUsername, request.appListing.user.githubUsername],
+    profileSlugs: [user.profileSlug, request.appListing.user.profileSlug],
   });
 }
 
@@ -238,7 +243,9 @@ async function resolveTesterRequest(
         select: {
           userId: true,
           name: true,
-          user: { select: { githubUsername: true } },
+          testingAccessUrl: true,
+          testerInstructions: true,
+          user: { select: { profileSlug: true, contactEmail: true } },
         },
       },
     },
@@ -269,7 +276,7 @@ async function resolveTesterRequest(
   // Reject drops pending count used by browse "most requested" sort.
   invalidatePublicCaches({
     listingId: request.appListingId,
-    githubUsernames: request.appListing.user.githubUsername,
+    profileSlugs: request.appListing.user.profileSlug,
   });
 
   const notify =
@@ -278,6 +285,9 @@ async function resolveTesterRequest(
           testerEmail: request.testerEmail,
           appName: request.appListing.name,
           listingUrl: `${siteConfig.url}${appPath(request.appListingId)}`,
+          developerContactEmail: request.appListing.user.contactEmail,
+          testingAccessUrl: request.appListing.testingAccessUrl,
+          testerInstructions: request.appListing.testerInstructions,
         })
       : sendRequestRejectedEmail({
           testerEmail: request.testerEmail,
@@ -286,6 +296,92 @@ async function resolveTesterRequest(
   void notify.catch((err) => {
     console.error(`[requests] ${outcome} email failed`, err);
   });
+}
+
+/**
+ * Owner may resend the saved private invitation to an accepted tester. This is
+ * intentionally one tester at a time; a small rate limit prevents accidental
+ * or abusive repeat sends without adding an outbound-email queue to the MVP.
+ */
+export async function resendTesterInvitation(
+  requestId: string,
+  _prev: ResendInvitationState,
+  _formData: FormData
+): Promise<ResendInvitationState> {
+  // useActionState supplies these arguments even though this mutation has no
+  // form fields and its response is only the delivery status.
+  void _prev;
+  void _formData;
+  const user = await requireDbUser();
+  const request = await prisma.testerRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      status: true,
+      testAssignmentId: true,
+      testerEmail: true,
+      appListingId: true,
+      appListing: {
+        select: {
+          userId: true,
+          name: true,
+          testingAccessUrl: true,
+          testerInstructions: true,
+          user: { select: { contactEmail: true } },
+        },
+      },
+    },
+  });
+
+  if (
+    !request ||
+    request.appListing.userId !== user.id ||
+    request.status !== "accepted" ||
+    request.testAssignmentId !== null
+  ) {
+    return { ok: false, message: "That tester is no longer awaiting an invitation." };
+  }
+  if (
+    !request.appListing.testingAccessUrl &&
+    !request.appListing.testerInstructions &&
+    !request.appListing.user.contactEmail
+  ) {
+    return {
+      ok: false,
+      message:
+        "Add a testing link, instructions, or a contact email before sending an invitation.",
+    };
+  }
+
+  const invitationLimitKey = `tester-invitation:${user.id}`;
+  const limit = takeRateLimit({
+    key: invitationLimitKey,
+    limit: 6,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limit.allowed || !limit.reservation) {
+    const minutes = Math.max(1, Math.ceil(limit.retryAfterSeconds / 60));
+    return {
+      ok: false,
+      message: `You've resent several invitations recently. Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+    };
+  }
+
+  try {
+    await sendRequestAcceptedEmail({
+      testerEmail: request.testerEmail,
+      appName: request.appListing.name,
+      listingUrl: `${siteConfig.url}${appPath(request.appListingId)}`,
+      developerContactEmail: request.appListing.user.contactEmail,
+      testingAccessUrl: request.appListing.testingAccessUrl,
+      testerInstructions: request.appListing.testerInstructions,
+    });
+  } catch (err) {
+    releaseRateLimit(limit.reservation);
+    console.error("[requests] resend invitation email failed", err);
+    return { ok: false, message: "Could not resend the invitation. Try again shortly." };
+  }
+
+  return { ok: true, message: "Invitation resent." };
 }
 
 /**
@@ -304,12 +400,12 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
       testerUserId: true,
       testAssignmentId: true,
       appListingId: true,
-      tester: { select: { githubUsername: true } },
+      tester: { select: { profileSlug: true } },
       appListing: {
         select: {
           userId: true,
           platform: true,
-          user: { select: { githubUsername: true } },
+          user: { select: { profileSlug: true } },
         },
       },
     },
@@ -357,9 +453,9 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
   revalidateListingActivity(request.appListingId);
   invalidatePublicCaches({
     listingId: request.appListingId,
-    githubUsernames: [
-      request.tester.githubUsername,
-      request.appListing.user.githubUsername,
+    profileSlugs: [
+      request.tester.profileSlug,
+      request.appListing.user.profileSlug,
     ],
   });
 }
@@ -410,13 +506,13 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
   }
 
   revalidateListingActivity(assignment.appListingId);
-  revalidatePath(profilePath(assignment.tester.githubUsername));
-  revalidatePath(profilePath(assignment.appListing.user.githubUsername));
+  revalidatePath(profilePath(assignment.tester.profileSlug));
+  revalidatePath(profilePath(assignment.appListing.user.profileSlug));
   invalidatePublicCaches({
     listingId: assignment.appListingId,
-    githubUsernames: [
-      assignment.tester.githubUsername,
-      assignment.appListing.user.githubUsername,
+    profileSlugs: [
+      assignment.tester.profileSlug,
+      assignment.appListing.user.profileSlug,
     ],
   });
 
@@ -472,13 +568,13 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
   }
 
   revalidateListingActivity(assignment.appListingId);
-  revalidatePath(profilePath(assignment.tester.githubUsername));
-  revalidatePath(profilePath(assignment.appListing.user.githubUsername));
+  revalidatePath(profilePath(assignment.tester.profileSlug));
+  revalidatePath(profilePath(assignment.appListing.user.profileSlug));
   invalidatePublicCaches({
     listingId: assignment.appListingId,
-    githubUsernames: [
-      assignment.tester.githubUsername,
-      assignment.appListing.user.githubUsername,
+    profileSlugs: [
+      assignment.tester.profileSlug,
+      assignment.appListing.user.profileSlug,
     ],
   });
 }
@@ -493,12 +589,12 @@ async function fetchOwnedAssignment(assignmentId: string, userId: string) {
       joinedAt: true,
       testerUserId: true,
       appListingId: true,
-      tester: { select: { githubUsername: true } },
+      tester: { select: { profileSlug: true } },
       appListing: {
         select: {
           userId: true,
           name: true,
-          user: { select: { githubUsername: true } },
+          user: { select: { profileSlug: true } },
         },
       },
       testerRequest: { select: { testerEmail: true } },
