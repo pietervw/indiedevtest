@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createTesterRequest, type RequestState } from "@/app/actions/requests";
 import { SubmitButton } from "@/components/submit-button";
 import { cn } from "@/lib/utils";
@@ -21,33 +22,28 @@ export function RequestToTestForm({
   existing,
   hasJoined = false,
   onWithdraw,
+  onRequestSuccess,
 }: {
   listingId: string;
   existing: TesterRequestStatus | null;
   /** Owner already confirmed join — withdraw is no longer allowed. */
   hasJoined?: boolean;
   onWithdraw?: () => Promise<void>;
+  /** Refresh listing session after a successful create so status stays authoritative. */
+  onRequestSuccess?: () => void;
 }) {
+  const router = useRouter();
   const action = createTesterRequest.bind(null, listingId);
   const [state, formAction] = useActionState(action, initialState);
 
-  if (existing === "pending" || state.ok) {
-    return (
-      <div>
-        <p className="font-display text-lg font-bold text-ink">
-          Request sent — waiting for the developer to respond.
-        </p>
-        {onWithdraw ? (
-          <form action={onWithdraw} className="mt-3">
-            <SubmitButton size="sm" variant="secondary" pendingLabel="Withdrawing…">
-              Withdraw request
-            </SubmitButton>
-          </form>
-        ) : null}
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!state.ok) return;
+    onRequestSuccess?.();
+    router.refresh();
+  }, [state.ok, onRequestSuccess, router]);
 
+  // Session status wins over optimistic state.ok so an accept cannot stay
+  // masked behind a stale "waiting" / pending-withdraw UI.
   if (existing === "accepted") {
     return (
       <div>
@@ -74,6 +70,23 @@ export function RequestToTestForm({
             ) : null}
           </>
         )}
+      </div>
+    );
+  }
+
+  if (existing === "pending" || state.ok) {
+    return (
+      <div>
+        <p className="font-display text-lg font-bold text-ink">
+          Request sent — waiting for the developer to respond.
+        </p>
+        {onWithdraw ? (
+          <form action={onWithdraw} className="mt-3">
+            <SubmitButton size="sm" variant="secondary" pendingLabel="Withdrawing…">
+              Withdraw request
+            </SubmitButton>
+          </form>
+        ) : null}
       </div>
     );
   }

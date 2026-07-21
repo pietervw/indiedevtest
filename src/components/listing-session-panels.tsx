@@ -246,6 +246,10 @@ export function ListingSessionPanels({
     };
   }
 
+  const refreshSession = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+
   return (
     <>
       {acceptingRequests && !isOwner ? (
@@ -259,10 +263,18 @@ export function ListingSessionPanels({
               listingId={listingId}
               existing={session?.viewerRequestStatus ?? null}
               hasJoined={session?.viewerHasJoined ?? false}
+              onRequestSuccess={refreshSession}
               onWithdraw={
                 session?.viewerHasJoined
                   ? undefined
-                  : afterAction(() => withdrawTesterRequest(listingId))
+                  : afterAction(() =>
+                      withdrawTesterRequest(
+                        listingId,
+                        session?.viewerRequestStatus === "accepted"
+                          ? "accepted"
+                          : "pending"
+                      )
+                    )
               }
             />
           ) : (

@@ -20,7 +20,7 @@ import {
 } from "@/lib/expire-pending-tester-requests";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
-import { takeRateLimit } from "@/lib/rate-limit";
+import { takeRateLimit, checkRateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
@@ -100,7 +100,8 @@ export async function createTesterRequest(
   }
 
   // A small per-user guard stops an account from mass-emailing listing owners.
-  const requestLimit = takeRateLimit({
+  // Check first; only consume a slot after the DB write succeeds.
+  const requestLimit = checkRateLimit({
     key: `tester-request:${user.id}`,
     limit: 6,
     windowMs: 60 * 60 * 1000,
@@ -145,6 +146,12 @@ export async function createTesterRequest(
     };
   }
 
+  takeRateLimit({
+    key: `tester-request:${user.id}`,
+    limit: 6,
+    windowMs: 60 * 60 * 1000,
+  });
+
   revalidateListingActivity(listing.id);
   invalidatePublicCaches({
     listingId: listing.id,
@@ -179,7 +186,10 @@ export async function rejectTesterRequest(requestId: string): Promise<void> {
 }
 
 /** Tester withdraws before joining; reuses expired so they can request again. */
-export async function withdrawTesterRequest(listingId: string): Promise<void> {
+export async function withdrawTesterRequest(
+  listingId: string,
+  expectedStatus: "pending" | "accepted" = "pending"
+): Promise<void> {
   const user = await requireDbUser();
 
   const request = await prisma.testerRequest.findUnique({
@@ -193,10 +203,12 @@ export async function withdrawTesterRequest(listingId: string): Promise<void> {
   });
   if (!request) return;
 
+  // CAS on the UI's expected status so a stale "pending" view cannot expire an
+  // already-accepted request (and vice versa).
   const { count } = await prisma.testerRequest.updateMany({
     where: {
       id: request.id,
-      status: { in: ["pending", "accepted"] },
+      status: expectedStatus,
       testAssignmentId: null,
     },
     data: { status: "expired" },
