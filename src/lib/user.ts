@@ -70,7 +70,6 @@ export async function ensureDbUser() {
     }
 
     // First local profile: only the unique-insert winner may notify (CAS on clerkId).
-    let uniqueConflict: unknown;
     try {
       const created = await prisma.user.create({
         data: {
@@ -90,7 +89,6 @@ export async function ensureDbUser() {
       ) {
         throw err;
       }
-      uniqueConflict = err;
     }
 
     // A GitHub account is the stable identity for this GitHub-only product.
@@ -112,9 +110,13 @@ export async function ensureDbUser() {
       });
     }
 
-    // A collision on another unique field (for example a username) must not
-    // be auto-linked: only GitHub's immutable provider id proves ownership.
-    throw uniqueConflict;
+    // Username-only (or other non-githubId) collisions must not auto-link.
+    // Fail closed to null — callers treat that as unusable session, not a 500.
+    console.warn("[user] unique conflict without matching githubId", {
+      githubId: github.providerUserId,
+      clerkId: clerkUser.id,
+    });
+    return null;
   } catch (err) {
     console.error("[user] ensureDbUser failed", err);
     return null;
