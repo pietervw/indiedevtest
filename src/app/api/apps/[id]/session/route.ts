@@ -154,6 +154,7 @@ export async function GET(_request: Request, { params }: Props) {
     assignments: assignments.map((row) => ({
       id: row.id,
       status: row.status as "active" | "completed",
+      platform: row.platform,
       joinedAt: row.joinedAt.toISOString(),
       completedAt: row.completedAt?.toISOString() ?? null,
       tester: row.tester,

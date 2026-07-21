@@ -149,9 +149,15 @@ function OwnerAssignmentRow({
   afterAction: (fn: () => Promise<void>) => () => Promise<void>;
 }) {
   const done = assignment.status === "completed";
-  const unlockAt = new Date(assignment.joinedAt).getTime() + TESTING_PERIOD_MS;
-  useRerenderAt(done ? null : unlockAt);
-  const progress = testingPeriodProgress(assignment.joinedAt);
+  const progress = testingPeriodProgress(
+    assignment.joinedAt,
+    assignment.platform
+  );
+  const unlockAt =
+    !done && !progress.canComplete
+      ? new Date(assignment.joinedAt).getTime() + TESTING_PERIOD_MS
+      : null;
+  useRerenderAt(unlockAt);
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
@@ -162,9 +168,11 @@ function OwnerAssignmentRow({
             ? `Completed ${new Date(
                 assignment.completedAt ?? assignment.joinedAt
               ).toLocaleDateString()}`
-            : `${progress.label} · joined ${new Date(
-                assignment.joinedAt
-              ).toLocaleDateString()}`
+            : progress.label
+              ? `${progress.label} · joined ${new Date(
+                  assignment.joinedAt
+                ).toLocaleDateString()}`
+              : `Joined ${new Date(assignment.joinedAt).toLocaleDateString()}`
         }
       />
       <div className="flex shrink-0 items-center gap-2">

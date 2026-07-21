@@ -24,16 +24,22 @@ export function ShareListing({ appName, category, url }: ShareListingProps) {
   async function share() {
     try {
       if (navigator.share) {
-        await navigator.share({ title: appName, text, url });
-        setMessage("Thanks for sharing.");
-        return;
+        try {
+          await navigator.share({ title: appName, text, url });
+          setMessage("Thanks for sharing.");
+          return;
+        } catch (error) {
+          // User dismissed the sheet — not a failure. Other share errors fall
+          // through to clipboard so sharing still degrades to copy-link.
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+        }
       }
 
       await navigator.clipboard.writeText(url);
       setMessage("Link copied.");
-    } catch (error) {
-      // Dismissing the native share sheet is not an error the user needs to see.
-      if (error instanceof DOMException && error.name === "AbortError") return;
+    } catch {
       setMessage("Couldn’t share the link. Try the X button instead.");
     }
   }

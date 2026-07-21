@@ -26,6 +26,7 @@ export type ListingSessionPayload = {
   assignments: {
     id: string;
     status: "active" | "completed";
+    platform: "android" | "ios";
     joinedAt: string;
     completedAt: string | null;
     tester: {
