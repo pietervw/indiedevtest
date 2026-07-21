@@ -103,6 +103,30 @@ export default async function DevProfilePage({ params }: Props) {
                   </Link>
                 </>
               ) : null}
+              {user.trustMrrProfileUrl ? (
+                <>
+                  {(user.githubId && user.githubLogin) || user.twitterHandle
+                    ? " · "
+                    : null}
+                  <Link
+                    href={user.trustMrrProfileUrl}
+                    className="font-semibold text-ink underline-offset-2 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    TrustMRR profile
+                  </Link>
+                  {" · "}
+                  <Link
+                    href="https://trustmrr.com"
+                    className="font-semibold text-ink underline-offset-2 hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    What&apos;s TrustMRR? ↗
+                  </Link>
+                </>
+              ) : null}
             </p>
             {user.bio ? (
               <p className="mt-4 max-w-xl text-lg text-ink-muted">{user.bio}</p>

@@ -17,6 +17,8 @@ export type ListingSessionPayload = {
   /** Confirmed tester may write a review (joined + listing open/closed + none yet). */
   canWriteReview: boolean;
   hasWrittenReview: boolean;
+  /** Owner may accept pending testers only while the listing is open for testing. */
+  canApproveTesters: boolean;
   pendingRequests: {
     id: string;
     testerEmail: string;

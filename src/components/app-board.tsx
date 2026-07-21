@@ -81,7 +81,15 @@ export function AppBoard({
 
       <ul className="divide-y-2 divide-line">
         {apps.map((app) => (
-          <li key={app.id} className="relative">
+          <li
+            key={app.id}
+            className={cn(
+              "relative",
+              app.browseState === "own" && "bg-paper-muted opacity-60",
+              app.browseState === "requested" && "bg-brand/10",
+              app.browseState === "testing" && "bg-brand/20"
+            )}
+          >
             {app.href ? (
               <Link
                 href={app.href}
@@ -101,6 +109,7 @@ export function AppBoard({
                     <AppLogo
                       name={app.name}
                       logoUrl={app.logoUrl}
+                      platform={app.platform}
                       size="xs"
                       className="border-0"
                     />
@@ -112,6 +121,19 @@ export function AppBoard({
                     {app.category} · {app.platform}
                     {app.developer ? ` · ${app.developer.displayName}` : null}
                   </p>
+                  {app.browseState ? (
+                    <Badge
+                      variant={app.browseState === "own" ? "muted" : "dark"}
+                      size="sm"
+                      className="mt-1"
+                    >
+                      {app.browseState === "own"
+                        ? "Your app"
+                        : app.browseState === "requested"
+                          ? "Requested"
+                          : "You’re testing"}
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
               <div className="relative z-10 w-24 shrink-0 sm:w-28">

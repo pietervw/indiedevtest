@@ -13,9 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
 import { ProgressBar } from "@/components/ui/progress";
 import { ShareListing } from "@/components/share-listing";
+import { ListingReportForm } from "@/components/listing-report-form";
 import { getOptionalDbUser } from "@/lib/auth-guards";
 import {
-  TESTER_SLOT_MAX,
   appPath,
   categoryLabel,
   platformLabel,
@@ -49,9 +49,9 @@ export default async function AppListingPage({ params }: Props) {
   await connection();
   const { id } = await params;
 
+  const viewer = await getOptionalDbUser();
   let listing = await getPublicListing(id);
   if (!listing) {
-    const viewer = await getOptionalDbUser();
     if (viewer) {
       listing = await getOwnerListing(id, viewer.id);
     }
@@ -70,7 +70,7 @@ export default async function AppListingPage({ params }: Props) {
           <ListingPageHeader listingId={listing.id} />
 
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start">
-            <AppLogo name={listing.name} logoUrl={listing.logoUrl} size="lg" />
+            <AppLogo name={listing.name} logoUrl={listing.logoUrl} platform={listing.platform} size="lg" />
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -116,12 +116,16 @@ export default async function AppListingPage({ params }: Props) {
 
               <div className="mt-6 max-w-xs">
                 <div className="mb-1 flex justify-between font-display text-sm font-bold text-ink">
-                  <span>Testers</span>
+                  <span>Accepted testers</span>
                   <span>
-                    {listing.testers}/{TESTER_SLOT_MAX}
+                    {listing.testerCapacity === null
+                      ? `${listing.acceptedTesters} accepted`
+                      : `${listing.acceptedTesters}/${listing.testerCapacity}`}
                   </span>
                 </div>
-                <ProgressBar value={listing.testers} />
+                {listing.testerCapacity !== null ? (
+                  <ProgressBar value={listing.acceptedTesters} max={listing.testerCapacity} />
+                ) : null}
               </div>
             </div>
           </div>
@@ -143,6 +147,11 @@ export default async function AppListingPage({ params }: Props) {
             </div>
           ) : null}
 
+          <ListingSessionPanels
+            listingId={listing.id}
+            listingStatus={listing.status}
+          />
+
           {(listing.status === "open_for_testing" ||
             listing.status === "closed_for_testing") && (
             <ShareListing
@@ -151,10 +160,9 @@ export default async function AppListingPage({ params }: Props) {
             />
           )}
 
-          <ListingSessionPanels
-            listingId={listing.id}
-            listingStatus={listing.status}
-          />
+          {viewer && viewer.id !== listing.userId ? (
+            <ListingReportForm listingId={listing.id} />
+          ) : null}
 
           {showReviews ? (
             <section className="mt-14 max-w-2xl">

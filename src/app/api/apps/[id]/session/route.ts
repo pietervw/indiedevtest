@@ -23,6 +23,7 @@ const emptySession: ListingSessionPayload = {
   viewerInvitation: null,
   canWriteReview: false,
   hasWrittenReview: false,
+  canApproveTesters: false,
   pendingRequests: [],
   acceptedRequests: [],
   assignments: [],
@@ -57,6 +58,7 @@ export async function GET(_request: Request, { params }: Props) {
       id: true,
       userId: true,
       status: true,
+      moderationStatus: true,
       testingAccessUrl: true,
       testerInstructions: true,
       user: { select: { contactEmail: true } },
@@ -70,7 +72,10 @@ export async function GET(_request: Request, { params }: Props) {
   const isOwner = viewer.id === listing.userId;
   // Match /apps/[id]: non-owners must not learn that a draft (or other
   // non-public) listing id exists.
-  if (!isOwner && !isPublicListingStatus(listing.status)) {
+  if (
+    !isOwner &&
+    (!isPublicListingStatus(listing.status) || listing.moderationStatus !== "visible")
+  ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -178,6 +183,7 @@ export async function GET(_request: Request, { params }: Props) {
         : null,
     canWriteReview,
     hasWrittenReview,
+    canApproveTesters: listing.status === "open_for_testing",
     pendingRequests: pendingRequests.map((req) => ({
       id: req.id,
       testerEmail: req.testerEmail,

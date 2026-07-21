@@ -8,11 +8,13 @@ import {
   syncFirst12Badge,
 } from "@/lib/badges";
 import { prisma } from "@/lib/db";
+import { TesterActivityType } from "@/generated/prisma";
 import {
   sendNewTesterRequestEmail,
   sendRequestAcceptedEmail,
   sendRequestRejectedEmail,
   sendTestCompletedEmail,
+  sendTesterWithdrawalEmail,
 } from "@/lib/email";
 import {
   expirePendingTesterRequests,
@@ -22,6 +24,8 @@ import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
 import { takeRateLimit, checkRateLimit, releaseRateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site";
+import { getVerifiedClerkEmails } from "@/lib/verified-clerk-emails";
+import { sendTesterRequestNotification } from "@/lib/pushover";
 
 export type RequestState = {
   ok: boolean;
@@ -36,6 +40,17 @@ export type ResendInvitationState = {
 function revalidateListingActivity(listingId: string) {
   revalidatePath(appPath(listingId));
   revalidatePath("/dashboard");
+}
+
+/** Open + visible — not the same as public browse statuses (which include closed). */
+function isOpenForTesterRequests(listing: {
+  status: string;
+  moderationStatus: string;
+}) {
+  return (
+    listing.status === "open_for_testing" &&
+    listing.moderationStatus === "visible"
+  );
 }
 
 /**
@@ -59,12 +74,14 @@ export async function createTesterRequest(
       id: true,
       name: true,
       status: true,
+      moderationStatus: true,
+      testerCapacity: true,
       userId: true,
       user: { select: { clerkId: true, displayName: true, profileSlug: true } },
     },
   });
 
-  if (!listing || listing.status !== "open_for_testing") {
+  if (!listing || !isOpenForTesterRequests(listing)) {
     return { ok: false, message: "This app isn't open for testing right now." };
   }
   if (listing.userId === user.id) {
@@ -76,6 +93,17 @@ export async function createTesterRequest(
     return {
       ok: false,
       message: "Add your testing contact email in your profile before requesting a test.",
+    };
+  }
+  // Profiles created before verified-email enforcement may still have an old
+  // arbitrary value saved. Never share it with a developer unless Clerk still
+  // confirms ownership at the moment the request is submitted.
+  const verifiedEmails = await getVerifiedClerkEmails();
+  if (!verifiedEmails.includes(email.trim().toLowerCase())) {
+    return {
+      ok: false,
+      message:
+        "Choose a verified testing contact email in Profile settings before requesting a test.",
     };
   }
 
@@ -121,33 +149,76 @@ export async function createTesterRequest(
 
   const expiresAt = new Date(Date.now() + TESTER_REQUEST_TTL_MS);
 
+  let createResult:
+    | { kind: "created"; requestId: string }
+    | { kind: "full" }
+    | { kind: "unavailable" };
   try {
-    await prisma.testerRequest.upsert({
-      where: {
-        appListingId_testerUserId: {
+    createResult = await prisma.$transaction(async (tx) => {
+      // The acceptance action takes this same row lock. This prevents a
+      // request from being queued against a program that has just filled.
+      await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listing.id} FOR UPDATE`;
+      const currentListing = await tx.appListing.findUnique({
+        where: { id: listing.id },
+        select: { status: true, moderationStatus: true, testerCapacity: true },
+      });
+      if (!currentListing || !isOpenForTesterRequests(currentListing)) {
+        return { kind: "unavailable" as const };
+      }
+      if (currentListing.testerCapacity !== null) {
+        const acceptedCount = await tx.testerRequest.count({
+          where: { appListingId: listing.id, status: "accepted" },
+        });
+        if (acceptedCount >= currentListing.testerCapacity) {
+          await tx.appListing.update({
+            where: { id: listing.id },
+            data: { status: "closed_for_testing", autoClosedForCapacity: true },
+          });
+          return { kind: "full" as const };
+        }
+      }
+      const testerRequest = await tx.testerRequest.upsert({
+        where: {
+          appListingId_testerUserId: {
+            appListingId: listing.id,
+            testerUserId: user.id,
+          },
+        },
+        create: {
           appListingId: listing.id,
           testerUserId: user.id,
+          testerEmail: email,
+          status: "pending",
+          expiresAt,
         },
-      },
-      create: {
-        appListingId: listing.id,
-        testerUserId: user.id,
-        testerEmail: email,
-        status: "pending",
-        expiresAt,
-      },
-      update: {
-        testerEmail: email,
-        status: "pending",
-        expiresAt,
-        testAssignmentId: null,
-      },
+        update: {
+          testerEmail: email,
+          status: "pending",
+          expiresAt,
+          testAssignmentId: null,
+        },
+      });
+      return { kind: "created" as const, requestId: testerRequest.id };
     });
   } catch (err) {
     console.error("[requests] createTesterRequest failed", err);
     return {
       ok: false,
       message: "Could not submit your request. Try again in a moment.",
+    };
+  }
+  if (createResult.kind !== "created") {
+    revalidateListingActivity(listing.id);
+    invalidatePublicCaches({
+      listingId: listing.id,
+      profileSlugs: listing.user.profileSlug,
+    });
+    return {
+      ok: false,
+      message:
+        createResult.kind === "full"
+          ? "This program has filled all of its tester places."
+          : "This app isn't open for testing right now.",
     };
   }
 
@@ -173,6 +244,17 @@ export async function createTesterRequest(
   }).catch((err) => {
     console.error("[requests] new-request email failed", err);
   });
+  await recordTesterActivity({
+    requestId: createResult.requestId,
+    listingId: listing.id,
+    testerUserId: user.id,
+    type: TesterActivityType.requested,
+  });
+  void sendTesterRequestNotification({
+    appName: listing.name,
+    testerName: user.displayName,
+    listingUrl: `${siteConfig.url}${appPath(listing.id)}`,
+  });
 
   return {
     ok: true,
@@ -190,6 +272,53 @@ export async function rejectTesterRequest(requestId: string): Promise<void> {
   await resolveTesterRequest(requestId, "rejected");
 }
 
+/** Owner can undo a decline and return the request to their pending queue. */
+export async function undoTesterRequestDecline(requestId: string): Promise<void> {
+  const user = await requireDbUser();
+  const request = await prisma.testerRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      testerUserId: true,
+      appListingId: true,
+      appListing: {
+        select: {
+          userId: true,
+          status: true,
+          user: { select: { profileSlug: true } },
+        },
+      },
+    },
+  });
+  if (
+    !request ||
+    request.appListing.userId !== user.id ||
+    request.appListing.status !== "open_for_testing"
+  ) {
+    return;
+  }
+
+  const { count } = await prisma.testerRequest.updateMany({
+    where: { id: requestId, status: "rejected", testAssignmentId: null },
+    data: {
+      status: "pending",
+      expiresAt: new Date(Date.now() + TESTER_REQUEST_TTL_MS),
+    },
+  });
+  if (count !== 1) return;
+
+  await recordTesterActivity({
+    requestId,
+    listingId: request.appListingId,
+    testerUserId: request.testerUserId,
+    type: TesterActivityType.decline_reversed,
+  });
+  revalidateListingActivity(request.appListingId);
+  invalidatePublicCaches({
+    listingId: request.appListingId,
+    profileSlugs: request.appListing.user.profileSlug,
+  });
+}
+
 /** Tester withdraws before joining; reuses expired so they can request again. */
 export async function withdrawTesterRequest(
   listingId: string,
@@ -203,28 +332,98 @@ export async function withdrawTesterRequest(
     },
     select: {
       id: true,
-      appListing: { select: { user: { select: { profileSlug: true } } } },
+      appListing: {
+        select: {
+          name: true,
+          user: {
+            select: {
+              clerkId: true,
+              displayName: true,
+              profileSlug: true,
+            },
+          },
+        },
+      },
     },
   });
   if (!request) return;
 
   // CAS on the UI's expected status so a stale "pending" view cannot expire an
   // already-accepted request (and vice versa).
-  const { count } = await prisma.testerRequest.updateMany({
-    where: {
-      id: request.id,
-      status: expectedStatus,
-      testAssignmentId: null,
-    },
-    data: { status: "expired" },
+  const withdrew = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listingId} FOR UPDATE`;
+    const { count } = await tx.testerRequest.updateMany({
+      where: {
+        id: request.id,
+        status: expectedStatus,
+        testAssignmentId: null,
+      },
+      data: { status: "expired", withdrawnAt: new Date() },
+    });
+    if (count !== 1) return false;
+
+    const listing = await tx.appListing.findUnique({
+      where: { id: listingId },
+      select: { testerCapacity: true, autoClosedForCapacity: true },
+    });
+    if (listing?.autoClosedForCapacity && listing.testerCapacity !== null) {
+      const acceptedCount = await tx.testerRequest.count({
+        where: { appListingId: listingId, status: "accepted" },
+      });
+      if (acceptedCount < listing.testerCapacity) {
+        await tx.appListing.update({
+          where: { id: listingId },
+          data: { status: "open_for_testing", autoClosedForCapacity: false },
+        });
+      }
+    }
+    return true;
   });
-  if (count !== 1) return;
+  if (!withdrew) return;
+
+  await recordTesterActivity({
+    requestId: request.id,
+    listingId,
+    testerUserId: user.id,
+    type: TesterActivityType.withdrew,
+  });
 
   revalidateListingActivity(listingId);
   invalidatePublicCaches({
     listingId,
     profileSlugs: [user.profileSlug, request.appListing.user.profileSlug],
   });
+
+  void sendTesterWithdrawalEmail({
+    devClerkId: request.appListing.user.clerkId,
+    devName: request.appListing.user.displayName,
+    appName: request.appListing.name,
+    testerName: user.displayName,
+    listingUrl: `${siteConfig.url}${appPath(listingId)}`,
+  }).catch((err) => {
+    console.error("[requests] withdrawal email failed", err);
+  });
+}
+
+async function recordTesterActivity(input: {
+  requestId: string;
+  listingId: string;
+  testerUserId: string;
+  type: TesterActivityType;
+}) {
+  try {
+    await prisma.testerActivity.create({
+      data: {
+        testerRequestId: input.requestId,
+        appListingId: input.listingId,
+        testerUserId: input.testerUserId,
+        type: input.type,
+      },
+    });
+  } catch (err) {
+    // Audit trail only — never fail an already-committed request mutation.
+    console.error("[requests] recordTesterActivity failed", err);
+  }
 }
 
 /** Shared accept/reject path: ownership + state guard, update, revalidate, notify. */
@@ -238,11 +437,14 @@ async function resolveTesterRequest(
     where: { id: requestId },
     select: {
       testerEmail: true,
+      testerUserId: true,
       appListingId: true,
       appListing: {
         select: {
           userId: true,
           name: true,
+          status: true,
+          testerCapacity: true,
           testingAccessUrl: true,
           testerInstructions: true,
           user: { select: { profileSlug: true, contactEmail: true } },
@@ -258,25 +460,92 @@ async function resolveTesterRequest(
   // Expire overdue pendings on this listing (status/cache hygiene).
   await expirePendingTesterRequests({ listingId: request.appListingId });
 
-  // CAS: only transition still-pending, not-yet-expired rows.
-  const { count } = await prisma.testerRequest.updateMany({
-    // Recheck expiresAt so accept cannot win a race with lazy expiry.
-    where: {
-      id: requestId,
-      status: "pending",
-      expiresAt: { gt: new Date() },
-    },
-    data: { status: outcome },
-  });
-  if (count !== 1) {
+  let updated = false;
+  let capacityClosed = false;
+
+  if (outcome === "accepted") {
+    // Serialize capacity checks against concurrent approvals for the same
+    // listing. A slot is consumed at acceptance (not join) so invitations
+    // cannot overbook a capped testing program.
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${request.appListingId} FOR UPDATE`;
+      const listing = await tx.appListing.findUnique({
+        where: { id: request.appListingId },
+        select: { status: true, testerCapacity: true },
+      });
+      if (!listing || listing.status !== "open_for_testing") {
+        return { updated: false, capacityClosed: false };
+      }
+
+      const acceptedCount = await tx.testerRequest.count({
+        where: { appListingId: request.appListingId, status: "accepted" },
+      });
+      if (listing.testerCapacity !== null && acceptedCount >= listing.testerCapacity) {
+        await tx.appListing.updateMany({
+          where: { id: request.appListingId, status: "open_for_testing" },
+          data: { status: "closed_for_testing", autoClosedForCapacity: true },
+        });
+        return { updated: false, capacityClosed: true };
+      }
+
+      const { count } = await tx.testerRequest.updateMany({
+        where: {
+          id: requestId,
+          status: "pending",
+          expiresAt: { gt: new Date() },
+        },
+        data: { status: "accepted" },
+      });
+      if (count !== 1) return { updated: false, capacityClosed: false };
+
+      const capacityFilled =
+        listing.testerCapacity !== null && acceptedCount + 1 >= listing.testerCapacity;
+      if (capacityFilled) {
+        await tx.appListing.update({
+          where: { id: request.appListingId },
+          data: { status: "closed_for_testing", autoClosedForCapacity: true },
+        });
+      }
+      return { updated: true, capacityClosed: capacityFilled };
+    });
+    updated = result.updated;
+    capacityClosed = result.capacityClosed;
+  } else {
+    const { count } = await prisma.testerRequest.updateMany({
+      // Recheck expiresAt so reject cannot win a race with lazy expiry.
+      where: {
+        id: requestId,
+        status: "pending",
+        expiresAt: { gt: new Date() },
+      },
+      data: { status: "rejected" },
+    });
+    updated = count === 1;
+  }
+  if (!updated && !capacityClosed) {
     return;
   }
 
   revalidateListingActivity(request.appListingId);
-  // Reject drops pending count used by browse "most requested" sort.
+  // Reject / capacity-close both change browse-facing counts or status.
   invalidatePublicCaches({
     listingId: request.appListingId,
     profileSlugs: request.appListing.user.profileSlug,
+  });
+
+  // Capacity already full: listing closed, request still pending — no decline email.
+  if (!updated) {
+    return;
+  }
+
+  await recordTesterActivity({
+    requestId,
+    listingId: request.appListingId,
+    testerUserId: request.testerUserId,
+    type:
+      outcome === "accepted"
+        ? TesterActivityType.approved
+        : TesterActivityType.declined,
   });
 
   const notify =
@@ -318,6 +587,7 @@ export async function resendTesterInvitation(
     select: {
       status: true,
       testAssignmentId: true,
+      testerUserId: true,
       testerEmail: true,
       appListingId: true,
       appListing: {
@@ -380,6 +650,13 @@ export async function resendTesterInvitation(
     console.error("[requests] resend invitation email failed", err);
     return { ok: false, message: "Could not resend the invitation. Try again shortly." };
   }
+
+  await recordTesterActivity({
+    requestId,
+    listingId: request.appListingId,
+    testerUserId: request.testerUserId,
+    type: TesterActivityType.invitation_resent,
+  });
 
   return { ok: true, message: "Invitation resent." };
 }
@@ -448,6 +725,12 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
       where: { id: request.testerUserId },
       data: { profileScoreJoined: { increment: 1 } },
     });
+    await recordTesterActivity({
+      requestId,
+      listingId: request.appListingId,
+      testerUserId: request.testerUserId,
+      type: TesterActivityType.joined,
+    });
   }
 
   revalidateListingActivity(request.appListingId);
@@ -503,6 +786,15 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
   });
   if (!awarded) {
     return;
+  }
+
+  if (assignment.testerRequest?.id) {
+    await recordTesterActivity({
+      requestId: assignment.testerRequest.id,
+      listingId: assignment.appListingId,
+      testerUserId: assignment.testerUserId,
+      type: TesterActivityType.completed,
+    });
   }
 
   revalidateListingActivity(assignment.appListingId);
@@ -597,7 +889,7 @@ async function fetchOwnedAssignment(assignmentId: string, userId: string) {
           user: { select: { profileSlug: true } },
         },
       },
-      testerRequest: { select: { testerEmail: true } },
+      testerRequest: { select: { id: true, testerEmail: true } },
     },
   });
 

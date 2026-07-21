@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AuthControls } from "@/components/auth-controls";
 import { BrandMark } from "@/components/brand-mark";
 import { Container } from "@/components/ui/section";
+import { Button } from "@/components/ui/button";
 
 const navLinkClassName =
   "text-sm font-semibold text-ink-muted transition-colors hover:text-ink";
@@ -34,9 +35,9 @@ export function SiteHeader() {
               Settings
             </Link>
           </Show>
-          <Link href="/apps/new" className={navLinkClassName}>
-            Add
-          </Link>
+          <Button href="/apps/new" size="sm">
+            + Add
+          </Button>
           <AuthControls />
         </nav>
 
@@ -84,13 +85,14 @@ export function SiteHeader() {
                 Settings
               </Link>
             </Show>
-            <Link
+            <Button
               href="/apps/new"
               onClick={() => setOpen(false)}
-              className={mobileNavLinkClassName}
+              size="sm"
+              className="mt-1 w-full"
             >
-              Add app
-            </Link>
+              + Add
+            </Button>
             <div className="flex items-center gap-5 border-t-2 border-line px-2 py-3">
               <AuthControls />
             </div>

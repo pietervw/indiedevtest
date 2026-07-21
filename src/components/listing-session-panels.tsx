@@ -26,6 +26,7 @@ import { RequestToTestForm } from "@/components/request-to-test-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { WriteReviewForm } from "@/components/write-review-form";
+import { TesterFeedbackForm } from "@/components/tester-feedback-form";
 import type { ListingSessionPayload } from "@/lib/listing-session";
 import {
   editPath,
@@ -327,6 +328,10 @@ export function ListingSessionPanels({
         </div>
       ) : null}
 
+      {session?.viewerHasJoined ? (
+        <TesterFeedbackForm listingId={listingId} />
+      ) : null}
+
       {session?.hasWrittenReview ? (
         <p className="mt-10 font-semibold text-ink-muted" role="status">
           You already reviewed this app — thanks.
@@ -350,7 +355,11 @@ export function ListingSessionPanels({
                 <TesterRow tester={req.tester} sub={req.testerEmail} />
                 <div className="flex shrink-0 items-center gap-2">
                   <form action={afterAction(() => acceptTesterRequest(req.id))}>
-                    <SubmitButton size="sm" pendingLabel="Accepting…">
+                    <SubmitButton
+                      size="sm"
+                      pendingLabel="Accepting…"
+                      disabled={!session.canApproveTesters}
+                    >
                       Accept
                     </SubmitButton>
                   </form>
@@ -367,6 +376,11 @@ export function ListingSessionPanels({
               </li>
             ))}
           </ul>
+          {!session.canApproveTesters ? (
+            <p className="mt-3 text-sm text-ink-muted">
+              Reopen this listing for testing to accept pending testers.
+            </p>
+          ) : null}
         </section>
       ) : null}
 

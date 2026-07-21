@@ -1,4 +1,4 @@
-import { TestingContactEmailForm } from "@/components/testing-contact-email-form";
+import { ProfileSettingsForm } from "@/components/testing-contact-email-form";
 import { Container } from "@/components/ui/section";
 import { requireDbUser } from "@/lib/auth-guards";
 import { canonicalMetadata } from "@/lib/site";
@@ -24,11 +24,15 @@ export default async function ProfileSettingsPage() {
           Profile settings
         </h1>
         <p className="mt-3 max-w-xl text-lg text-ink-muted">
-          Manage the private email used to coordinate reciprocal testing.
+          Manage your public profile and the private email used to coordinate
+          reciprocal testing.
         </p>
-        <TestingContactEmailForm
+        <ProfileSettingsForm
           currentEmail={user.contactEmail}
           verifiedEmails={verifiedEmails}
+          bio={user.bio}
+          twitterHandle={user.twitterHandle}
+          trustMrrProfileUrl={user.trustMrrProfileUrl}
         />
       </Container>
     </div>

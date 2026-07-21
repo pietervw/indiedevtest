@@ -29,8 +29,25 @@ export function AuthControls() {
         </SignUpButton>
       </Show>
       <Show when="signed-in">
-        <UserButton />
+        <UserButton>
+          <UserButton.MenuItems>
+            <UserButton.Link
+              label="Profile"
+              href="/settings/profile"
+              labelIcon={<ProfileIcon />}
+            />
+          </UserButton.MenuItems>
+        </UserButton>
       </Show>
     </>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20c.9-3.4 3.4-5.1 7.5-5.1s6.6 1.7 7.5 5.1" />
+    </svg>
   );
 }

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import {
   acceptTesterRequest,
-  rejectTesterRequest,
 } from "@/app/actions/requests";
+import { DeclineTesterButton } from "@/components/decline-tester-button";
 import { AppLogo } from "@/components/app-logo";
+import { DashboardTesterTable } from "@/components/dashboard-tester-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
@@ -16,11 +17,11 @@ import type {
 import { SubmitButton } from "@/components/submit-button";
 import type { Platform } from "@/generated/prisma";
 import {
-  TESTER_SLOT_MAX,
   appPath,
   categoryLabel,
   editPath,
   platformLabel,
+  profilePath,
   statusLabel,
 } from "@/lib/mock-data";
 
@@ -149,6 +150,7 @@ export function DashboardActivity({
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
+                      platform={item.listing.platform}
                       badge="Awaiting decision"
                       meta={`${platformLabel[item.listing.platform] ?? item.listing.platform} · Requested`}
                     />
@@ -163,6 +165,7 @@ export function DashboardActivity({
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
+                      platform={item.listing.platform}
                       badge="Join the track"
                       meta={`${platformLabel[item.listing.platform] ?? item.listing.platform} · Accepted`}
                       invitation={item.invitation}
@@ -178,6 +181,7 @@ export function DashboardActivity({
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
+                      platform={item.platform}
                       badge="Active"
                       meta={activeAssignmentMeta(item)}
                       invitation={item.invitation}
@@ -193,6 +197,7 @@ export function DashboardActivity({
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
+                      platform={item.platform}
                       badge="Completed"
                       meta={`${platformLabel[item.platform] ?? item.platform} · Done`}
                     />
@@ -207,6 +212,7 @@ export function DashboardActivity({
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
+                      platform={item.platform}
                       badge="Incomplete"
                       meta={`${platformLabel[item.platform] ?? item.platform} · Ended early`}
                     />
@@ -233,15 +239,21 @@ export function DashboardActivity({
 
 function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) {
   const approve = acceptTesterRequest.bind(null, request.id);
-  const decline = rejectTesterRequest.bind(null, request.id);
+  const canApprove = request.listing.status === "open_for_testing";
 
   return (
     <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <div className="flex min-w-0 items-start gap-3">
-        <AppLogo name={request.listing.name} logoUrl={request.listing.logoUrl} size="sm" />
+        <AppLogo name={request.listing.name} logoUrl={request.listing.logoUrl} platform={request.listing.platform} size="sm" />
         <div className="min-w-0">
           <p className="font-display text-lg font-bold text-ink">
-            {request.tester.displayName} wants to test {request.listing.name}
+            <Link
+              href={profilePath(request.tester.profileSlug)}
+              className="underline-offset-2 hover:underline"
+            >
+              {request.tester.displayName}
+            </Link>{" "}
+            wants to test {request.listing.name}
           </p>
           <p className="mt-1 text-sm text-ink-muted">
             {platformLabel[request.listing.platform] ?? request.listing.platform}{" · "}
@@ -255,19 +267,20 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
           >
             View listing
           </Link>
+          {!canApprove ? (
+            <p className="mt-2 text-sm text-ink-muted">
+              Reopen this listing for testing to approve new testers.
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
         <form action={approve}>
-          <SubmitButton size="sm" pendingLabel="Approving…">
+          <SubmitButton size="sm" pendingLabel="Approving…" disabled={!canApprove}>
             Approve tester
           </SubmitButton>
         </form>
-        <form action={decline}>
-          <SubmitButton size="sm" variant="secondary" pendingLabel="Declining…">
-            Decline
-          </SubmitButton>
-        </form>
+        <DeclineTesterButton requestId={request.id} />
       </div>
     </li>
   );
@@ -277,7 +290,7 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
   return (
     <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <div className="flex min-w-0 items-start gap-3">
-        <AppLogo name={listing.name} logoUrl={listing.logoUrl} size="sm" />
+        <AppLogo name={listing.name} logoUrl={listing.logoUrl} platform={listing.platform} size="sm" />
         <div className="min-w-0">
           <Link
             href={appPath(listing.id)}
@@ -297,21 +310,38 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
             </Badge>
           </div>
           <p className="mt-2 text-sm text-ink-muted">
-            {listing.liveTesterCount}/{TESTER_SLOT_MAX} live testers
-            {" · "}
-            {listing.pendingRequestCount} pending request
-            {listing.pendingRequestCount === 1 ? "" : "s"}
+            {listing.pendingRequestCount} pending · {listing.acceptedTesterCount} accepted
+            {" · "}{listing.joinedTesterCount} joined · {listing.completedTesterCount} completed
+            {listing.remainingTesterSpots === null
+              ? " · No tester limit"
+              : ` · ${listing.remainingTesterSpots} spot${listing.remainingTesterSpots === 1 ? "" : "s"} remaining`}
           </p>
         </div>
       </div>
       <div className="flex flex-wrap gap-2 sm:shrink-0">
         <Button href={appPath(listing.id)} size="sm" variant="secondary">
-          Manage
+          View
         </Button>
         <Button href={editPath(listing.id)} size="sm" variant="ghost">
           Edit
         </Button>
       </div>
+      {listing.testerRequests.length > 0 ||
+      listing.testerHistory.length > 0 ||
+      listing.activity.length > 0 ||
+      listing.feedback.length > 0 ? (
+        <div className="w-full sm:pl-[3.25rem]">
+          <DashboardTesterTable
+            testers={listing.testerRequests}
+            history={listing.testerHistory}
+            activity={listing.activity}
+            feedback={listing.feedback}
+            canApprove={listing.status === "open_for_testing"}
+            canResendInvitation={listing.canResendInvitation}
+            platformLabel={platformLabel[listing.platform] ?? listing.platform}
+          />
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -337,12 +367,14 @@ function ActivityRow({
   href,
   name,
   logoUrl,
+  platform,
   badge,
   meta,
 }: {
   href: string;
   name: string;
   logoUrl: string;
+  platform: Platform;
   badge: string;
   meta: string;
 }) {
@@ -352,7 +384,7 @@ function ActivityRow({
         href={href}
         className="flex items-center gap-3 p-4 transition-colors hover:bg-paper-muted sm:px-5"
       >
-        <AppLogo name={name} logoUrl={logoUrl} size="xs" />
+        <AppLogo name={name} logoUrl={logoUrl} platform={platform} size="xs" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-display font-bold text-ink">{name}</p>
           <p className="mt-0.5 text-sm text-ink-muted">{meta}</p>
@@ -369,6 +401,7 @@ function TesterActivityRow({
   href,
   name,
   logoUrl,
+  platform,
   badge,
   meta,
   invitation,
@@ -376,6 +409,7 @@ function TesterActivityRow({
   href: string;
   name: string;
   logoUrl: string;
+  platform: Platform;
   badge: string;
   meta: string;
   invitation: DashboardTesterInvitation;
@@ -389,7 +423,7 @@ function TesterActivityRow({
   return (
     <li className="flex flex-col gap-4 p-4 sm:px-5">
       <div className="flex flex-wrap items-start gap-3">
-        <AppLogo name={name} logoUrl={logoUrl} size="xs" />
+        <AppLogo name={name} logoUrl={logoUrl} platform={platform} size="xs" />
         <div className="min-w-0 flex-1">
           <Link
             href={href}

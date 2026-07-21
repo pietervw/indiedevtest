@@ -2,14 +2,14 @@ import type {
   AppCategory,
   AppListingStatus,
   Platform,
+  TesterActivityType,
+  TesterFeedbackSeverity,
 } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
 import {
   expirePendingTesterRequests,
   openTesterRequestWhere,
-  pendingNotExpiredWhere,
 } from "@/lib/expire-pending-tester-requests";
-import { COUNTED_ASSIGNMENT_STATUSES } from "@/lib/listing-status";
 import { testingPeriodProgress } from "@/lib/mock-data";
 import { isHttpUrl } from "@/lib/validation";
 
@@ -20,8 +20,52 @@ export type DashboardListing = {
   category: AppCategory;
   platform: Platform;
   status: AppListingStatus;
-  liveTesterCount: number;
+  testerCapacity: number | null;
   pendingRequestCount: number;
+  acceptedTesterCount: number;
+  joinedTesterCount: number;
+  completedTesterCount: number;
+  remainingTesterSpots: number | null;
+  testerRequests: DashboardOwnerTester[];
+  testerHistory: DashboardTesterHistory[];
+  canResendInvitation: boolean;
+  activity: DashboardTesterActivity[];
+  feedback: DashboardTesterFeedback[];
+};
+
+/** Active tester pipeline row, visible only to the listing owner. */
+export type DashboardOwnerTester = {
+  id: string;
+  status: "pending" | "accepted";
+  testerEmail: string;
+  tester: {
+    displayName: string;
+    imageUrl: string | null;
+    profileSlug: string;
+  };
+  assignmentStatus: "active" | "completed" | "incomplete" | "cancelled" | null;
+};
+
+export type DashboardTesterHistory = Omit<DashboardOwnerTester, "status" | "assignmentStatus"> & {
+  status: "rejected" | "expired";
+  withdrawnAt: string | null;
+};
+
+export type DashboardTesterActivity = {
+  id: string;
+  type: TesterActivityType;
+  createdAt: string;
+  tester: { displayName: string; profileSlug: string };
+};
+
+export type DashboardTesterFeedback = {
+  id: string;
+  severity: TesterFeedbackSeverity;
+  title: string;
+  details: string;
+  steps: string | null;
+  createdAt: string;
+  tester: { displayName: string; profileSlug: string };
 };
 
 type DashboardListingRef = {
@@ -29,6 +73,7 @@ type DashboardListingRef = {
   name: string;
   logoUrl: string;
   platform: Platform;
+  status: AppListingStatus;
 };
 
 type DashboardAssignmentListingRef = {
@@ -61,6 +106,7 @@ export type DashboardIncomingRequest = {
   tester: {
     displayName: string;
     imageUrl: string | null;
+    profileSlug: string;
   };
 };
 
@@ -104,11 +150,13 @@ const listingSummarySelect = {
   name: true,
   logoUrl: true,
   platform: true,
+  status: true,
 } as const;
 
 const testerSelect = {
   displayName: true,
   imageUrl: true,
+  profileSlug: true,
 } as const;
 
 const testerListingSelect = {
@@ -160,13 +208,49 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         category: true,
         platform: true,
         status: true,
+        testerCapacity: true,
+        testingAccessUrl: true,
+        testerInstructions: true,
+        user: { select: { contactEmail: true } },
+        testerRequests: {
+          select: {
+            id: true,
+            status: true,
+            expiresAt: true,
+            withdrawnAt: true,
+            testerEmail: true,
+            tester: { select: testerSelect },
+            testAssignment: { select: { status: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
+        testerActivities: {
+          take: 12,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            type: true,
+            createdAt: true,
+            tester: { select: { displayName: true, profileSlug: true } },
+          },
+        },
+        testerFeedback: {
+          take: 20,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            severity: true,
+            title: true,
+            details: true,
+            steps: true,
+            createdAt: true,
+            tester: { select: { displayName: true, profileSlug: true } },
+          },
+        },
         _count: {
           select: {
             testAssignments: {
-              where: { status: { in: [...COUNTED_ASSIGNMENT_STATUSES] } },
-            },
-            testerRequests: {
-              where: pendingNotExpiredWhere(now),
+              where: { status: { in: ["active", "completed"] } },
             },
           },
         },
@@ -225,6 +309,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       name: request.appListing.name,
       logoUrl: request.appListing.logoUrl.trim(),
       platform: request.appListing.platform,
+      status: request.appListing.status,
     };
     if (request.status === "pending") {
       pendingRequests.push({ id: request.id, listing });
@@ -275,16 +360,74 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   }
 
   return {
-    listings: listings.map((listing) => ({
-      id: listing.id,
-      name: listing.name,
-      logoUrl: listing.logoUrl.trim(),
-      category: listing.category,
-      platform: listing.platform,
-      status: listing.status,
-      liveTesterCount: listing._count.testAssignments,
-      pendingRequestCount: listing._count.testerRequests,
-    })),
+    listings: listings.map((listing) => {
+      const pendingRequestCount = listing.testerRequests.filter(
+        (request) => request.status === "pending" && request.expiresAt > now
+      ).length;
+      // Accepted requests consume capacity, including testers who have since
+      // been confirmed joined or completed.
+      const acceptedTesterCount = listing.testerRequests.filter(
+        (request) => request.status === "accepted"
+      ).length;
+      const joinedTesterCount = listing._count.testAssignments;
+      const completedTesterCount = listing.testerRequests.filter(
+        (request) => request.testAssignment?.status === "completed"
+      ).length;
+      return {
+        id: listing.id,
+        name: listing.name,
+        logoUrl: listing.logoUrl.trim(),
+        category: listing.category,
+        platform: listing.platform,
+        status: listing.status,
+        testerCapacity: listing.testerCapacity,
+        pendingRequestCount,
+        acceptedTesterCount,
+        joinedTesterCount,
+        completedTesterCount,
+        remainingTesterSpots:
+          listing.testerCapacity === null
+            ? null
+            : Math.max(0, listing.testerCapacity - acceptedTesterCount),
+        testerRequests: listing.testerRequests
+          .filter(
+            (request) =>
+              request.status === "accepted" ||
+              (request.status === "pending" && request.expiresAt > now)
+          )
+          .map((request) => ({
+            id: request.id,
+            status: request.status as "pending" | "accepted",
+            testerEmail: request.testerEmail,
+            tester: request.tester,
+            assignmentStatus: request.testAssignment?.status ?? null,
+          })),
+        testerHistory: listing.testerRequests
+          .filter(
+            (request) => request.status === "rejected" || request.status === "expired"
+          )
+          .map((request) => ({
+            id: request.id,
+            status: request.status as "rejected" | "expired",
+            testerEmail: request.testerEmail,
+            tester: request.tester,
+            withdrawnAt: request.withdrawnAt?.toISOString() ?? null,
+          })),
+        canResendInvitation: Boolean(
+          listing.testingAccessUrl ||
+            listing.testerInstructions ||
+            listing.user.contactEmail
+        ),
+        activity: listing.testerActivities.map((activity) => ({
+          ...activity,
+          createdAt: activity.createdAt.toISOString(),
+        })),
+        feedback: listing.testerFeedback.map((feedback) => ({
+          ...feedback,
+          createdAt: feedback.createdAt.toISOString(),
+        })),
+      };
+    }),
     incomingRequests: incomingRequests.map((request) => ({
       id: request.id,
       testerEmail: request.testerEmail,
@@ -294,6 +437,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         name: request.appListing.name,
         logoUrl: request.appListing.logoUrl.trim(),
         platform: request.appListing.platform,
+        status: request.appListing.status,
       },
     })),
     pendingRequests,

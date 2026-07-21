@@ -65,6 +65,7 @@ export default async function EditAppPage({ params }: Props) {
               logoUrl: listing.logoUrl,
               testingAccessUrl: listing.testingAccessUrl ?? "",
               testerInstructions: listing.testerInstructions ?? "",
+              testerCapacity: listing.testerCapacity,
               status: listing.status,
               storeLink: listing.storeLink ?? "",
             }}

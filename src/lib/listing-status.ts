@@ -16,7 +16,9 @@ export const STATUS_TRANSITIONS: Record<
     "closed_for_testing",
     "testing_complete",
   ],
-  closed_for_testing: ["closed_for_testing", "testing_complete"],
+  // A capacity-filled program is automatically closed. Owners can reopen it
+  // after increasing/removing capacity, or when they want to accept more.
+  closed_for_testing: ["closed_for_testing", "open_for_testing", "testing_complete"],
   testing_complete: ["testing_complete", "launched"],
   launched: ["launched"],
 };

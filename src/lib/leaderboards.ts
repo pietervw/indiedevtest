@@ -67,6 +67,7 @@ async function loadLeaderboards(): Promise<Leaderboards> {
       INNER JOIN app_listings al
         ON al.user_id = u.id
         AND al.status = 'launched'::"AppListingStatus"
+        AND al.moderation_status = 'visible'::"ListingModerationStatus"
       GROUP BY u.id
       ORDER BY value DESC, u.created_at ASC
       LIMIT ${LEADERBOARD_LIMIT}

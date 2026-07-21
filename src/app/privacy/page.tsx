@@ -86,6 +86,17 @@ export default function PrivacyPage() {
           </p>
         </LegalSection>
 
+        <LegalSection title="Listing reports and moderation">
+          <p>
+            Signed-in members can privately report a listing for spam or scams,
+            inappropriate content, misleading links, impersonation, or another
+            concern. We store the report, its optional explanation, and the
+            reporting account so the site admin can investigate and prevent
+            duplicate reports. The listing owner is not shown the reporter’s
+            identity.
+          </p>
+        </LegalSection>
+
         <LegalSection title="Transactional email (SendGrid)">
           <p>
             We use SendGrid to send product emails. Those include contact-form
@@ -100,7 +111,7 @@ export default function PrivacyPage() {
           <p>
             If configured, the site can send optional Pushover notifications to
             the site admin for operational events such as a first-time signup, a
-            waitlist signup, or a contact-form submission. Email addresses in
+            waitlist signup, a contact-form submission, or a listing report. Email addresses in
             those alerts are masked where applicable.
           </p>
         </LegalSection>

@@ -68,6 +68,7 @@ export async function getHomeTopAppsNeedingTesters(): Promise<App[]> {
           'completed'::"TestAssignmentStatus"
         )
       WHERE al.status = 'open_for_testing'::"AppListingStatus"
+        AND al.moderation_status = 'visible'::"ListingModerationStatus"
       GROUP BY al.id, u.id
       ORDER BY
         ABS(${TESTER_SLOT_MAX} - COUNT(ta.id)) ASC,

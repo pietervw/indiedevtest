@@ -27,6 +27,7 @@ export type UpdateListingState = {
       | "logoUrl"
       | "testingAccessUrl"
       | "testerInstructions"
+      | "testerCapacity"
       | "status"
       | "storeLink",
       string
@@ -60,6 +61,7 @@ export async function updateAppListing(
   const logoUrl = field(formData, "logoUrl");
   const testingAccessUrl = field(formData, "testingAccessUrl");
   const testerInstructions = field(formData, "testerInstructions");
+  const testerCapacityRaw = field(formData, "testerCapacity");
   const status = field(formData, "status");
   const storeLink = field(formData, "storeLink");
 
@@ -89,6 +91,13 @@ export async function updateAppListing(
   if (testerInstructions.length > 2000) {
     fieldErrors.testerInstructions = "Instructions must be 2,000 characters or fewer.";
   }
+  const testerCapacity = testerCapacityRaw ? Number(testerCapacityRaw) : null;
+  if (
+    testerCapacity !== null &&
+    (!Number.isInteger(testerCapacity) || testerCapacity < 1 || testerCapacity > 10000)
+  ) {
+    fieldErrors.testerCapacity = "Tester capacity must be a whole number from 1 to 10,000.";
+  }
   if (!STATUSES.has(status)) {
     fieldErrors.status = "Pick a valid status.";
   } else if (
@@ -115,23 +124,62 @@ export async function updateAppListing(
     return { ok: false, message: "Fix the highlighted fields.", fieldErrors };
   }
 
-  await prisma.appListing.update({
-    where: { id: listingId },
-    data: {
-      name,
-      description,
-      category: category as AppCategory,
-      platform: platform as Platform,
-      logoUrl: logoUrl || "",
-      testingAccessUrl: testingAccessUrl || null,
-      testerInstructions: testerInstructions || null,
-      status: status as AppListingStatus,
-      storeLink:
-        status === "launched"
-          ? storeLink
-          : storeLink || null,
-    },
+  // Lock the listing so a concurrent acceptance cannot race past the capacity check.
+  const capacityGate = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listingId} FOR UPDATE`;
+    const acceptedCount = await tx.testerRequest.count({
+      where: { appListingId: listingId, status: "accepted" },
+    });
+    if (testerCapacity !== null && acceptedCount > testerCapacity) {
+      return {
+        ok: false as const,
+        fieldErrors: {
+          testerCapacity: `Capacity can't be below the ${acceptedCount} already accepted tester${acceptedCount === 1 ? "" : "s"}.`,
+        },
+      };
+    }
+    if (
+      status === "open_for_testing" &&
+      testerCapacity !== null &&
+      acceptedCount >= testerCapacity
+    ) {
+      return {
+        ok: false as const,
+        fieldErrors: {
+          status:
+            "This program is full. Raise capacity or set status to Closed for testing.",
+        },
+      };
+    }
+
+    await tx.appListing.update({
+      where: { id: listingId },
+      data: {
+        name,
+        description,
+        category: category as AppCategory,
+        platform: platform as Platform,
+        logoUrl: logoUrl || "",
+        testingAccessUrl: testingAccessUrl || null,
+        testerInstructions: testerInstructions || null,
+        testerCapacity,
+        status: status as AppListingStatus,
+        storeLink:
+          status === "launched"
+            ? storeLink
+            : storeLink || null,
+      },
+    });
+    return { ok: true as const };
   });
+
+  if (!capacityGate.ok) {
+    return {
+      ok: false,
+      message: "Fix the highlighted fields.",
+      fieldErrors: capacityGate.fieldErrors,
+    };
+  }
 
   revalidatePath("/browse");
   revalidatePath("/");
