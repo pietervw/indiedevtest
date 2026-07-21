@@ -24,6 +24,7 @@ import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
 import { takeRateLimit, checkRateLimit, releaseRateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site";
 import { getVerifiedClerkEmails } from "@/lib/verified-clerk-emails";
+import { sendTesterRequestNotification } from "@/lib/pushover";
 
 export type RequestState = {
   ok: boolean;
@@ -223,6 +224,11 @@ export async function createTesterRequest(
     listingUrl: `${siteConfig.url}${appPath(listing.id)}`,
   }).catch((err) => {
     console.error("[requests] new-request email failed", err);
+  });
+  void sendTesterRequestNotification({
+    appName: listing.name,
+    testerName: user.displayName,
+    listingUrl: `${siteConfig.url}${appPath(listing.id)}`,
   });
 
   return {

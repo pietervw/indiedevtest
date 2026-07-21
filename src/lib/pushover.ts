@@ -145,3 +145,19 @@ export async function sendListingReportNotification(input: {
     ].join("\n"),
   });
 }
+
+/** Alert the admin when a tester submits a request for an app. */
+export async function sendTesterRequestNotification(input: {
+  appName: string;
+  testerName: string;
+  listingUrl: string;
+}): Promise<boolean> {
+  return sendPushoverNotification({
+    title: `🧪 ${siteConfig.name} tester request`,
+    message: [
+      `${input.testerName} requested to test ${input.appName}.`,
+      `Listing: ${input.listingUrl}`,
+      `Time: ${perthTimestamp()}`,
+    ].join("\n"),
+  });
+}
