@@ -4,6 +4,7 @@ import {
   rejectTesterRequest,
 } from "@/app/actions/requests";
 import { AppLogo } from "@/components/app-logo";
+import { DashboardTesterTable } from "@/components/dashboard-tester-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
@@ -20,6 +21,7 @@ import {
   categoryLabel,
   editPath,
   platformLabel,
+  profilePath,
   statusLabel,
 } from "@/lib/mock-data";
 
@@ -245,7 +247,13 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
         <AppLogo name={request.listing.name} logoUrl={request.listing.logoUrl} platform={request.listing.platform} size="sm" />
         <div className="min-w-0">
           <p className="font-display text-lg font-bold text-ink">
-            {request.tester.displayName} wants to test {request.listing.name}
+            <Link
+              href={profilePath(request.tester.profileSlug)}
+              className="underline-offset-2 hover:underline"
+            >
+              {request.tester.displayName}
+            </Link>{" "}
+            wants to test {request.listing.name}
           </p>
           <p className="mt-1 text-sm text-ink-muted">
             {platformLabel[request.listing.platform] ?? request.listing.platform}{" · "}
@@ -317,6 +325,14 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
           Edit
         </Button>
       </div>
+      {listing.testerRequests.length > 0 ? (
+        <div className="w-full sm:pl-[3.25rem]">
+          <DashboardTesterTable
+            testers={listing.testerRequests}
+            platformLabel={platformLabel[listing.platform] ?? listing.platform}
+          />
+        </div>
+      ) : null}
     </li>
   );
 }

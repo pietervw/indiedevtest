@@ -24,6 +24,20 @@ export type DashboardListing = {
   joinedTesterCount: number;
   completedTesterCount: number;
   remainingTesterSpots: number | null;
+  testerRequests: DashboardOwnerTester[];
+};
+
+/** Active tester pipeline row, visible only to the listing owner. */
+export type DashboardOwnerTester = {
+  id: string;
+  status: "pending" | "accepted";
+  testerEmail: string;
+  tester: {
+    displayName: string;
+    imageUrl: string | null;
+    profileSlug: string;
+  };
+  assignmentStatus: "active" | "completed" | "incomplete" | "cancelled" | null;
 };
 
 type DashboardListingRef = {
@@ -63,6 +77,7 @@ export type DashboardIncomingRequest = {
   tester: {
     displayName: string;
     imageUrl: string | null;
+    profileSlug: string;
   };
 };
 
@@ -111,6 +126,7 @@ const listingSummarySelect = {
 const testerSelect = {
   displayName: true,
   imageUrl: true,
+  profileSlug: true,
 } as const;
 
 const testerListingSelect = {
@@ -163,7 +179,17 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         platform: true,
         status: true,
         testerCapacity: true,
-        testerRequests: { select: { status: true, expiresAt: true } },
+        testerRequests: {
+          select: {
+            id: true,
+            status: true,
+            expiresAt: true,
+            testerEmail: true,
+            tester: { select: testerSelect },
+            testAssignment: { select: { status: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        },
         testAssignments: { select: { status: true } },
       },
       orderBy: { updatedAt: "desc" },
@@ -299,6 +325,19 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
           listing.testerCapacity === null
             ? null
             : Math.max(0, listing.testerCapacity - acceptedTesterCount),
+        testerRequests: listing.testerRequests
+          .filter(
+            (request) =>
+              request.status === "accepted" ||
+              (request.status === "pending" && request.expiresAt > now)
+          )
+          .map((request) => ({
+            id: request.id,
+            status: request.status as "pending" | "accepted",
+            testerEmail: request.testerEmail,
+            tester: request.tester,
+            assignmentStatus: request.testAssignment?.status ?? null,
+          })),
       };
     }),
     incomingRequests: incomingRequests.map((request) => ({
