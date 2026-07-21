@@ -8,6 +8,7 @@ import type {
   DashboardData,
   DashboardIncomingRequest,
   DashboardListing,
+  DashboardTesterInvitation,
 } from "@/lib/dashboard";
 import { SubmitButton } from "@/components/submit-button";
 import type { Platform } from "@/generated/prisma";
@@ -154,13 +155,14 @@ export function DashboardActivity({
               {data.acceptedAwaitingJoin.length > 0 ? (
                 <ActivityGroup title="Accepted — awaiting join">
                   {data.acceptedAwaitingJoin.map((item) => (
-                    <ActivityRow
+                    <TesterActivityRow
                       key={item.id}
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
                       badge="Join the track"
                       meta={`${platformLabel[item.listing.platform] ?? item.listing.platform} · Accepted`}
+                      invitation={item.invitation}
                     />
                   ))}
                 </ActivityGroup>
@@ -168,13 +170,14 @@ export function DashboardActivity({
               {data.activeAssignments.length > 0 ? (
                 <ActivityGroup title="Active tests">
                   {data.activeAssignments.map((item) => (
-                    <ActivityRow
+                    <TesterActivityRow
                       key={item.id}
                       href={appPath(item.listing.id)}
                       name={item.listing.name}
                       logoUrl={item.listing.logoUrl}
                       badge="Active"
                       meta={activeAssignmentMeta(item)}
+                      invitation={item.invitation}
                     />
                   ))}
                 </ActivityGroup>
@@ -347,6 +350,89 @@ function ActivityRow({
           {badge}
         </Badge>
       </Link>
+    </li>
+  );
+}
+
+function TesterActivityRow({
+  href,
+  name,
+  logoUrl,
+  badge,
+  meta,
+  invitation,
+}: {
+  href: string;
+  name: string;
+  logoUrl: string;
+  badge: string;
+  meta: string;
+  invitation: DashboardTesterInvitation;
+}) {
+  const hasInvitation = Boolean(
+    invitation.testingAccessUrl ||
+      invitation.testerInstructions ||
+      invitation.developerContactEmail
+  );
+
+  return (
+    <li className="flex flex-col gap-4 p-4 sm:px-5">
+      <div className="flex flex-wrap items-start gap-3">
+        <AppLogo name={name} logoUrl={logoUrl} size="xs" />
+        <div className="min-w-0 flex-1">
+          <Link
+            href={href}
+            className="font-display font-bold text-ink underline-offset-2 hover:underline"
+          >
+            {name}
+          </Link>
+          <p className="mt-0.5 text-sm text-ink-muted">{meta}</p>
+        </div>
+        <Badge variant="outline" size="sm" className="shrink-0">
+          {badge}
+        </Badge>
+      </div>
+
+      {hasInvitation ? (
+        <div className="ml-10 rounded-xl border-2 border-ink bg-paper-muted p-3 text-sm">
+          <p className="font-display font-bold text-ink">Testing instructions</p>
+          {invitation.testerInstructions ? (
+            <p className="mt-1 whitespace-pre-wrap text-ink-muted">
+              {invitation.testerInstructions}
+            </p>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-3">
+            {invitation.testingAccessUrl ? (
+              <Button
+                href={invitation.testingAccessUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="sm"
+              >
+                Open testing link ↗
+              </Button>
+            ) : null}
+            {invitation.developerContactEmail ? (
+              <a
+                href={`mailto:${invitation.developerContactEmail}`}
+                className="inline-flex items-center font-semibold text-ink underline"
+              >
+                Contact developer
+              </a>
+            ) : null}
+            <Link href={href} className="inline-flex items-center font-semibold text-ink underline">
+              View app details
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <Link
+          href={href}
+          className="ml-10 text-sm font-semibold text-ink underline"
+        >
+          View app details
+        </Link>
+      )}
     </li>
   );
 }
