@@ -19,18 +19,29 @@ const inputClassName =
 export function RequestToTestForm({
   listingId,
   existing,
+  onWithdraw,
 }: {
   listingId: string;
   existing: TesterRequestStatus | null;
+  onWithdraw?: () => Promise<void>;
 }) {
   const action = createTesterRequest.bind(null, listingId);
   const [state, formAction] = useActionState(action, initialState);
 
   if (existing === "pending" || state.ok) {
     return (
-      <p className="font-display text-lg font-bold text-ink">
-        Request sent — waiting for the developer to respond.
-      </p>
+      <div>
+        <p className="font-display text-lg font-bold text-ink">
+          Request sent — waiting for the developer to respond.
+        </p>
+        {onWithdraw ? (
+          <form action={onWithdraw} className="mt-3">
+            <SubmitButton size="sm" variant="secondary" pendingLabel="Withdrawing…">
+              Withdraw request
+            </SubmitButton>
+          </form>
+        ) : null}
+      </div>
     );
   }
 
@@ -41,6 +52,13 @@ export function RequestToTestForm({
         <p className="mt-1 text-sm text-ink-muted">
           The developer will email you next steps to join the testing track.
         </p>
+        {onWithdraw ? (
+          <form action={onWithdraw} className="mt-3">
+            <SubmitButton size="sm" variant="secondary" pendingLabel="Withdrawing…">
+              Can&apos;t test after all
+            </SubmitButton>
+          </form>
+        ) : null}
       </div>
     );
   }

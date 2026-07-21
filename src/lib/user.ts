@@ -1,5 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { sendFirstUserSignupNotification } from "@/lib/pushover";
 
 function githubAccount(
   accounts: {
@@ -8,9 +9,8 @@ function githubAccount(
     username: string | null;
   }[]
 ) {
-  return accounts.find(
-    (account) =>
-      account.provider === "oauth_github" || account.provider === "github"
+  return accounts.find((account) =>
+    account.provider.toLowerCase().includes("github")
   );
 }
 
@@ -31,6 +31,7 @@ export async function ensureDbUser() {
     if (!github?.providerUserId) {
       console.warn("[user] signed in without a linked GitHub account", {
         clerkId: clerkUser.id,
+        providers: clerkUser.externalAccounts.map((account) => account.provider),
       });
       return null;
     }
@@ -48,7 +49,14 @@ export async function ensureDbUser() {
 
     const imageUrl = clerkUser.imageUrl || null;
 
-    return await prisma.user.upsert({
+    // Record this before upsert so the optional admin notification is sent only
+    // for a first local profile, never on routine authenticated page loads.
+    const existing = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+      select: { id: true },
+    });
+
+    const user = await prisma.user.upsert({
       where: { clerkId: clerkUser.id },
       create: {
         clerkId: clerkUser.id,
@@ -64,6 +72,15 @@ export async function ensureDbUser() {
         imageUrl,
       },
     });
+
+    if (!existing) {
+      void sendFirstUserSignupNotification({
+        displayName: user.displayName,
+        githubUsername: user.githubUsername,
+      });
+    }
+
+    return user;
   } catch (err) {
     console.error("[user] ensureDbUser failed", err);
     return null;

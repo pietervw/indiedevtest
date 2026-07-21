@@ -147,7 +147,6 @@ export default async function AppListingPage({ params }: Props) {
             listing.status === "closed_for_testing") && (
             <ShareListing
               appName={listing.name}
-              category={categoryLabel[listing.category] ?? listing.category}
               url={absoluteUrl(appPath(listing.id))}
             />
           )}

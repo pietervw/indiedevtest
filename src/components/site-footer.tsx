@@ -6,6 +6,8 @@ import { siteConfig, socialLinks } from "@/lib/site";
 const links = [
   ...socialLinks,
   { label: "Contact", href: "/contact" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
   { label: "llms.txt", href: "/llms.txt" },
 ];
 

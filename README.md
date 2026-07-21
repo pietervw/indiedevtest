@@ -54,8 +54,20 @@ See `.env.example`. Required in production:
 | `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | (optional) Umami website id |
 | `PUSHOVER_API_TOKEN` | (optional) Pushover app token — both Pushover vars required to enable |
 | `PUSHOVER_USER_KEY` | (optional) Pushover user/group key (waitlist + contact alerts) |
+| `CRON_SECRET` | Bearer token for `/api/cron/*` scheduler routes (listing 14-day reminders) |
 
 `NEXT_PUBLIC_*` values are inlined at **build** time. Set them as Coolify build args / build-time env as well as runtime env.
+
+### Scheduled jobs (Coolify)
+
+Set `CRON_SECRET` in the service env, then add a Coolify scheduled task that calls the cron route with a Bearer token (GET or POST):
+
+```bash
+curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  "$NEXT_PUBLIC_SITE_URL/api/cron/listing-14-day-reminders"
+```
+
+Unauthenticated callers receive `401` with no job details. A successful run returns a small JSON summary (`checked`, `sent`, `skipped`, `failed`).
 
 ## Deploy on Coolify (Docker)
 

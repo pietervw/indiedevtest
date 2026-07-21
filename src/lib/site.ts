@@ -113,6 +113,22 @@ export const siteRoutes = [
     changeFrequency: "monthly" as const,
     priority: 0.6,
   },
+  {
+    path: "/privacy",
+    title: "Privacy",
+    description:
+      "How IndieDevTest handles account data, listings, emails, and analytics.",
+    changeFrequency: "monthly" as const,
+    priority: 0.4,
+  },
+  {
+    path: "/terms",
+    title: "Terms",
+    description:
+      "Plain-language terms for using IndieDevTest’s reciprocal testing community.",
+    changeFrequency: "monthly" as const,
+    priority: 0.4,
+  },
 ] as const;
 
 export function absoluteUrl(path = "/"): string {

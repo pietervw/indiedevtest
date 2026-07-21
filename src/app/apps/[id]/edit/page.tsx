@@ -4,7 +4,7 @@ import { EditAppListingForm } from "@/components/edit-app-listing-form";
 import { Container } from "@/components/ui/section";
 import { requireDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
-import { appPath } from "@/lib/mock-data";
+import { appPath, editPath } from "@/lib/mock-data";
 import { canonicalMetadata } from "@/lib/site";
 import type { Metadata } from "next";
 
@@ -13,7 +13,7 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   return {
-    ...canonicalMetadata(`/apps/${id}/edit`),
+    ...canonicalMetadata(editPath(id)),
     title: "Edit app",
     robots: { index: false, follow: false },
   };
