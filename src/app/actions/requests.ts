@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireDbUser } from "@/lib/auth-guards";
+import {
+  awardBadgesAfterTestCompleted,
+  revokeBadgeBelowThreshold,
+  syncFirst12Badge,
+} from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import {
   sendNewTesterRequestEmail,
@@ -10,7 +15,7 @@ import {
   sendTestCompletedEmail,
 } from "@/lib/email";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
-import { appPath } from "@/lib/mock-data";
+import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
 import { siteConfig } from "@/lib/site";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
@@ -287,23 +292,47 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
   if (!assignment) {
     return;
   }
-
-  // CAS: only the call that actually flips active→completed grants the credit
-  // (and emails), so concurrent submits can't double-count.
-  const { count } = await prisma.testAssignment.updateMany({
-    where: { id: assignmentId, status: "active" },
-    data: { status: "completed", completedAt: new Date() },
-  });
-  if (count !== 1) {
+  // Play closed-testing requires 14 complete days. iOS/TestFlight has no
+  // equivalent — only enforce the delay for Android assignments.
+  if (
+    assignment.platform === "android" &&
+    Date.now() - assignment.joinedAt.getTime() < TESTING_PERIOD_MS
+  ) {
     return;
   }
 
-  await prisma.user.update({
-    where: { id: assignment.testerUserId },
-    data: { profileScoreCompleted: { increment: 1 } },
+  // CAS + score/badges in one transaction so a mid-flight failure cannot leave
+  // status flipped without the matching credit/badge effects.
+  const awarded = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.testAssignment.updateMany({
+      where: { id: assignmentId, status: "active" },
+      data: { status: "completed", completedAt: new Date() },
+    });
+    if (count !== 1) {
+      return false;
+    }
+
+    const tester = await tx.user.update({
+      where: { id: assignment.testerUserId },
+      data: { profileScoreCompleted: { increment: 1 } },
+      select: { profileScoreCompleted: true },
+    });
+
+    await awardBadgesAfterTestCompleted(tx, {
+      developerUserId: assignment.appListing.userId,
+      testerUserId: assignment.testerUserId,
+      testerCompletedCount: tester.profileScoreCompleted,
+      assignmentId,
+    });
+    return true;
   });
+  if (!awarded) {
+    return;
+  }
 
   revalidatePath(appPath(assignment.appListingId));
+  revalidatePath(profilePath(assignment.tester.githubUsername));
+  revalidatePath(profilePath(assignment.appListing.user.githubUsername));
   invalidatePublicCaches({
     listingId: assignment.appListingId,
     githubUsernames: [
@@ -333,19 +362,29 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
   }
 
   // CAS on the prior status so concurrent submits can't double-decrement.
-  // The fetched status is the expected value; the update only applies if it
-  // still holds.
   if (assignment.status === "completed") {
-    const { count } = await prisma.testAssignment.updateMany({
-      where: { id: assignmentId, status: "completed" },
-      data: { status: "incomplete", completedAt: null },
-    });
-    if (count === 1) {
-      await prisma.user.update({
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.testAssignment.updateMany({
+        where: { id: assignmentId, status: "completed" },
+        data: { status: "incomplete", completedAt: null },
+      });
+      if (count !== 1) {
+        return;
+      }
+
+      const tester = await tx.user.update({
         where: { id: assignment.testerUserId },
         data: { profileScoreCompleted: { decrement: 1 } },
+        select: { profileScoreCompleted: true },
       });
-    }
+      await revokeBadgeBelowThreshold(
+        tx,
+        assignment.testerUserId,
+        "super_tester",
+        tester.profileScoreCompleted
+      );
+      await syncFirst12Badge(tx, assignment.appListing.userId);
+    });
   } else if (assignment.status === "active") {
     await prisma.testAssignment.updateMany({
       where: { id: assignmentId, status: "active" },
@@ -354,6 +393,8 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
   }
 
   revalidatePath(appPath(assignment.appListingId));
+  revalidatePath(profilePath(assignment.tester.githubUsername));
+  revalidatePath(profilePath(assignment.appListing.user.githubUsername));
   invalidatePublicCaches({
     listingId: assignment.appListingId,
     githubUsernames: [
@@ -369,6 +410,8 @@ async function fetchOwnedAssignment(assignmentId: string, userId: string) {
     where: { id: assignmentId },
     select: {
       status: true,
+      platform: true,
+      joinedAt: true,
       testerUserId: true,
       appListingId: true,
       tester: { select: { githubUsername: true } },

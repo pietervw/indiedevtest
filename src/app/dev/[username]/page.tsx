@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { AppBoard } from "@/components/app-board";
+import { ProfileBadges } from "@/components/profile-badges";
 import { Badge } from "@/components/ui/badge";
 import { Container } from "@/components/ui/section";
 import { getDevProfile } from "@/lib/dev-profile";
@@ -106,6 +107,8 @@ export default async function DevProfilePage({ params }: Props) {
             </div>
           </div>
         </div>
+
+        <ProfileBadges badges={user.badges} className="mt-12" />
 
         <section className="mt-12">
           <h2 className="font-display text-2xl font-extrabold text-ink">Apps</h2>

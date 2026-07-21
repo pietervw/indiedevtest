@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
 import { ProgressBar } from "@/components/ui/progress";
+import { ShareListing } from "@/components/share-listing";
 import { getOptionalDbUser } from "@/lib/auth-guards";
 import {
   TESTER_SLOT_MAX,
@@ -23,7 +24,7 @@ import {
 } from "@/lib/mock-data";
 import { getOwnerListing, getPublicListing } from "@/lib/public-listing";
 import { isReviewableListingStatus } from "@/lib/listing-status";
-import { canonicalMetadata, siteConfig } from "@/lib/site";
+import { absoluteUrl, canonicalMetadata, siteConfig } from "@/lib/site";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ id: string }> };
@@ -141,6 +142,15 @@ export default async function AppListingPage({ params }: Props) {
               </Button>
             </div>
           ) : null}
+
+          {(listing.status === "open_for_testing" ||
+            listing.status === "closed_for_testing") && (
+            <ShareListing
+              appName={listing.name}
+              category={categoryLabel[listing.category] ?? listing.category}
+              url={absoluteUrl(appPath(listing.id))}
+            />
+          )}
 
           <ListingSessionPanels
             listingId={listing.id}

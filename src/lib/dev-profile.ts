@@ -1,3 +1,4 @@
+import type { EarnedBadge } from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import {
   COUNTED_ASSIGNMENT_STATUSES,
@@ -21,6 +22,7 @@ export type DevProfile = {
   profileScoreJoined: number;
   profileScoreCompleted: number;
   reviewsWrittenCount: number;
+  badges: EarnedBadge[];
   apps: App[];
 };
 
@@ -60,6 +62,10 @@ export async function getDevProfile(
     const user = await prisma.user.findUnique({
       where: { githubUsername },
       include: {
+        badges: {
+          select: { badgeType: true, earnedAt: true },
+          orderBy: { earnedAt: "asc" },
+        },
         appListings: {
           where: {
             status: { in: [...PUBLIC_LISTING_STATUSES] },
@@ -89,6 +95,7 @@ export async function getDevProfile(
           profileScoreJoined: user.profileScoreJoined,
           profileScoreCompleted: user.profileScoreCompleted,
           reviewsWrittenCount: user.reviewsWrittenCount,
+          badges: user.badges,
           apps: user.appListings.map((listing) =>
             mapListingToApp({
               id: listing.id,

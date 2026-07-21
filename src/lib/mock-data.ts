@@ -1,4 +1,35 @@
 export const TESTER_SLOT_MAX = 14;
+/** Google Play closed-testing duration (Android only; iOS/TestFlight has no equivalent). */
+export const TESTING_PERIOD_DAYS = 14;
+export const TESTING_PERIOD_MS = TESTING_PERIOD_DAYS * 24 * 60 * 60 * 1000;
+
+/**
+ * UI countdown for an active assignment. The 14-day gate applies only to
+ * Android (Play); iOS can be marked complete immediately after join.
+ */
+export function testingPeriodProgress(
+  joinedAt: string | Date,
+  platform: string
+) {
+  if (platform !== "android") {
+    return { canComplete: true as const, label: null as string | null };
+  }
+
+  const joinedMs =
+    joinedAt instanceof Date ? joinedAt.getTime() : new Date(joinedAt).getTime();
+  const elapsedDays = Math.max(
+    0,
+    Math.floor((Date.now() - joinedMs) / (24 * 60 * 60 * 1000))
+  );
+  const remainingDays = Math.max(0, TESTING_PERIOD_DAYS - elapsedDays);
+  return {
+    canComplete: elapsedDays >= TESTING_PERIOD_DAYS,
+    label:
+      remainingDays === 0
+        ? `${TESTING_PERIOD_DAYS}-day testing period complete`
+        : `${remainingDays} day${remainingDays === 1 ? "" : "s"} remaining`,
+  };
+}
 
 export type AppDeveloper = {
   displayName: string;
