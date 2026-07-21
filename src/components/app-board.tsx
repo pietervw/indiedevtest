@@ -109,6 +109,7 @@ export function AppBoard({
                     <AppLogo
                       name={app.name}
                       logoUrl={app.logoUrl}
+                      platform={app.platform}
                       size="xs"
                       className="border-0"
                     />

@@ -77,6 +77,7 @@ model User {
   contactEmail          String?   @map("contact_email")
   bio                   String?
   twitterHandle         String?   @map("twitter_handle")
+  trustMrrProfileUrl    String?   @map("trustmrr_profile_url")
   profileScoreJoined    Int       @default(0) @map("profile_score_joined")
   profileScoreCompleted Int       @default(0) @map("profile_score_completed")
   reviewsWrittenCount   Int       @default(0) @map("reviews_written_count")

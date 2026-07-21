@@ -21,6 +21,7 @@ export type DevProfile = {
   imageUrl: string | null;
   bio: string | null;
   twitterHandle: string | null;
+  trustMrrProfileUrl: string | null;
   profileScoreJoined: number;
   profileScoreCompleted: number;
   reviewsWrittenCount: number;
@@ -97,6 +98,7 @@ export async function getDevProfile(
           imageUrl: user.imageUrl,
           bio: user.bio,
           twitterHandle: user.twitterHandle,
+          trustMrrProfileUrl: user.trustMrrProfileUrl,
           profileScoreJoined: user.profileScoreJoined,
           profileScoreCompleted: user.profileScoreCompleted,
           reviewsWrittenCount: user.reviewsWrittenCount,

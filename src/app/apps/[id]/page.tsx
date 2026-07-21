@@ -70,7 +70,7 @@ export default async function AppListingPage({ params }: Props) {
           <ListingPageHeader listingId={listing.id} />
 
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start">
-            <AppLogo name={listing.name} logoUrl={listing.logoUrl} size="lg" />
+            <AppLogo name={listing.name} logoUrl={listing.logoUrl} platform={listing.platform} size="lg" />
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -147,6 +147,11 @@ export default async function AppListingPage({ params }: Props) {
             </div>
           ) : null}
 
+          <ListingSessionPanels
+            listingId={listing.id}
+            listingStatus={listing.status}
+          />
+
           {(listing.status === "open_for_testing" ||
             listing.status === "closed_for_testing") && (
             <ShareListing
@@ -154,11 +159,6 @@ export default async function AppListingPage({ params }: Props) {
               url={absoluteUrl(appPath(listing.id))}
             />
           )}
-
-          <ListingSessionPanels
-            listingId={listing.id}
-            listingStatus={listing.status}
-          />
 
           {viewer && viewer.id !== listing.userId ? (
             <ListingReportForm listingId={listing.id} />

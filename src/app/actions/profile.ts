@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { requireDbUser, requireProfileSetupPending } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import { invalidateDevProfileCache } from "@/lib/dev-profile";
-import { field, isValidEmail, normalizeEmail } from "@/lib/validation";
+import { field, isHttpUrl, isValidEmail, normalizeEmail } from "@/lib/validation";
 import { getVerifiedClerkEmails } from "@/lib/verified-clerk-emails";
 
 export type ProfileSetupState = {
@@ -19,8 +19,32 @@ export type ContactEmailState = {
   fieldErrors?: { contactEmail?: string };
 };
 
+export type ProfileSettingsState = {
+  ok: boolean;
+  message: string;
+  fieldErrors?: Partial<
+    Record<"contactEmail" | "bio" | "twitterHandle" | "trustMrrProfileUrl", string>
+  >;
+};
+
 function normalizeTwitterHandle(raw: string): string {
   return raw.replace(/^@+/, "").trim();
+}
+
+function validateTrustMrrProfileUrl(raw: string): string | null | undefined {
+  const url = raw.trim();
+  if (!url) return null;
+  if (!isHttpUrl(url)) return undefined;
+  try {
+    const parsed = new URL(url);
+    const isTrustMrr =
+      parsed.protocol === "https:" &&
+      (parsed.hostname === "trustmrr.com" || parsed.hostname === "www.trustmrr.com") &&
+      parsed.pathname.startsWith("/founder/");
+    return isTrustMrr ? url : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function validateVerifiedContactEmail(
@@ -100,4 +124,47 @@ export async function updateTestingContactEmail(
   // Existing TesterRequest rows deliberately retain their historical email
   // snapshot. Only future requests use this new address.
   return { ok: true, message: "Testing contact email updated." };
+}
+
+/** Update all editable public/private profile preferences from Settings. */
+export async function updateProfileSettings(
+  _prev: ProfileSettingsState,
+  formData: FormData
+): Promise<ProfileSettingsState> {
+  const user = await requireDbUser();
+  const contactEmailResult = await validateVerifiedContactEmail(
+    field(formData, "contactEmail")
+  );
+  const bio = field(formData, "bio");
+  const twitterHandle = normalizeTwitterHandle(field(formData, "twitterHandle"));
+  const trustMrrProfileUrl = validateTrustMrrProfileUrl(
+    field(formData, "trustMrrProfileUrl")
+  );
+  const fieldErrors: ProfileSettingsState["fieldErrors"] = {};
+
+  if (contactEmailResult.error) fieldErrors.contactEmail = contactEmailResult.error;
+  if (bio.length > 280) fieldErrors.bio = "Bio must be 280 characters or fewer.";
+  if (twitterHandle && !/^[A-Za-z0-9_]{1,15}$/.test(twitterHandle)) {
+    fieldErrors.twitterHandle =
+      "Use a valid X/Twitter handle (letters, numbers, underscore).";
+  }
+  if (trustMrrProfileUrl === undefined) {
+    fieldErrors.trustMrrProfileUrl =
+      "Use an HTTPS TrustMRR founder profile URL (trustmrr.com/founder/...).";
+  }
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, message: "Fix the highlighted fields.", fieldErrors };
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      contactEmail: contactEmailResult.email!,
+      bio: bio || null,
+      twitterHandle: twitterHandle || null,
+      trustMrrProfileUrl,
+    },
+  });
+  invalidateDevProfileCache(user.profileSlug);
+  return { ok: true, message: "Profile settings updated." };
 }
