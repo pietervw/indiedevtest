@@ -10,6 +10,7 @@ import {
   expirePendingTesterRequests,
   openTesterRequestWhere,
 } from "@/lib/expire-pending-tester-requests";
+import { isCountedAssignmentStatus } from "@/lib/listing-status";
 import { testingPeriodProgress } from "@/lib/mock-data";
 import { isHttpUrl } from "@/lib/validation";
 
@@ -360,7 +361,9 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       const acceptedTesterCount = listing.testerRequests.filter(
         (request) => request.status === "accepted"
       ).length;
-      const joinedTesterCount = listing.testAssignments.length;
+      const joinedTesterCount = listing.testAssignments.filter((assignment) =>
+        isCountedAssignmentStatus(assignment.status)
+      ).length;
       const completedTesterCount = listing.testAssignments.filter(
         (assignment) => assignment.status === "completed"
       ).length;

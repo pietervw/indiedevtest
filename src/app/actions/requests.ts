@@ -42,6 +42,17 @@ function revalidateListingActivity(listingId: string) {
   revalidatePath("/dashboard");
 }
 
+/** Open + visible — not the same as public browse statuses (which include closed). */
+function isOpenForTesterRequests(listing: {
+  status: string;
+  moderationStatus: string;
+}) {
+  return (
+    listing.status === "open_for_testing" &&
+    listing.moderationStatus === "visible"
+  );
+}
+
 /**
  * Tester asks to test an app. Their saved profile email is shared with the dev.
  * One active request per (listing, tester); re-requesting after a
@@ -63,13 +74,14 @@ export async function createTesterRequest(
       id: true,
       name: true,
       status: true,
+      moderationStatus: true,
       testerCapacity: true,
       userId: true,
       user: { select: { clerkId: true, displayName: true, profileSlug: true } },
     },
   });
 
-  if (!listing || listing.status !== "open_for_testing") {
+  if (!listing || !isOpenForTesterRequests(listing)) {
     return { ok: false, message: "This app isn't open for testing right now." };
   }
   if (listing.userId === user.id) {
@@ -137,19 +149,21 @@ export async function createTesterRequest(
 
   const expiresAt = new Date(Date.now() + TESTER_REQUEST_TTL_MS);
 
-  let requestId: string | null = null;
-  let acceptedCapacityFull = false;
+  let createResult:
+    | { kind: "created"; requestId: string }
+    | { kind: "full" }
+    | { kind: "unavailable" };
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    createResult = await prisma.$transaction(async (tx) => {
       // The acceptance action takes this same row lock. This prevents a
       // request from being queued against a program that has just filled.
       await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listing.id} FOR UPDATE`;
       const currentListing = await tx.appListing.findUnique({
         where: { id: listing.id },
-        select: { status: true, testerCapacity: true },
+        select: { status: true, moderationStatus: true, testerCapacity: true },
       });
-      if (!currentListing || currentListing.status !== "open_for_testing") {
-        return { full: true, requestId: null };
+      if (!currentListing || !isOpenForTesterRequests(currentListing)) {
+        return { kind: "unavailable" as const };
       }
       if (currentListing.testerCapacity !== null) {
         const acceptedCount = await tx.testerRequest.count({
@@ -160,7 +174,7 @@ export async function createTesterRequest(
             where: { id: listing.id },
             data: { status: "closed_for_testing", autoClosedForCapacity: true },
           });
-          return { full: true, requestId: null };
+          return { kind: "full" as const };
         }
       }
       const testerRequest = await tx.testerRequest.upsert({
@@ -184,10 +198,8 @@ export async function createTesterRequest(
           testAssignmentId: null,
         },
       });
-      return { full: false, requestId: testerRequest.id };
+      return { kind: "created" as const, requestId: testerRequest.id };
     });
-    acceptedCapacityFull = result.full;
-    requestId = result.requestId;
   } catch (err) {
     console.error("[requests] createTesterRequest failed", err);
     return {
@@ -195,7 +207,7 @@ export async function createTesterRequest(
       message: "Could not submit your request. Try again in a moment.",
     };
   }
-  if (acceptedCapacityFull) {
+  if (createResult.kind !== "created") {
     revalidateListingActivity(listing.id);
     invalidatePublicCaches({
       listingId: listing.id,
@@ -203,7 +215,10 @@ export async function createTesterRequest(
     });
     return {
       ok: false,
-      message: "This program has filled all of its tester places.",
+      message:
+        createResult.kind === "full"
+          ? "This program has filled all of its tester places."
+          : "This app isn't open for testing right now.",
     };
   }
 
@@ -229,11 +244,14 @@ export async function createTesterRequest(
   }).catch((err) => {
     console.error("[requests] new-request email failed", err);
   });
-  await recordTesterActivity({
-    requestId: requestId!,
+  // Request row already committed — don't fail the action if the activity log write fails.
+  void recordTesterActivity({
+    requestId: createResult.requestId,
     listingId: listing.id,
     testerUserId: user.id,
     type: TesterActivityType.requested,
+  }).catch((err) => {
+    console.error("[requests] request activity failed", err);
   });
   void sendTesterRequestNotification({
     appName: listing.name,
@@ -265,10 +283,22 @@ export async function undoTesterRequestDecline(requestId: string): Promise<void>
     select: {
       testerUserId: true,
       appListingId: true,
-      appListing: { select: { userId: true, user: { select: { profileSlug: true } } } },
+      appListing: {
+        select: {
+          userId: true,
+          status: true,
+          user: { select: { profileSlug: true } },
+        },
+      },
     },
   });
-  if (!request || request.appListing.userId !== user.id) return;
+  if (
+    !request ||
+    request.appListing.userId !== user.id ||
+    request.appListing.status !== "open_for_testing"
+  ) {
+    return;
+  }
 
   const { count } = await prisma.testerRequest.updateMany({
     where: { id: requestId, status: "rejected", testAssignmentId: null },
@@ -494,27 +524,30 @@ async function resolveTesterRequest(
     return;
   }
 
-  if (updated) {
-    await recordTesterActivity({
-      requestId,
-      listingId: request.appListingId,
-      testerUserId: request.testerUserId,
-      type:
-        outcome === "accepted"
-          ? TesterActivityType.approved
-          : TesterActivityType.declined,
-    });
-  }
-
   revalidateListingActivity(request.appListingId);
-  // Reject drops pending count used by browse "most requested" sort.
+  // Reject / capacity-close both change browse-facing counts or status.
   invalidatePublicCaches({
     listingId: request.appListingId,
     profileSlugs: request.appListing.user.profileSlug,
   });
 
+  // Capacity already full: listing closed, request still pending — no decline email.
+  if (!updated) {
+    return;
+  }
+
+  await recordTesterActivity({
+    requestId,
+    listingId: request.appListingId,
+    testerUserId: request.testerUserId,
+    type:
+      outcome === "accepted"
+        ? TesterActivityType.approved
+        : TesterActivityType.declined,
+  });
+
   const notify =
-    outcome === "accepted" && updated
+    outcome === "accepted"
       ? sendRequestAcceptedEmail({
           testerEmail: request.testerEmail,
           appName: request.appListing.name,

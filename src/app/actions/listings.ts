@@ -120,21 +120,29 @@ export async function updateAppListing(
     fieldErrors.storeLink = "Store link must be an http(s) URL.";
   }
 
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, message: "Fix the highlighted fields.", fieldErrors };
-  }
-
-  // If capacity is reduced below the number already accepted, preserve those
-  // acceptances and close the program to further requests.
   const acceptedCount = await prisma.testerRequest.count({
     where: { appListingId: listingId, status: "accepted" },
   });
-  const nextStatus =
+  if (
+    testerCapacity !== null &&
+    !fieldErrors.testerCapacity &&
+    acceptedCount > testerCapacity
+  ) {
+    fieldErrors.testerCapacity = `Capacity can't be below the ${acceptedCount} already accepted tester${acceptedCount === 1 ? "" : "s"}.`;
+  }
+  if (
     status === "open_for_testing" &&
     testerCapacity !== null &&
+    !fieldErrors.status &&
     acceptedCount >= testerCapacity
-      ? "closed_for_testing"
-      : (status as AppListingStatus);
+  ) {
+    fieldErrors.status =
+      "This program is full. Raise capacity or set status to Closed for testing.";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, message: "Fix the highlighted fields.", fieldErrors };
+  }
 
   await prisma.appListing.update({
     where: { id: listingId },
@@ -147,7 +155,7 @@ export async function updateAppListing(
       testingAccessUrl: testingAccessUrl || null,
       testerInstructions: testerInstructions || null,
       testerCapacity,
-      status: nextStatus,
+      status: status as AppListingStatus,
       storeLink:
         status === "launched"
           ? storeLink
