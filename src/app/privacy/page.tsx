@@ -86,6 +86,21 @@ export default function PrivacyPage() {
           </p>
         </LegalSection>
 
+        <LegalSection title="Private tester feedback and devices">
+          <p>
+            When a tester has joined a testing track, they can submit private
+            feedback about that app. We store the issue title, severity,
+            details, optional reproduction steps, and an optional free-text
+            device name. This feedback is visible to the tester who submitted
+            it and the owner of the relevant listing, not to the public.
+          </p>
+          <p>
+            Listing owners can mark feedback as unresolved, fixed, or skipped.
+            That status is visible to the tester and the listing owner and helps
+            them track the outcome of a report.
+          </p>
+        </LegalSection>
+
         <LegalSection title="Listing reports and moderation">
           <p>
             Signed-in members can privately report a listing for spam or scams,
@@ -100,7 +115,7 @@ export default function PrivacyPage() {
         <LegalSection title="Transactional email (SendGrid)">
           <p>
             We use SendGrid to send product emails. Those include contact-form
-            messages, waitlist signup notices, and emails about tester requests
+            messages and emails about tester requests
             (for example when someone asks to test your app, or when a request is
             accepted or declined). Reminder emails about listing milestones may
             also go out when that feature is enabled.
@@ -111,7 +126,7 @@ export default function PrivacyPage() {
           <p>
             If configured, the site can send optional Pushover notifications to
             the site admin for operational events such as a first-time signup, a
-            waitlist signup, a contact-form submission, or a listing report. Email addresses in
+            contact-form submission, a tester request, or a listing report. Email addresses in
             those alerts are masked where applicable.
           </p>
         </LegalSection>
@@ -134,16 +149,16 @@ export default function PrivacyPage() {
         <LegalSection title="How long we keep data">
           <p>
             We keep account and listing data while your account and related
-            records are active on the service. Waitlist signups may also be kept
-            so we can email you later. We do not publish a separate automated
-            deletion schedule on this page.
+            records are active on the service. You can permanently delete your
+            account from Profile settings; this permanently takes your profile,
+            listings, tester activity, and feedback offline immediately and
+            cannot be undone.
           </p>
         </LegalSection>
 
         <LegalSection title="Your requests">
           <p>
-            If you want to ask about your data, correct something, or request
-            deletion of your account or related records, contact us through the{" "}
+            If you want to ask about your data or correct something, contact us through the{" "}
             <LegalLink href="/contact">contact form</LegalLink>. We will respond
             as best we can for a small indie product.
           </p>

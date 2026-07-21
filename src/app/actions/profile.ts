@@ -1,11 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { requireDbUser, requireProfileSetupPending } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import { invalidateDevProfileCache } from "@/lib/dev-profile";
 import { field, isHttpUrl, isValidEmail, normalizeEmail } from "@/lib/validation";
 import { getVerifiedClerkEmails } from "@/lib/verified-clerk-emails";
+import { profilePath } from "@/lib/mock-data";
 
 export type ProfileSetupState = {
   ok: boolean;
@@ -166,5 +168,7 @@ export async function updateProfileSettings(
     },
   });
   invalidateDevProfileCache(user.profileSlug);
+  revalidatePath("/settings/profile");
+  revalidatePath(profilePath(user.profileSlug));
   return { ok: true, message: "Profile settings updated." };
 }

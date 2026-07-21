@@ -1,5 +1,7 @@
 import { ProfileSettingsForm } from "@/components/testing-contact-email-form";
 import { Container } from "@/components/ui/section";
+import { Button } from "@/components/ui/button";
+import { DeleteAccountForm } from "@/components/delete-account-form";
 import { requireDbUser } from "@/lib/auth-guards";
 import { canonicalMetadata } from "@/lib/site";
 import { getVerifiedClerkEmails } from "@/lib/verified-clerk-emails";
@@ -20,6 +22,9 @@ export default async function ProfileSettingsPage() {
   return (
     <div className="flex-1 bg-grid">
       <Container className="py-14 md:py-20">
+        <Button href="/dashboard" size="sm" variant="secondary">
+          ← Dashboard
+        </Button>
         <h1 className="font-display text-3xl font-extrabold text-ink sm:text-4xl">
           Profile settings
         </h1>
@@ -34,6 +39,7 @@ export default async function ProfileSettingsPage() {
           twitterHandle={user.twitterHandle}
           trustMrrProfileUrl={user.trustMrrProfileUrl}
         />
+        <DeleteAccountForm />
       </Container>
     </div>
   );

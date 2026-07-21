@@ -49,7 +49,8 @@ export function DashboardActivity({
     data.acceptedAwaitingJoin.length > 0 ||
     data.activeAssignments.length > 0 ||
     data.completedAssignments.length > 0 ||
-    data.incompleteAssignments.length > 0;
+    data.incompleteAssignments.length > 0 ||
+    data.submittedFeedback.length > 0;
 
   return (
     <div className="flex-1 bg-grid">
@@ -219,6 +220,25 @@ export function DashboardActivity({
                   ))}
                 </ActivityGroup>
               ) : null}
+              {data.submittedFeedback.length > 0 ? (
+                <ActivityGroup title="Your private feedback">
+                  {data.submittedFeedback.map((item) => (
+                    <li key={item.id} className="p-4 sm:px-5">
+                      <Link href={appPath(item.listing.id)} className="font-display font-bold text-ink underline-offset-2 hover:underline">
+                        {item.listing.name}
+                      </Link>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                        <Badge variant="dark" size="sm">{item.severity}</Badge>
+                        <Badge variant="outline" size="sm">{item.status}</Badge>
+                        <span className="font-semibold text-ink">{item.title}</span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted">{item.details}</p>
+                      {item.steps ? <p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted"><span className="font-semibold text-ink">Steps:</span> {item.steps}</p> : null}
+                      {item.device ? <p className="mt-2 text-sm text-ink-muted"><span className="font-semibold text-ink">Device:</span> {item.device}</p> : null}
+                    </li>
+                  ))}
+                </ActivityGroup>
+              ) : null}
             </div>
           ) : (
             <EmptyPanel>
@@ -242,7 +262,8 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
   const canApprove = request.listing.status === "open_for_testing";
 
   return (
-    <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+    <li className="p-4 sm:px-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
         <AppLogo name={request.listing.name} logoUrl={request.listing.logoUrl} platform={request.listing.platform} size="sm" />
         <div className="min-w-0">
@@ -282,14 +303,16 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
         </form>
         <DeclineTesterButton requestId={request.id} />
       </div>
+      </div>
     </li>
   );
 }
 
 function ListingRow({ listing }: { listing: DashboardListing }) {
   return (
-    <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-      <div className="flex min-w-0 items-start gap-3">
+    <li className="p-4 sm:px-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
         <AppLogo name={listing.name} logoUrl={listing.logoUrl} platform={listing.platform} size="sm" />
         <div className="min-w-0">
           <Link
@@ -318,19 +341,20 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 sm:shrink-0">
+        <div className="flex flex-wrap gap-2 sm:shrink-0">
         <Button href={appPath(listing.id)} size="sm" variant="secondary">
           View
         </Button>
         <Button href={editPath(listing.id)} size="sm" variant="ghost">
           Edit
         </Button>
+        </div>
       </div>
       {listing.testerRequests.length > 0 ||
       listing.testerHistory.length > 0 ||
       listing.activity.length > 0 ||
       listing.feedback.length > 0 ? (
-        <div className="w-full sm:pl-[3.25rem]">
+        <div className="mt-5 w-full sm:pl-[3.25rem]">
           <DashboardTesterTable
             testers={listing.testerRequests}
             history={listing.testerHistory}
