@@ -18,9 +18,11 @@ const labelClassName = "mb-1.5 block text-sm font-semibold text-ink";
 export function ProfileSetupForm({
   className,
   defaultContactEmail,
+  verifiedContactEmails,
 }: {
   className?: string;
   defaultContactEmail: string;
+  verifiedContactEmails: string[];
 }) {
   const [state, formAction] = useActionState(completeProfileSetup, initialState);
 
@@ -31,22 +33,35 @@ export function ProfileSetupForm({
           <label htmlFor="profile-contact-email" className={labelClassName}>
             Testing contact email
           </label>
-          <input
+          <select
             id="profile-contact-email"
             name="contactEmail"
-            type="email"
             required
-            maxLength={254}
-            autoComplete="email"
             defaultValue={defaultContactEmail}
-            placeholder="you@indie.dev"
             className={cn(fieldClassName, "h-12")}
             aria-invalid={Boolean(state.fieldErrors?.contactEmail)}
-          />
+            disabled={verifiedContactEmails.length === 0}
+          >
+            {verifiedContactEmails.length === 0 ? (
+              <option value="">No verified email addresses found</option>
+            ) : (
+              verifiedContactEmails.map((email) => (
+                <option key={email} value={email}>
+                  {email}
+                </option>
+              ))
+            )}
+          </select>
           <p className="mt-1 text-sm text-ink-muted">
             Shared only with developers whose apps you request to test, and with
             testers you accept for your own app. We never display it publicly.
           </p>
+          {verifiedContactEmails.length === 0 ? (
+            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              Add and verify an email address in the Clerk account menu, then
+              refresh this page.
+            </p>
+          ) : null}
           {state.fieldErrors?.contactEmail ? (
             <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
               {state.fieldErrors.contactEmail}
@@ -104,7 +119,12 @@ export function ProfileSetupForm({
           ) : null}
         </div>
 
-        <SubmitButton size="lg" pendingLabel="Saving…" className="w-full sm:w-auto">
+        <SubmitButton
+          size="lg"
+          pendingLabel="Saving…"
+          disabled={verifiedContactEmails.length === 0}
+          className="w-full sm:w-auto"
+        >
           Save profile
         </SubmitButton>
 

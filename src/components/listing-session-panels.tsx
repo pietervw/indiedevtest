@@ -100,7 +100,7 @@ function useListingSession() {
 
 type TesterInfo = {
   displayName: string;
-  githubUsername: string;
+  profileSlug: string;
   imageUrl: string | null;
 };
 
@@ -122,7 +122,7 @@ function TesterRow({ tester, sub }: { tester: TesterInfo; sub?: string }) {
       )}
       <div className="min-w-0">
         <Link
-          href={profilePath(tester.githubUsername)}
+          href={profilePath(tester.profileSlug)}
           className="font-semibold text-ink hover:underline"
         >
           {tester.displayName}

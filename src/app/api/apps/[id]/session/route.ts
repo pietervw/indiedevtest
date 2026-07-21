@@ -28,9 +28,9 @@ const emptySession: ListingSessionPayload = {
   assignments: [],
 };
 
-const testerSelect = {
-  displayName: true,
-  githubUsername: true,
+  const testerSelect = {
+    displayName: true,
+    profileSlug: true,
   imageUrl: true,
 } as const;
 

@@ -136,7 +136,7 @@ export async function updateAppListing(
   revalidatePath(editPath(listingId));
   invalidatePublicCaches({
     listingId,
-    githubUsernames: user.githubUsername,
+    profileSlugs: user.profileSlug,
   });
 
   redirect(appPath(listingId));
@@ -163,7 +163,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
 
   const testerSelect = {
     testerUserId: true,
-    tester: { select: { githubUsername: true } },
+    tester: { select: { profileSlug: true } },
   } as const;
 
   // Read counters inside the transaction so concurrent completes/reviews
@@ -251,23 +251,23 @@ export async function deleteAppListing(listingId: string): Promise<void> {
     }
   );
 
-  const affectedUsernames = new Set([
-    user.githubUsername,
-    ...completedAssignments.map((a) => a.tester.githubUsername),
-    ...reviews.map((r) => r.tester.githubUsername),
+  const affectedProfileSlugs = new Set([
+    user.profileSlug,
+    ...completedAssignments.map((a) => a.tester.profileSlug),
+    ...reviews.map((r) => r.tester.profileSlug),
   ]);
 
   revalidatePath("/browse");
   revalidatePath("/");
   revalidatePath(appPath(listingId));
-  for (const username of affectedUsernames) {
-    revalidatePath(profilePath(username));
+  for (const slug of affectedProfileSlugs) {
+    revalidatePath(profilePath(slug));
   }
-  // Explicit usernames — avoid clearing every profile cache.
+  // Explicit profile slugs — avoid clearing every profile cache.
   invalidatePublicCaches({
     listingId,
-    githubUsernames: [...affectedUsernames],
+    profileSlugs: [...affectedProfileSlugs],
   });
 
-  redirect(profilePath(user.githubUsername));
+  redirect(profilePath(user.profileSlug));
 }

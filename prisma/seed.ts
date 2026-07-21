@@ -167,6 +167,7 @@ async function main() {
       where: { githubUsername: user.githubUsername },
       create: {
         ...user,
+        profileSlug: `seed-${user.githubUsername}`,
         onboardingCompletedAt: new Date(),
         profileCompletedAt: new Date(),
       },

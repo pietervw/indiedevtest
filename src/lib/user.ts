@@ -1,4 +1,5 @@
 import { Prisma } from "@/generated/prisma";
+import { randomUUID } from "crypto";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { sendFirstUserSignupNotification } from "@/lib/pushover";
@@ -29,9 +30,7 @@ export async function ensureDbUser() {
     if (!clerkUser) return null;
 
     const github = githubAccount(clerkUser.externalAccounts);
-    const profileHandle = github?.providerUserId
-      ? github.username || `gh-${github.providerUserId}`
-      : `member-${clerkUser.id.replace(/^user_/, "")}`;
+    const githubLogin = github?.username ?? null;
 
     const displayName =
       github?.username ||
@@ -49,18 +48,16 @@ export async function ensureDbUser() {
     // Fast path for returning users — no notification.
     const existing = await prisma.user.findUnique({
       where: { clerkId: clerkUser.id },
-      select: { id: true, githubUsername: true },
+      select: { id: true },
     });
     if (existing) {
       return await prisma.user.update({
         where: { clerkId: clerkUser.id },
         data: {
           ...profileUpdate,
-          // Preserve an existing public handle for email sign-ins; only a
-          // linked GitHub identity is allowed to replace it.
-          githubUsername: github?.providerUserId
-            ? profileHandle
-            : existing.githubUsername,
+          ...(github?.providerUserId
+            ? { githubUsername: githubLogin, githubLogin }
+            : {}),
           ...(github?.providerUserId ? { githubId: github.providerUserId } : {}),
         },
       });
@@ -72,13 +69,17 @@ export async function ensureDbUser() {
         data: {
           clerkId: clerkUser.id,
           ...profileUpdate,
-          githubUsername: profileHandle,
+          // This is deliberately unrelated to Clerk and GitHub IDs. It is a
+          // permanent public URL identifier, even if sign-in methods change.
+          profileSlug: `member-${randomUUID()}`,
+          githubUsername: githubLogin,
+          githubLogin,
           ...(github?.providerUserId ? { githubId: github.providerUserId } : {}),
         },
       });
       void sendFirstUserSignupNotification({
         displayName: created.displayName,
-        profileHandle: created.githubUsername,
+        profileHandle: created.profileSlug,
       });
       return created;
     } catch (err) {
@@ -118,7 +119,8 @@ export async function ensureDbUser() {
           ...profileUpdate,
           clerkId: clerkUser.id,
           githubId: github.providerUserId,
-          githubUsername: profileHandle,
+          githubUsername: githubLogin,
+          githubLogin,
         },
       });
     }

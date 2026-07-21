@@ -18,7 +18,7 @@ export type PublicListingReview = {
   tester: {
     displayName: string;
     imageUrl: string | null;
-    githubUsername: string;
+    profileSlug: string;
   };
 };
 
@@ -38,7 +38,7 @@ export type PublicListing = {
     id: string;
     displayName: string;
     imageUrl: string | null;
-    githubUsername: string;
+    profileSlug: string;
   };
   reviews: PublicListingReview[];
 };
@@ -56,7 +56,7 @@ const listingInclude = {
       id: true,
       displayName: true,
       imageUrl: true,
-      githubUsername: true,
+      profileSlug: true,
     },
   },
   reviews: {
@@ -65,7 +65,7 @@ const listingInclude = {
         select: {
           displayName: true,
           imageUrl: true,
-          githubUsername: true,
+          profileSlug: true,
         },
       },
     },

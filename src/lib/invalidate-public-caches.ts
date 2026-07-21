@@ -8,16 +8,16 @@ import { invalidatePublicListingCache } from "@/lib/public-listing";
 export function invalidatePublicCaches(options?: {
   listingId?: string;
   /** Profile cache keys to drop. Omitted = leave profile caches alone. */
-  githubUsernames?: string | string[];
+  profileSlugs?: string | string[];
 }) {
   invalidateHomeTopAppsCache();
   invalidateBrowseAppsCache();
   invalidateLeaderboardsCache();
   invalidatePublicListingCache(options?.listingId);
 
-  const names = options?.githubUsernames;
-  if (names == null) return;
-  for (const username of Array.isArray(names) ? names : [names]) {
-    invalidateDevProfileCache(username);
+  const slugs = options?.profileSlugs;
+  if (slugs == null) return;
+  for (const slug of Array.isArray(slugs) ? slugs : [slugs]) {
+    invalidateDevProfileCache(slug);
   }
 }

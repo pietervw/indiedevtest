@@ -22,7 +22,7 @@ export type ListingSessionPayload = {
     testerEmail: string;
     tester: {
       displayName: string;
-      githubUsername: string;
+        profileSlug: string;
       imageUrl: string | null;
     };
   }[];
@@ -31,7 +31,7 @@ export type ListingSessionPayload = {
     testerEmail: string;
     tester: {
       displayName: string;
-      githubUsername: string;
+        profileSlug: string;
       imageUrl: string | null;
     };
   }[];
@@ -43,7 +43,7 @@ export type ListingSessionPayload = {
     completedAt: string | null;
     tester: {
       displayName: string;
-      githubUsername: string;
+        profileSlug: string;
       imageUrl: string | null;
     };
   }[];

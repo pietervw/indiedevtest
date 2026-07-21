@@ -60,7 +60,6 @@ export type DashboardIncomingRequest = {
   testerEmail: string;
   tester: {
     displayName: string;
-    githubUsername: string;
     imageUrl: string | null;
   };
 };
@@ -109,7 +108,6 @@ const listingSummarySelect = {
 
 const testerSelect = {
   displayName: true,
-  githubUsername: true,
   imageUrl: true,
 } as const;
 

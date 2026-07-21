@@ -30,6 +30,9 @@ export function SiteHeader() {
             <Link href="/dashboard" className={navLinkClassName}>
               Dashboard
             </Link>
+            <Link href="/settings/profile" className={navLinkClassName}>
+              Settings
+            </Link>
           </Show>
           <Link href="/apps/new" className={navLinkClassName}>
             Add
@@ -72,6 +75,13 @@ export function SiteHeader() {
                 className={mobileNavLinkClassName}
               >
                 Dashboard
+              </Link>
+              <Link
+                href="/settings/profile"
+                onClick={() => setOpen(false)}
+                className={mobileNavLinkClassName}
+              >
+                Settings
               </Link>
             </Show>
             <Link

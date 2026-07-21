@@ -59,8 +59,8 @@ export const platformLabel: Record<string, string> = {
   ios: "iOS",
 };
 
-export function profilePath(githubUsername: string) {
-  return `/dev/${encodeURIComponent(githubUsername)}`;
+export function profilePath(profileSlug: string) {
+  return `/dev/${encodeURIComponent(profileSlug)}`;
 }
 
 export function appPath(id: string) {

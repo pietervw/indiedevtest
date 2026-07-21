@@ -1,7 +1,7 @@
 import { ProfileSetupForm } from "@/components/profile-setup-form";
 import { Container } from "@/components/ui/section";
 import { requireProfileSetupPending } from "@/lib/auth-guards";
-import { currentUser } from "@clerk/nextjs/server";
+import { getVerifiedClerkEmails } from "@/lib/verified-clerk-emails";
 import { canonicalMetadata } from "@/lib/site";
 import type { Metadata } from "next";
 
@@ -13,11 +13,7 @@ export const metadata: Metadata = {
 
 export default async function OnboardingProfilePage() {
   const user = await requireProfileSetupPending();
-  const clerkUser = await currentUser();
-  const clerkEmail =
-    clerkUser?.primaryEmailAddress?.emailAddress ??
-    clerkUser?.emailAddresses[0]?.emailAddress ??
-    "";
+  const verifiedContactEmails = await getVerifiedClerkEmails();
 
   return (
     <div className="relative flex-1 overflow-hidden bg-grid">
@@ -34,7 +30,10 @@ export default async function OnboardingProfilePage() {
           handle help other indie testers know who you are.
         </p>
         <div className="mt-10">
-          <ProfileSetupForm defaultContactEmail={user.contactEmail ?? clerkEmail} />
+          <ProfileSetupForm
+            defaultContactEmail={user.contactEmail ?? verifiedContactEmails[0] ?? ""}
+            verifiedContactEmails={verifiedContactEmails}
+          />
         </div>
       </Container>
     </div>

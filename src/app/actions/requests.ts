@@ -60,7 +60,7 @@ export async function createTesterRequest(
       name: true,
       status: true,
       userId: true,
-      user: { select: { clerkId: true, displayName: true, githubUsername: true } },
+      user: { select: { clerkId: true, displayName: true, profileSlug: true } },
     },
   });
 
@@ -160,7 +160,7 @@ export async function createTesterRequest(
   revalidateListingActivity(listing.id);
   invalidatePublicCaches({
     listingId: listing.id,
-    githubUsernames: listing.user.githubUsername,
+    profileSlugs: listing.user.profileSlug,
   });
 
   void sendNewTesterRequestEmail({
@@ -203,7 +203,7 @@ export async function withdrawTesterRequest(
     },
     select: {
       id: true,
-      appListing: { select: { user: { select: { githubUsername: true } } } },
+      appListing: { select: { user: { select: { profileSlug: true } } } },
     },
   });
   if (!request) return;
@@ -223,7 +223,7 @@ export async function withdrawTesterRequest(
   revalidateListingActivity(listingId);
   invalidatePublicCaches({
     listingId,
-    githubUsernames: [user.githubUsername, request.appListing.user.githubUsername],
+    profileSlugs: [user.profileSlug, request.appListing.user.profileSlug],
   });
 }
 
@@ -245,7 +245,7 @@ async function resolveTesterRequest(
           name: true,
           testingAccessUrl: true,
           testerInstructions: true,
-          user: { select: { githubUsername: true, contactEmail: true } },
+          user: { select: { profileSlug: true, contactEmail: true } },
         },
       },
     },
@@ -276,7 +276,7 @@ async function resolveTesterRequest(
   // Reject drops pending count used by browse "most requested" sort.
   invalidatePublicCaches({
     listingId: request.appListingId,
-    githubUsernames: request.appListing.user.githubUsername,
+    profileSlugs: request.appListing.user.profileSlug,
   });
 
   const notify =
@@ -398,12 +398,12 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
       testerUserId: true,
       testAssignmentId: true,
       appListingId: true,
-      tester: { select: { githubUsername: true } },
+      tester: { select: { profileSlug: true } },
       appListing: {
         select: {
           userId: true,
           platform: true,
-          user: { select: { githubUsername: true } },
+          user: { select: { profileSlug: true } },
         },
       },
     },
@@ -451,9 +451,9 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
   revalidateListingActivity(request.appListingId);
   invalidatePublicCaches({
     listingId: request.appListingId,
-    githubUsernames: [
-      request.tester.githubUsername,
-      request.appListing.user.githubUsername,
+    profileSlugs: [
+      request.tester.profileSlug,
+      request.appListing.user.profileSlug,
     ],
   });
 }
@@ -504,13 +504,13 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
   }
 
   revalidateListingActivity(assignment.appListingId);
-  revalidatePath(profilePath(assignment.tester.githubUsername));
-  revalidatePath(profilePath(assignment.appListing.user.githubUsername));
+  revalidatePath(profilePath(assignment.tester.profileSlug));
+  revalidatePath(profilePath(assignment.appListing.user.profileSlug));
   invalidatePublicCaches({
     listingId: assignment.appListingId,
-    githubUsernames: [
-      assignment.tester.githubUsername,
-      assignment.appListing.user.githubUsername,
+    profileSlugs: [
+      assignment.tester.profileSlug,
+      assignment.appListing.user.profileSlug,
     ],
   });
 
@@ -566,13 +566,13 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
   }
 
   revalidateListingActivity(assignment.appListingId);
-  revalidatePath(profilePath(assignment.tester.githubUsername));
-  revalidatePath(profilePath(assignment.appListing.user.githubUsername));
+  revalidatePath(profilePath(assignment.tester.profileSlug));
+  revalidatePath(profilePath(assignment.appListing.user.profileSlug));
   invalidatePublicCaches({
     listingId: assignment.appListingId,
-    githubUsernames: [
-      assignment.tester.githubUsername,
-      assignment.appListing.user.githubUsername,
+    profileSlugs: [
+      assignment.tester.profileSlug,
+      assignment.appListing.user.profileSlug,
     ],
   });
 }
@@ -587,12 +587,12 @@ async function fetchOwnedAssignment(assignmentId: string, userId: string) {
       joinedAt: true,
       testerUserId: true,
       appListingId: true,
-      tester: { select: { githubUsername: true } },
+      tester: { select: { profileSlug: true } },
       appListing: {
         select: {
           userId: true,
           name: true,
-          user: { select: { githubUsername: true } },
+          user: { select: { profileSlug: true } },
         },
       },
       testerRequest: { select: { testerEmail: true } },

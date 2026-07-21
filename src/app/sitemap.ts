@@ -37,7 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             some: { status: { in: [...PUBLIC_LISTING_STATUSES] } },
           },
         },
-        select: { githubUsername: true, updatedAt: true },
+        select: { profileSlug: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
         take: 5000,
       }),
@@ -52,7 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.8,
       })),
       ...developers.map((dev) => ({
-        url: absoluteUrl(profilePath(dev.githubUsername)),
+        url: absoluteUrl(profilePath(dev.profileSlug)),
         lastModified: dev.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.7,

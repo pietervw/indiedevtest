@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { acceptTesterRequest } from "@/app/actions/requests";
+import {
+  acceptTesterRequest,
+  rejectTesterRequest,
+} from "@/app/actions/requests";
 import { AppLogo } from "@/components/app-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -230,6 +233,7 @@ export function DashboardActivity({
 
 function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) {
   const approve = acceptTesterRequest.bind(null, request.id);
+  const decline = rejectTesterRequest.bind(null, request.id);
 
   return (
     <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -253,11 +257,18 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
           </Link>
         </div>
       </div>
-      <form action={approve} className="shrink-0">
-        <SubmitButton size="sm" pendingLabel="Approving…">
-          Approve tester
-        </SubmitButton>
-      </form>
+      <div className="flex shrink-0 gap-2">
+        <form action={approve}>
+          <SubmitButton size="sm" pendingLabel="Approving…">
+            Approve tester
+          </SubmitButton>
+        </form>
+        <form action={decline}>
+          <SubmitButton size="sm" variant="secondary" pendingLabel="Declining…">
+            Decline
+          </SubmitButton>
+        </form>
+      </div>
     </li>
   );
 }

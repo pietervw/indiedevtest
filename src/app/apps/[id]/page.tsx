@@ -61,7 +61,7 @@ export default async function AppListingPage({ params }: Props) {
   }
 
   const showReviews = isReviewableListingStatus(listing.status);
-  const profileHref = profilePath(listing.user.githubUsername);
+  const profileHref = profilePath(listing.user.profileSlug);
 
   return (
     <div className="flex-1 border-b-2 border-ink bg-grid">
@@ -110,7 +110,7 @@ export default async function AppListingPage({ params }: Props) {
                   {listing.user.displayName}
                 </span>
                 <span className="text-sm text-ink-muted">
-                  @{listing.user.githubUsername}
+                  View developer profile
                 </span>
               </Link>
 
@@ -166,7 +166,7 @@ export default async function AppListingPage({ params }: Props) {
                   {listing.reviews.map((review) => (
                     <li key={review.id} className="px-5 py-4">
                       <Link
-                        href={profilePath(review.tester.githubUsername)}
+                        href={profilePath(review.tester.profileSlug)}
                         className="inline-flex items-center gap-2 font-semibold text-ink hover:underline"
                       >
                         {review.tester.displayName}
