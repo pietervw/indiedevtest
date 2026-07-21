@@ -12,7 +12,7 @@ import { revokeBadgeBelowThreshold, syncFirst12Badge } from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { isAllowedStatusTransition } from "@/lib/listing-status";
-import { appPath, profilePath } from "@/lib/mock-data";
+import { appPath, editPath, profilePath } from "@/lib/mock-data";
 import { field, isHttpUrl } from "@/lib/validation";
 
 export type UpdateListingState = {
@@ -121,7 +121,7 @@ export async function updateAppListing(
   revalidatePath("/browse");
   revalidatePath("/");
   revalidatePath(appPath(listingId));
-  revalidatePath(`/apps/${listingId}/edit`);
+  revalidatePath(editPath(listingId));
   invalidatePublicCaches({
     listingId,
     githubUsernames: user.githubUsername,

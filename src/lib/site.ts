@@ -113,7 +113,51 @@ export const siteRoutes = [
     changeFrequency: "monthly" as const,
     priority: 0.6,
   },
+  {
+    path: "/privacy",
+    title: "Privacy",
+    description:
+      "How IndieDevTest handles account data, listings, emails, and analytics.",
+    changeFrequency: "monthly" as const,
+    priority: 0.4,
+  },
+  {
+    path: "/terms",
+    title: "Terms",
+    description:
+      "Plain-language terms for using IndieDevTest’s reciprocal testing community.",
+    changeFrequency: "monthly" as const,
+    priority: 0.4,
+  },
 ] as const;
+
+export type SiteRoutePath = (typeof siteRoutes)[number]["path"];
+
+export function getSiteRouteOrThrow(path: SiteRoutePath) {
+  const route = siteRoutes.find((entry) => entry.path === path);
+  if (!route) {
+    throw new Error(`Missing ${path} entry in siteRoutes`);
+  }
+  return route;
+}
+
+export function legalWebPageJsonLd(options: {
+  path: SiteRoutePath;
+  name: string;
+  description: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": absoluteUrl(`${options.path}#webpage`),
+    url: absoluteUrl(options.path),
+    name: options.name,
+    description: options.description,
+    isPartOf: { "@id": absoluteUrl("/#website") },
+    about: { "@id": absoluteUrl("/#organization") },
+    inLanguage: "en-US",
+  };
+}
 
 export function absoluteUrl(path = "/"): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;

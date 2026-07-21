@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { expirePendingTesterRequests } from "@/lib/expire-pending-tester-requests";
 import {
   categoryLabel,
   mapListingToApp,
@@ -92,6 +93,10 @@ async function loadBrowseApps(): Promise<CachedApp[]> {
   }
 
   try {
+    // Board-wide cache miss: no listing/user scope — expire globally once,
+    // then recount. expires_at filter below is defense in depth.
+    await expirePendingTesterRequests();
+
     const rows = await prisma.$queryRaw<BrowseRow[]>`
       SELECT
         al.id,
@@ -117,7 +122,10 @@ async function loadBrowseApps(): Promise<CachedApp[]> {
           FROM tester_requests tr
           WHERE tr.app_listing_id = al.id
             AND (
-              tr.status = 'pending'::"TesterRequestStatus"
+              (
+                tr.status = 'pending'::"TesterRequestStatus"
+                AND tr.expires_at > NOW()
+              )
               OR (
                 tr.status = 'accepted'::"TesterRequestStatus"
                 AND tr.test_assignment_id IS NULL

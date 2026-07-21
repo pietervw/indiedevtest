@@ -1,0 +1,223 @@
+import type {
+  AppCategory,
+  AppListingStatus,
+  Platform,
+} from "@/generated/prisma";
+import { prisma } from "@/lib/db";
+import {
+  expirePendingTesterRequests,
+  openTesterRequestWhere,
+  pendingNotExpiredWhere,
+} from "@/lib/expire-pending-tester-requests";
+import { COUNTED_ASSIGNMENT_STATUSES } from "@/lib/listing-status";
+import { testingPeriodProgress } from "@/lib/mock-data";
+
+export type DashboardListing = {
+  id: string;
+  name: string;
+  logoUrl: string;
+  category: AppCategory;
+  platform: Platform;
+  status: AppListingStatus;
+  liveTesterCount: number;
+  pendingRequestCount: number;
+};
+
+type DashboardListingRef = {
+  id: string;
+  name: string;
+  logoUrl: string;
+  platform: Platform;
+};
+
+type DashboardAssignmentListingRef = {
+  id: string;
+  name: string;
+  logoUrl: string;
+};
+
+/** Pending or accepted-awaiting-join request row for the activity list. */
+export type DashboardRequestItem = {
+  id: string;
+  listing: DashboardListingRef;
+};
+
+export type DashboardActiveAssignment = {
+  id: string;
+  platform: Platform;
+  daysRemainingLabel: string | null;
+  listing: DashboardAssignmentListingRef;
+};
+
+/** Completed or incomplete assignment row for the activity list. */
+export type DashboardPastAssignment = {
+  id: string;
+  platform: Platform;
+  listing: DashboardAssignmentListingRef;
+};
+
+export type DashboardData = {
+  listings: DashboardListing[];
+  pendingRequests: DashboardRequestItem[];
+  acceptedAwaitingJoin: DashboardRequestItem[];
+  activeAssignments: DashboardActiveAssignment[];
+  completedAssignments: DashboardPastAssignment[];
+  incompleteAssignments: DashboardPastAssignment[];
+};
+
+const EMPTY_DASHBOARD: DashboardData = {
+  listings: [],
+  pendingRequests: [],
+  acceptedAwaitingJoin: [],
+  activeAssignments: [],
+  completedAssignments: [],
+  incompleteAssignments: [],
+};
+
+const listingSummarySelect = {
+  id: true,
+  name: true,
+  logoUrl: true,
+  platform: true,
+} as const;
+
+/**
+ * Private activity centre payload for the signed-in user.
+ * Never selects tester emails or other requester-private fields.
+ */
+export async function getDashboardData(userId: string): Promise<DashboardData> {
+  if (!process.env.DATABASE_URL) {
+    return EMPTY_DASHBOARD;
+  }
+
+  // Cover the user's own pending requests and pending queues on owned listings.
+  await expirePendingTesterRequests({
+    testerUserId: userId,
+    ownerUserId: userId,
+  });
+
+  const now = new Date();
+
+  const [listings, testerRequests, assignments] = await Promise.all([
+    prisma.appListing.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+        logoUrl: true,
+        category: true,
+        platform: true,
+        status: true,
+        _count: {
+          select: {
+            testAssignments: {
+              where: { status: { in: [...COUNTED_ASSIGNMENT_STATUSES] } },
+            },
+            testerRequests: {
+              where: pendingNotExpiredWhere(now),
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.testerRequest.findMany({
+      where: {
+        testerUserId: userId,
+        ...openTesterRequestWhere(now),
+      },
+      select: {
+        id: true,
+        status: true,
+        testAssignmentId: true,
+        appListing: { select: listingSummarySelect },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.testAssignment.findMany({
+      where: {
+        testerUserId: userId,
+        status: { in: ["active", "completed", "incomplete"] },
+      },
+      select: {
+        id: true,
+        status: true,
+        platform: true,
+        joinedAt: true,
+        appListing: { select: listingSummarySelect },
+      },
+      orderBy: { joinedAt: "desc" },
+    }),
+  ]);
+
+  const pendingRequests: DashboardRequestItem[] = [];
+  const acceptedAwaitingJoin: DashboardRequestItem[] = [];
+
+  for (const request of testerRequests) {
+    const listing = {
+      id: request.appListing.id,
+      name: request.appListing.name,
+      logoUrl: request.appListing.logoUrl.trim(),
+      platform: request.appListing.platform,
+    };
+    if (request.status === "pending") {
+      pendingRequests.push({ id: request.id, listing });
+    } else if (
+      request.status === "accepted" &&
+      request.testAssignmentId == null
+    ) {
+      acceptedAwaitingJoin.push({ id: request.id, listing });
+    }
+  }
+
+  const activeAssignments: DashboardActiveAssignment[] = [];
+  const completedAssignments: DashboardPastAssignment[] = [];
+  const incompleteAssignments: DashboardPastAssignment[] = [];
+
+  for (const row of assignments) {
+    const listing = {
+      id: row.appListing.id,
+      name: row.appListing.name,
+      logoUrl: row.appListing.logoUrl.trim(),
+    };
+    if (row.status === "active") {
+      const progress = testingPeriodProgress(row.joinedAt, row.platform);
+      activeAssignments.push({
+        id: row.id,
+        platform: row.platform,
+        daysRemainingLabel: progress.label,
+        listing,
+      });
+    } else if (row.status === "completed") {
+      completedAssignments.push({
+        id: row.id,
+        platform: row.platform,
+        listing,
+      });
+    } else if (row.status === "incomplete") {
+      incompleteAssignments.push({
+        id: row.id,
+        platform: row.platform,
+        listing,
+      });
+    }
+  }
+
+  return {
+    listings: listings.map((listing) => ({
+      id: listing.id,
+      name: listing.name,
+      logoUrl: listing.logoUrl.trim(),
+      category: listing.category,
+      platform: listing.platform,
+      status: listing.status,
+      liveTesterCount: listing._count.testAssignments,
+      pendingRequestCount: listing._count.testerRequests,
+    })),
+    pendingRequests,
+    acceptedAwaitingJoin,
+    activeAssignments,
+    completedAssignments,
+    incompleteAssignments,
+  };
+}

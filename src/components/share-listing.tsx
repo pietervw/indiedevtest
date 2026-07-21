@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 
 type ShareListingProps = {
   appName: string;
-  category: string;
   url: string;
 };
 
@@ -14,9 +13,9 @@ type ShareListingProps = {
  * The native share sheet is preferred on supported mobile browsers; copying
  * the canonical URL remains a dependable fallback everywhere else.
  */
-export function ShareListing({ appName, category, url }: ShareListingProps) {
+export function ShareListing({ appName, url }: ShareListingProps) {
   const [message, setMessage] = useState<string | null>(null);
-  const text = `Need testers for ${appName} — help me launch this ${category} app!`;
+  const text = `I need testers for ${appName}— help me launch this app!`;
   const xIntent = `https://x.com/intent/tweet?text=${encodeURIComponent(
     text
   )}&url=${encodeURIComponent(url)}`;

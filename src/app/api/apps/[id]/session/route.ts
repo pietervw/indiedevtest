@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOptionalDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
+import { expirePendingTesterRequests, openTesterRequestWhere } from "@/lib/expire-pending-tester-requests";
 import {
   COUNTED_ASSIGNMENT_STATUSES,
   isCountedAssignmentStatus,
@@ -15,6 +16,7 @@ const emptySession: ListingSessionPayload = {
   viewerId: null,
   isOwner: false,
   viewerRequestStatus: null,
+  viewerHasJoined: false,
   canWriteReview: false,
   hasWrittenReview: false,
   pendingRequests: [],
@@ -61,7 +63,10 @@ export async function GET(_request: Request, { params }: Props) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  await expirePendingTesterRequests({ listingId: listing.id });
+
   const reviewListingOpen = isReviewableListingStatus(listing.status);
+  const now = new Date();
 
   const [viewerRequest, assignment, existingReview, ownerRequests, assignments] =
     await Promise.all([
@@ -73,7 +78,7 @@ export async function GET(_request: Request, { params }: Props) {
                 testerUserId: viewer.id,
               },
             },
-            select: { status: true },
+            select: { status: true, testAssignmentId: true },
           })
         : null,
       !isOwner && reviewListingOpen
@@ -102,10 +107,7 @@ export async function GET(_request: Request, { params }: Props) {
         ? prisma.testerRequest.findMany({
             where: {
               appListingId: listing.id,
-              OR: [
-                { status: "pending" },
-                { status: "accepted", testAssignmentId: null },
-              ],
+              ...openTesterRequestWhere(now),
             },
             include: { tester: { select: testerSelect } },
             orderBy: { createdAt: "desc" },
@@ -139,6 +141,7 @@ export async function GET(_request: Request, { params }: Props) {
     viewerId: viewer.id,
     isOwner,
     viewerRequestStatus: viewerRequest?.status ?? null,
+    viewerHasJoined: viewerRequest?.testAssignmentId != null,
     canWriteReview,
     hasWrittenReview,
     pendingRequests: pendingRequests.map((req) => ({

@@ -110,3 +110,21 @@ export async function sendContactNotification(input: {
     ].join("\n"),
   });
 }
+
+/** Alert the admin once when a GitHub user first receives a local profile. */
+export async function sendFirstUserSignupNotification(input: {
+  displayName: string;
+  githubUsername: string;
+}): Promise<boolean> {
+  const product = siteConfig.name;
+  return sendPushoverNotification({
+    title: `🎉 ${product} new user`,
+    message: [
+      `A new user joined ${product}.`,
+      "",
+      `Name: ${input.displayName}`,
+      `GitHub: @${input.githubUsername}`,
+      `Time: ${perthTimestamp()}`,
+    ].join("\n"),
+  });
+}

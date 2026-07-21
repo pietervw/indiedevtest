@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Show } from "@clerk/nextjs";
 import Link from "next/link";
 import { AuthControls } from "@/components/auth-controls";
 import { BrandMark } from "@/components/brand-mark";
@@ -8,6 +9,9 @@ import { Container } from "@/components/ui/section";
 
 const navLinkClassName =
   "text-sm font-semibold text-ink-muted transition-colors hover:text-ink";
+
+const mobileNavLinkClassName =
+  "rounded-lg px-2 py-3 text-base font-semibold text-ink transition-colors hover:bg-paper-muted";
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -22,6 +26,11 @@ export function SiteHeader() {
           <Link href="/browse" className={navLinkClassName}>
             Browse
           </Link>
+          <Show when="signed-in">
+            <Link href="/dashboard" className={navLinkClassName}>
+              Dashboard
+            </Link>
+          </Show>
           <Link href="/apps/new" className={navLinkClassName}>
             Add
           </Link>
@@ -52,14 +61,23 @@ export function SiteHeader() {
             <Link
               href="/browse"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-2 py-3 text-base font-semibold text-ink transition-colors hover:bg-paper-muted"
+              className={mobileNavLinkClassName}
             >
               Browse
             </Link>
+            <Show when="signed-in">
+              <Link
+                href="/dashboard"
+                onClick={() => setOpen(false)}
+                className={mobileNavLinkClassName}
+              >
+                Dashboard
+              </Link>
+            </Show>
             <Link
               href="/apps/new"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-2 py-3 text-base font-semibold text-ink transition-colors hover:bg-paper-muted"
+              className={mobileNavLinkClassName}
             >
               Add app
             </Link>

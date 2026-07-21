@@ -14,8 +14,13 @@ import {
   sendRequestRejectedEmail,
   sendTestCompletedEmail,
 } from "@/lib/email";
+import {
+  expirePendingTesterRequests,
+  TESTER_REQUEST_TTL_MS,
+} from "@/lib/expire-pending-tester-requests";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
+import { takeRateLimit, checkRateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
@@ -25,8 +30,10 @@ export type RequestState = {
   fieldErrors?: { email?: string };
 };
 
-/** Pending tester requests auto-expire after this long (spec: 60 days). */
-const REQUEST_TTL_MS = 60 * 24 * 60 * 60 * 1000;
+function revalidateListingActivity(listingId: string) {
+  revalidatePath(appPath(listingId));
+  revalidatePath("/dashboard");
+}
 
 /**
  * Tester asks to test an app. Shares their email with the dev.
@@ -67,6 +74,12 @@ export async function createTesterRequest(
     };
   }
 
+  // Lazy-expire this tester's overdue pending row so re-request is allowed.
+  await expirePendingTesterRequests({
+    listingId: listing.id,
+    testerUserId: user.id,
+  });
+
   const existing = await prisma.testerRequest.findUnique({
     where: {
       appListingId_testerUserId: {
@@ -86,7 +99,22 @@ export async function createTesterRequest(
     };
   }
 
-  const expiresAt = new Date(Date.now() + REQUEST_TTL_MS);
+  // A small per-user guard stops an account from mass-emailing listing owners.
+  // Check first; only consume a slot after the DB write succeeds.
+  const requestLimit = checkRateLimit({
+    key: `tester-request:${user.id}`,
+    limit: 6,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!requestLimit.allowed) {
+    const minutes = Math.max(1, Math.ceil(requestLimit.retryAfterSeconds / 60));
+    return {
+      ok: false,
+      message: `You've sent several requests recently. Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+    };
+  }
+
+  const expiresAt = new Date(Date.now() + TESTER_REQUEST_TTL_MS);
 
   try {
     await prisma.testerRequest.upsert({
@@ -118,7 +146,13 @@ export async function createTesterRequest(
     };
   }
 
-  revalidatePath(appPath(listing.id));
+  takeRateLimit({
+    key: `tester-request:${user.id}`,
+    limit: 6,
+    windowMs: 60 * 60 * 1000,
+  });
+
+  revalidateListingActivity(listing.id);
   invalidatePublicCaches({
     listingId: listing.id,
     githubUsernames: listing.user.githubUsername,
@@ -151,6 +185,43 @@ export async function rejectTesterRequest(requestId: string): Promise<void> {
   await resolveTesterRequest(requestId, "rejected");
 }
 
+/** Tester withdraws before joining; reuses expired so they can request again. */
+export async function withdrawTesterRequest(
+  listingId: string,
+  expectedStatus: "pending" | "accepted" = "pending"
+): Promise<void> {
+  const user = await requireDbUser();
+
+  const request = await prisma.testerRequest.findUnique({
+    where: {
+      appListingId_testerUserId: { appListingId: listingId, testerUserId: user.id },
+    },
+    select: {
+      id: true,
+      appListing: { select: { user: { select: { githubUsername: true } } } },
+    },
+  });
+  if (!request) return;
+
+  // CAS on the UI's expected status so a stale "pending" view cannot expire an
+  // already-accepted request (and vice versa).
+  const { count } = await prisma.testerRequest.updateMany({
+    where: {
+      id: request.id,
+      status: expectedStatus,
+      testAssignmentId: null,
+    },
+    data: { status: "expired" },
+  });
+  if (count !== 1) return;
+
+  revalidateListingActivity(listingId);
+  invalidatePublicCaches({
+    listingId,
+    githubUsernames: [user.githubUsername, request.appListing.user.githubUsername],
+  });
+}
+
 /** Shared accept/reject path: ownership + state guard, update, revalidate, notify. */
 async function resolveTesterRequest(
   requestId: string,
@@ -161,7 +232,6 @@ async function resolveTesterRequest(
   const request = await prisma.testerRequest.findUnique({
     where: { id: requestId },
     select: {
-      status: true,
       testerEmail: true,
       appListingId: true,
       appListing: {
@@ -177,16 +247,25 @@ async function resolveTesterRequest(
   if (!request || request.appListing.userId !== user.id) {
     return;
   }
-  if (request.status !== "pending") {
+
+  // Expire overdue pendings on this listing (status/cache hygiene).
+  await expirePendingTesterRequests({ listingId: request.appListingId });
+
+  // CAS: only transition still-pending, not-yet-expired rows.
+  const { count } = await prisma.testerRequest.updateMany({
+    // Recheck expiresAt so accept cannot win a race with lazy expiry.
+    where: {
+      id: requestId,
+      status: "pending",
+      expiresAt: { gt: new Date() },
+    },
+    data: { status: outcome },
+  });
+  if (count !== 1) {
     return;
   }
 
-  await prisma.testerRequest.update({
-    where: { id: requestId },
-    data: { status: outcome },
-  });
-
-  revalidatePath(appPath(request.appListingId));
+  revalidateListingActivity(request.appListingId);
   // Reject drops pending count used by browse "most requested" sort.
   invalidatePublicCaches({
     listingId: request.appListingId,
@@ -275,7 +354,7 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
     });
   }
 
-  revalidatePath(appPath(request.appListingId));
+  revalidateListingActivity(request.appListingId);
   invalidatePublicCaches({
     listingId: request.appListingId,
     githubUsernames: [
@@ -330,7 +409,7 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
     return;
   }
 
-  revalidatePath(appPath(assignment.appListingId));
+  revalidateListingActivity(assignment.appListingId);
   revalidatePath(profilePath(assignment.tester.githubUsername));
   revalidatePath(profilePath(assignment.appListing.user.githubUsername));
   invalidatePublicCaches({
@@ -392,7 +471,7 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
     });
   }
 
-  revalidatePath(appPath(assignment.appListingId));
+  revalidateListingActivity(assignment.appListingId);
   revalidatePath(profilePath(assignment.tester.githubUsername));
   revalidatePath(profilePath(assignment.appListing.user.githubUsername));
   invalidatePublicCaches({

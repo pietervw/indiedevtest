@@ -18,6 +18,7 @@ import {
   markTestComplete,
   markTestIncomplete,
   rejectTesterRequest,
+  withdrawTesterRequest,
 } from "@/app/actions/requests";
 import { RequestToTestForm } from "@/components/request-to-test-form";
 import { SubmitButton } from "@/components/submit-button";
@@ -25,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { WriteReviewForm } from "@/components/write-review-form";
 import type { ListingSessionPayload } from "@/lib/listing-session";
 import {
+  editPath,
   profilePath,
   TESTING_PERIOD_MS,
   testingPeriodProgress,
@@ -209,7 +211,7 @@ export function ListingPageHeader({ listingId }: { listingId: string }) {
         </Link>
       </p>
       {session?.isOwner ? (
-        <Button href={`/apps/${listingId}/edit`} size="sm" variant="secondary">
+        <Button href={editPath(listingId)} size="sm" variant="secondary">
           Edit listing
         </Button>
       ) : null}
@@ -244,6 +246,10 @@ export function ListingSessionPanels({
     };
   }
 
+  const refreshSession = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+
   return (
     <>
       {acceptingRequests && !isOwner ? (
@@ -252,8 +258,24 @@ export function ListingSessionPanels({
             <p className="text-sm text-ink-muted">Checking sign-in…</p>
           ) : viewer ? (
             <RequestToTestForm
+              // Remount when session status changes so useActionState can't keep a stale ok after withdraw.
+              key={`${session?.viewerRequestStatus ?? "none"}:${session?.viewerHasJoined ? "joined" : "open"}`}
               listingId={listingId}
               existing={session?.viewerRequestStatus ?? null}
+              hasJoined={session?.viewerHasJoined ?? false}
+              onRequestSuccess={refreshSession}
+              onWithdraw={
+                session?.viewerHasJoined
+                  ? undefined
+                  : afterAction(() =>
+                      withdrawTesterRequest(
+                        listingId,
+                        session?.viewerRequestStatus === "accepted"
+                          ? "accepted"
+                          : "pending"
+                      )
+                    )
+              }
             />
           ) : (
             <p className="font-semibold text-ink-muted">

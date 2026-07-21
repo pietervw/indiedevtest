@@ -1,5 +1,16 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import sgMail from "@sendgrid/mail";
+import {
+  emailCtaButton,
+  emailDetailCard,
+  emailLink,
+  emailMutedNote,
+  emailParagraph,
+  emailParagraphHtml,
+  emailStrong,
+  escapeHtmlWithBreaks,
+  renderBrandedEmail,
+} from "@/lib/email-templates";
 import { siteConfig } from "@/lib/site";
 
 // Set the key once on module load when available. Re-applied in sendMail
@@ -54,11 +65,12 @@ async function sendMail(options: {
 export async function sendContactEmail(msg: ContactMessage): Promise<void> {
   const { toEmail } = requireMailConfig();
   const product = siteConfig.name;
+  const subject = `New ${product} message from ${msg.name}`;
 
   await sendMail({
     to: toEmail,
     replyTo: msg.email,
-    subject: `New ${product} message from ${msg.name}`,
+    subject,
     text: [
       `Name: ${msg.name}`,
       `Email: ${msg.email}`,
@@ -67,13 +79,22 @@ export async function sendContactEmail(msg: ContactMessage): Promise<void> {
       "",
       `— Sent from the ${product} contact form`,
     ].join("\n"),
-    html: [
-      `<p><strong>Name:</strong> ${escapeHtml(msg.name)}</p>`,
-      `<p><strong>Email:</strong> ${escapeHtml(msg.email)}</p>`,
-      `<hr/>`,
-      `<p>${escapeHtml(msg.message).replace(/\n/g, "<br/>")}</p>`,
-      `<p style="color:#888;font-size:12px;">— Sent from the ${escapeHtml(product)} contact form</p>`,
-    ].join(""),
+    html: renderBrandedEmail({
+      title: subject,
+      preheader: `New contact message from ${msg.name}`,
+      heading: "New contact message",
+      bodyHtml: [
+        emailDetailCard([
+          { label: "Name", value: msg.name },
+          {
+            label: "Email",
+            valueHtml: emailLink(`mailto:${msg.email}`, msg.email),
+          },
+        ]),
+        emailParagraphHtml(escapeHtmlWithBreaks(msg.message)),
+        emailMutedNote(`Sent from the ${product} contact form`),
+      ].join(""),
+    }),
   });
 }
 
@@ -83,11 +104,14 @@ export async function sendWaitlistEmails(signupEmail: string): Promise<void> {
   const product = siteConfig.name;
   const siteUrl = siteConfig.url;
 
+  const alertSubject = `New ${product} waitlist signup`;
+  const confirmSubject = `You're on the ${product} waitlist`;
+
   await Promise.all([
     sendMail({
       to: toEmail,
       replyTo: signupEmail,
-      subject: `New ${product} waitlist signup`,
+      subject: alertSubject,
       text: [
         `New waitlist signup on ${product}.`,
         "",
@@ -95,15 +119,27 @@ export async function sendWaitlistEmails(signupEmail: string): Promise<void> {
         "",
         `— Sent from the ${product} waitlist`,
       ].join("\n"),
-      html: [
-        `<p>New waitlist signup on <strong>${escapeHtml(product)}</strong>.</p>`,
-        `<p><strong>Email:</strong> ${escapeHtml(signupEmail)}</p>`,
-        `<p style="color:#888;font-size:12px;">— Sent from the ${escapeHtml(product)} waitlist</p>`,
-      ].join(""),
+      html: renderBrandedEmail({
+        title: alertSubject,
+        preheader: `New waitlist signup: ${signupEmail}`,
+        heading: "New waitlist signup",
+        bodyHtml: [
+          emailParagraphHtml(
+            `Someone joined the ${emailStrong(product)} waitlist.`
+          ),
+          emailDetailCard([
+            {
+              label: "Email",
+              valueHtml: emailLink(`mailto:${signupEmail}`, signupEmail),
+            },
+          ]),
+          emailMutedNote(`Sent from the ${product} waitlist`),
+        ].join(""),
+      }),
     }),
     sendMail({
       to: signupEmail,
-      subject: `You're on the ${product} waitlist`,
+      subject: confirmSubject,
       text: [
         `Thanks for joining the ${product} waitlist.`,
         "",
@@ -112,11 +148,21 @@ export async function sendWaitlistEmails(signupEmail: string): Promise<void> {
         `— ${product}`,
         siteUrl,
       ].join("\n"),
-      html: [
-        `<p>Thanks for joining the <strong>${escapeHtml(product)}</strong> waitlist.</p>`,
-        `<p>We'll email you when reciprocal testing opens.</p>`,
-        `<p style="color:#888;font-size:12px;">— ${escapeHtml(product)} · <a href="${escapeHtml(siteUrl)}">${escapeHtml(siteUrl)}</a></p>`,
-      ].join(""),
+      html: renderBrandedEmail({
+        title: confirmSubject,
+        preheader: `You're on the ${product} waitlist — we'll email when testing opens.`,
+        heading: "You're on the list",
+        bodyHtml: [
+          emailParagraphHtml(
+            `Thanks for joining the ${emailStrong(product)} waitlist.`
+          ),
+          emailParagraph(
+            "We'll email you when reciprocal testing opens."
+          ),
+          emailCtaButton(siteUrl, `Visit ${product}`),
+          emailMutedNote(product),
+        ].join(""),
+      }),
     }),
   ]);
 }
@@ -159,10 +205,12 @@ export async function sendNewTesterRequestEmail(options: {
   }
 
   const product = siteConfig.name;
+  const subject = `New tester request for ${options.appName}`;
+
   await sendMail({
     to: devEmail,
     replyTo: options.testerEmail,
-    subject: `New tester request for ${options.appName}`,
+    subject,
     text: [
       `${options.testerName} requested to test ${options.appName}.`,
       "",
@@ -173,13 +221,30 @@ export async function sendNewTesterRequestEmail(options: {
       "",
       `— Sent from ${product}`,
     ].join("\n"),
-    html: [
-      `<p><strong>${escapeHtml(options.testerName)}</strong> requested to test <strong>${escapeHtml(options.appName)}</strong>.</p>`,
-      `<p><strong>Tester email:</strong> ${escapeHtml(options.testerEmail)}</p>`,
-      `<p><a href="${escapeHtml(options.listingUrl)}">View listing</a></p>`,
-      `<p>Reply to the tester directly to add them to your Play Store / TestFlight track.</p>`,
-      `<p style="color:#888;font-size:12px;">— Sent from ${escapeHtml(product)}</p>`,
-    ].join(""),
+    html: renderBrandedEmail({
+      title: subject,
+      preheader: `${options.testerName} requested to test ${options.appName}`,
+      heading: "New tester request",
+      bodyHtml: [
+        emailParagraphHtml(
+          `${emailStrong(options.testerName)} requested to test ${emailStrong(options.appName)}.`
+        ),
+        emailDetailCard([
+          {
+            label: "Tester email",
+            valueHtml: emailLink(
+              `mailto:${options.testerEmail}`,
+              options.testerEmail
+            ),
+          },
+        ]),
+        emailCtaButton(options.listingUrl, "View listing"),
+        emailParagraph(
+          "Reply to the tester directly to add them to your Play Store / TestFlight track."
+        ),
+        emailMutedNote(`Sent from ${product}`),
+      ].join(""),
+    }),
   });
 }
 
@@ -190,9 +255,11 @@ export async function sendRequestAcceptedEmail(options: {
   listingUrl: string;
 }): Promise<void> {
   const product = siteConfig.name;
+  const subject = `You're accepted to test ${options.appName}`;
+
   await sendMail({
     to: options.testerEmail,
-    subject: `You're accepted to test ${options.appName}`,
+    subject,
     text: [
       `Great news — the developer accepted your request to test ${options.appName}.`,
       "",
@@ -202,12 +269,21 @@ export async function sendRequestAcceptedEmail(options: {
       "",
       `— ${product}`,
     ].join("\n"),
-    html: [
-      `<p>Great news — the developer accepted your request to test <strong>${escapeHtml(options.appName)}</strong>.</p>`,
-      `<p><a href="${escapeHtml(options.listingUrl)}">View listing</a></p>`,
-      "<p>They'll be in touch (via the email you shared) with next steps to join the testing track.</p>",
-      `<p style="color:#888;font-size:12px;">— ${escapeHtml(product)}</p>`,
-    ].join(""),
+    html: renderBrandedEmail({
+      title: subject,
+      preheader: `You're accepted to test ${options.appName}`,
+      heading: "You're accepted",
+      bodyHtml: [
+        emailParagraphHtml(
+          `Great news — the developer accepted your request to test ${emailStrong(options.appName)}.`
+        ),
+        emailCtaButton(options.listingUrl, "View listing"),
+        emailParagraph(
+          "They'll be in touch (via the email you shared) with next steps to join the testing track."
+        ),
+        emailMutedNote(product),
+      ].join(""),
+    }),
   });
 }
 
@@ -217,9 +293,12 @@ export async function sendRequestRejectedEmail(options: {
   appName: string;
 }): Promise<void> {
   const product = siteConfig.name;
+  const subject = `Update on your ${options.appName} test request`;
+  const browseUrl = `${siteConfig.url}/browse`;
+
   await sendMail({
     to: options.testerEmail,
-    subject: `Update on your ${options.appName} test request`,
+    subject,
     text: [
       `Thanks for offering to test ${options.appName}. The developer isn't able to add more testers right now.`,
       "",
@@ -227,11 +306,21 @@ export async function sendRequestRejectedEmail(options: {
       "",
       `— ${product}`,
     ].join("\n"),
-    html: [
-      `<p>Thanks for offering to test <strong>${escapeHtml(options.appName)}</strong>. The developer isn't able to add more testers right now.</p>`,
-      "<p>There are plenty of other apps needing testers — keep the reciprocity going.</p>",
-      `<p style="color:#888;font-size:12px;">— ${escapeHtml(product)}</p>`,
-    ].join(""),
+    html: renderBrandedEmail({
+      title: subject,
+      preheader: `Update on your ${options.appName} test request`,
+      heading: "Request update",
+      bodyHtml: [
+        emailParagraphHtml(
+          `Thanks for offering to test ${emailStrong(options.appName)}. The developer isn't able to add more testers right now.`
+        ),
+        emailParagraph(
+          "There are plenty of other apps needing testers — keep the reciprocity going."
+        ),
+        emailCtaButton(browseUrl, "Browse apps"),
+        emailMutedNote(product),
+      ].join(""),
+    }),
   });
 }
 
@@ -242,9 +331,11 @@ export async function sendTestCompletedEmail(options: {
   listingUrl: string;
 }): Promise<void> {
   const product = siteConfig.name;
+  const subject = `Thanks for testing ${options.appName}`;
+
   await sendMail({
     to: options.testerEmail,
-    subject: `Thanks for testing ${options.appName}`,
+    subject,
     text: [
       `The developer marked your test of ${options.appName} as complete — nice work.`,
       "",
@@ -253,20 +344,82 @@ export async function sendTestCompletedEmail(options: {
       "",
       `— ${product}`,
     ].join("\n"),
-    html: [
-      `<p>The developer marked your test of <strong>${escapeHtml(options.appName)}</strong> as complete — nice work.</p>`,
-      `<p>Your <strong>Completed</strong> count on your profile just went up. Keep the reciprocity going:</p>`,
-      `<p><a href="${escapeHtml(options.listingUrl)}">View listing</a></p>`,
-      `<p style="color:#888;font-size:12px;">— ${escapeHtml(product)}</p>`,
-    ].join(""),
+    html: renderBrandedEmail({
+      title: subject,
+      preheader: `Thanks for testing ${options.appName} — your Completed count went up.`,
+      heading: "Test complete",
+      bodyHtml: [
+        emailParagraphHtml(
+          `The developer marked your test of ${emailStrong(options.appName)} as complete — nice work.`
+        ),
+        emailParagraphHtml(
+          `Your ${emailStrong("Completed")} count on your profile just went up. Keep the reciprocity going:`
+        ),
+        emailCtaButton(options.listingUrl, "View listing"),
+        emailMutedNote(product),
+      ].join(""),
+    }),
   });
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+/**
+ * Listing-level milestone reminder (spec §10): 14 days after the 14th tester
+ * joined. The scheduler owns the once-only delivery guard; this function only
+ * renders and sends the branded notification.
+ */
+export async function sendListing14DayReminderEmail(options: {
+  devClerkId: string;
+  devName: string;
+  appName: string;
+  listingUrl: string;
+  fourteenthJoinedAt: Date;
+}): Promise<void> {
+  const devEmail = await primaryEmailForClerkUser(options.devClerkId);
+  if (!devEmail) {
+    // GitHub OAuth via Clerk doesn't always expose an email — skip silently.
+    // Caller still treats this as success so cron won't retry forever.
+    console.warn("[email] dev has no email on file; skipping 14-day reminder", {
+      devClerkId: options.devClerkId,
+    });
+    return;
+  }
+
+  const product = siteConfig.name;
+  const subject = `${options.appName} is ready for its testing check-in`;
+  const joinedDate = options.fourteenthJoinedAt.toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  await sendMail({
+    to: devEmail,
+    subject,
+    text: [
+      `Hi ${options.devName},`,
+      "",
+      `Your 14th tester for ${options.appName} joined on ${joinedDate}. The 14-day testing period has now passed.`,
+      "",
+      "Check your listing, confirm any completed tests, and update its status when you're ready.",
+      `Listing: ${options.listingUrl}`,
+      "",
+      `— ${product}`,
+    ].join("\n"),
+    html: renderBrandedEmail({
+      title: subject,
+      preheader: `The 14-day testing period for ${options.appName} has passed.`,
+      heading: "Your testing milestone is here",
+      bodyHtml: [
+        emailParagraphHtml(
+          `Hi ${emailStrong(options.devName)}, your 14th tester for ${emailStrong(options.appName)} joined on ${emailStrong(joinedDate)}.`
+        ),
+        emailParagraph(
+          "The 14-day testing period has now passed. Check your listing, confirm any completed tests, and update its status when you're ready."
+        ),
+        emailCtaButton(options.listingUrl, "Review listing"),
+        emailMutedNote(product),
+      ].join(""),
+    }),
+  });
 }
