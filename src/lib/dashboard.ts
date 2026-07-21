@@ -2,6 +2,8 @@ import type {
   AppCategory,
   AppListingStatus,
   Platform,
+  TesterActivityType,
+  TesterFeedbackSeverity,
 } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
 import {
@@ -25,6 +27,10 @@ export type DashboardListing = {
   completedTesterCount: number;
   remainingTesterSpots: number | null;
   testerRequests: DashboardOwnerTester[];
+  testerHistory: DashboardTesterHistory[];
+  canResendInvitation: boolean;
+  activity: DashboardTesterActivity[];
+  feedback: DashboardTesterFeedback[];
 };
 
 /** Active tester pipeline row, visible only to the listing owner. */
@@ -38,6 +44,28 @@ export type DashboardOwnerTester = {
     profileSlug: string;
   };
   assignmentStatus: "active" | "completed" | "incomplete" | "cancelled" | null;
+};
+
+export type DashboardTesterHistory = Omit<DashboardOwnerTester, "status" | "assignmentStatus"> & {
+  status: "rejected" | "expired";
+  withdrawnAt: string | null;
+};
+
+export type DashboardTesterActivity = {
+  id: string;
+  type: TesterActivityType;
+  createdAt: string;
+  tester: { displayName: string; profileSlug: string };
+};
+
+export type DashboardTesterFeedback = {
+  id: string;
+  severity: TesterFeedbackSeverity;
+  title: string;
+  details: string;
+  steps: string | null;
+  createdAt: string;
+  tester: { displayName: string; profileSlug: string };
 };
 
 type DashboardListingRef = {
@@ -179,16 +207,43 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         platform: true,
         status: true,
         testerCapacity: true,
+        testingAccessUrl: true,
+        testerInstructions: true,
+        user: { select: { contactEmail: true } },
         testerRequests: {
           select: {
             id: true,
             status: true,
             expiresAt: true,
+            withdrawnAt: true,
             testerEmail: true,
             tester: { select: testerSelect },
             testAssignment: { select: { status: true } },
           },
           orderBy: { createdAt: "asc" },
+        },
+        testerActivities: {
+          take: 12,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            type: true,
+            createdAt: true,
+            tester: { select: { displayName: true, profileSlug: true } },
+          },
+        },
+        testerFeedback: {
+          take: 20,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            severity: true,
+            title: true,
+            details: true,
+            steps: true,
+            createdAt: true,
+            tester: { select: { displayName: true, profileSlug: true } },
+          },
         },
         testAssignments: { select: { status: true } },
       },
@@ -338,6 +393,30 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
             tester: request.tester,
             assignmentStatus: request.testAssignment?.status ?? null,
           })),
+        testerHistory: listing.testerRequests
+          .filter(
+            (request) => request.status === "rejected" || request.status === "expired"
+          )
+          .map((request) => ({
+            id: request.id,
+            status: request.status as "rejected" | "expired",
+            testerEmail: request.testerEmail,
+            tester: request.tester,
+            withdrawnAt: request.withdrawnAt?.toISOString() ?? null,
+          })),
+        canResendInvitation: Boolean(
+          listing.testingAccessUrl ||
+            listing.testerInstructions ||
+            listing.user.contactEmail
+        ),
+        activity: listing.testerActivities.map((activity) => ({
+          ...activity,
+          createdAt: activity.createdAt.toISOString(),
+        })),
+        feedback: listing.testerFeedback.map((feedback) => ({
+          ...feedback,
+          createdAt: feedback.createdAt.toISOString(),
+        })),
       };
     }),
     incomingRequests: incomingRequests.map((request) => ({

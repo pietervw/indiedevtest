@@ -26,6 +26,7 @@ import { RequestToTestForm } from "@/components/request-to-test-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { WriteReviewForm } from "@/components/write-review-form";
+import { TesterFeedbackForm } from "@/components/tester-feedback-form";
 import type { ListingSessionPayload } from "@/lib/listing-session";
 import {
   editPath,
@@ -325,6 +326,10 @@ export function ListingSessionPanels({
         <div className="mt-10">
           <WriteReviewForm listingId={listingId} />
         </div>
+      ) : null}
+
+      {session?.viewerHasJoined ? (
+        <TesterFeedbackForm listingId={listingId} />
       ) : null}
 
       {session?.hasWrittenReview ? (

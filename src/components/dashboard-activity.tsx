@@ -1,8 +1,8 @@
 import Link from "next/link";
 import {
   acceptTesterRequest,
-  rejectTesterRequest,
 } from "@/app/actions/requests";
+import { DeclineTesterButton } from "@/components/decline-tester-button";
 import { AppLogo } from "@/components/app-logo";
 import { DashboardTesterTable } from "@/components/dashboard-tester-table";
 import { Badge } from "@/components/ui/badge";
@@ -239,7 +239,6 @@ export function DashboardActivity({
 
 function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) {
   const approve = acceptTesterRequest.bind(null, request.id);
-  const decline = rejectTesterRequest.bind(null, request.id);
 
   return (
     <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -275,11 +274,7 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
             Approve tester
           </SubmitButton>
         </form>
-        <form action={decline}>
-          <SubmitButton size="sm" variant="secondary" pendingLabel="Declining…">
-            Decline
-          </SubmitButton>
-        </form>
+        <DeclineTesterButton requestId={request.id} />
       </div>
     </li>
   );
@@ -329,6 +324,10 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
         <div className="w-full sm:pl-[3.25rem]">
           <DashboardTesterTable
             testers={listing.testerRequests}
+            history={listing.testerHistory}
+            activity={listing.activity}
+            feedback={listing.feedback}
+            canResendInvitation={listing.canResendInvitation}
             platformLabel={platformLabel[listing.platform] ?? listing.platform}
           />
         </div>

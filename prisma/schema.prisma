@@ -40,6 +40,24 @@ enum TestAssignmentStatus {
   cancelled
 }
 
+enum TesterActivityType {
+  requested
+  approved
+  invitation_resent
+  joined
+  completed
+  withdrew
+  declined
+  decline_reversed
+}
+
+enum TesterFeedbackSeverity {
+  low
+  medium
+  high
+  critical
+}
+
 enum ListingModerationStatus {
   visible
   hidden
@@ -93,6 +111,8 @@ model User {
   badges          UserBadge[]
   reportsFiled    ListingReport[] @relation("ReportedListings")
   reportsResolved ListingReport[] @relation("ResolvedListingReports")
+  testerActivities TesterActivity[]
+  testerFeedback   TesterFeedback[]
 
   @@map("users")
 }
@@ -113,6 +133,7 @@ model AppListing {
   /// Optional number of testers this program needs. Accepted requests consume
   /// a place whether or not the developer has subsequently marked them joined.
   testerCapacity        Int?             @map("tester_capacity")
+  autoClosedForCapacity Boolean          @default(false) @map("auto_closed_for_capacity")
   maxTestersPerPlatform Int              @default(14) @map("max_testers_per_platform")
   reminderSentAt        DateTime?        @map("reminder_sent_at")
   createdAt             DateTime         @default(now()) @map("created_at")
@@ -123,6 +144,8 @@ model AppListing {
   testAssignments TestAssignment[]
   reviews         Review[]
   reports         ListingReport[]
+  testerActivities TesterActivity[]
+  testerFeedback   TesterFeedback[]
 
   @@index([status])
   @@index([userId])
@@ -165,11 +188,48 @@ model TesterRequest {
   appListing     AppListing      @relation(fields: [appListingId], references: [id], onDelete: Cascade)
   tester         User            @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
   testAssignment TestAssignment? @relation(fields: [testAssignmentId], references: [id])
+  withdrawnAt     DateTime?      @map("withdrawn_at")
+  activities      TesterActivity[]
 
   @@unique([appListingId, testerUserId])
   @@index([testerUserId])
   @@index([status])
   @@map("tester_requests")
+}
+
+model TesterActivity {
+  id              String             @id @default(cuid())
+  appListingId    String             @map("app_listing_id")
+  testerRequestId String             @map("tester_request_id")
+  testerUserId    String             @map("tester_user_id")
+  type            TesterActivityType
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  appListing    AppListing    @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+  testerRequest TesterRequest @relation(fields: [testerRequestId], references: [id], onDelete: Cascade)
+  tester        User          @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
+
+  @@index([appListingId, createdAt])
+  @@index([testerRequestId, createdAt])
+  @@map("tester_activities")
+}
+
+model TesterFeedback {
+  id           String                 @id @default(cuid())
+  appListingId String                 @map("app_listing_id")
+  testerUserId String                 @map("tester_user_id")
+  severity     TesterFeedbackSeverity
+  title        String
+  details      String
+  steps        String?
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  appListing AppListing @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+  tester     User       @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
+
+  @@index([appListingId, createdAt])
+  @@index([testerUserId, createdAt])
+  @@map("tester_feedback")
 }
 
 model TestAssignment {
