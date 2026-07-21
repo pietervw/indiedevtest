@@ -86,6 +86,21 @@ export default function PrivacyPage() {
           </p>
         </LegalSection>
 
+        <LegalSection title="Private tester feedback and devices">
+          <p>
+            When a tester has joined a testing track, they can submit private
+            feedback about that app. We store the issue title, severity,
+            details, optional reproduction steps, and an optional free-text
+            device name. This feedback is visible to the tester who submitted
+            it and the owner of the relevant listing, not to the public.
+          </p>
+          <p>
+            Listing owners can mark feedback as unresolved, fixed, or skipped.
+            That status is visible to the tester and the listing owner and helps
+            them track the outcome of a report.
+          </p>
+        </LegalSection>
+
         <LegalSection title="Listing reports and moderation">
           <p>
             Signed-in members can privately report a listing for spam or scams,
@@ -135,8 +150,9 @@ export default function PrivacyPage() {
           <p>
             We keep account and listing data while your account and related
             records are active on the service. You can permanently delete your
-            account from Profile settings; this takes your profile, listings,
-            tester activity, and feedback offline immediately.
+            account from Profile settings; this permanently takes your profile,
+            listings, tester activity, and feedback offline immediately and
+            cannot be undone.
           </p>
         </LegalSection>
 

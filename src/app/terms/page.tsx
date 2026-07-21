@@ -75,6 +75,25 @@ export default function TermsPage() {
           </p>
         </LegalSection>
 
+        <LegalSection title="Private tester feedback">
+          <p>
+            Testers can send private feedback to a listing owner after joining a
+            testing track. Feedback can include an issue title, severity,
+            details, reproduction steps, and an optional device name. The
+            listing owner can view that feedback and mark it unresolved, fixed,
+            or skipped. It is not displayed on public listing pages.
+          </p>
+        </LegalSection>
+
+        <LegalSection title="Deleting your account">
+          <p>
+            You can permanently delete your account from Profile settings. This
+            takes your public profile, listings, tester requests, assignments,
+            and feedback offline and cannot be undone. Do this only when you
+            are sure you no longer need the account or its history.
+          </p>
+        </LegalSection>
+
         <LegalSection title="Be a good community member">
           <p>
             Use the site for genuine reciprocal testing. Do not spam, harass,

@@ -200,6 +200,35 @@ export default async function Home() {
         </Container>
       </Section>
 
+      <Section className="border-b-2 border-ink bg-paper-muted">
+        <Container>
+          <SectionHeading
+            title="Android and iOS testing, explained"
+            description="IndieDevTest helps you find people to test. Your store’s testing track handles the install and enrollment."
+          />
+          <div className="grid gap-5 md:grid-cols-2">
+            <article className="rounded-2xl border-2 border-ink bg-paper p-6 shadow-brutal">
+              <h3 className="font-display text-xl font-extrabold text-ink">Google Play closed testing</h3>
+              <p className="mt-3 text-ink-muted">
+                For newly created personal Play developer accounts, Google requires a closed test with at least 12 opted-in testers for 14 continuous days before you can apply for production access. Create a closed-testing track in Play Console, then share its opt-in link with accepted testers.
+              </p>
+              <a href="https://support.google.com/googleplay/android-developer/answer/14151465" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex font-semibold text-ink underline">
+                Read Google&apos;s requirements ↗
+              </a>
+            </article>
+            <article className="rounded-2xl border-2 border-ink bg-paper p-6 shadow-brutal">
+              <h3 className="font-display text-xl font-extrabold text-ink">Apple TestFlight</h3>
+              <p className="mt-3 text-ink-muted">
+                Upload a beta build in App Store Connect, create an external tester group, and invite accepted testers by email or a public link. Your first external build needs TestFlight beta review approval before external testers can use it.
+              </p>
+              <a href="https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex font-semibold text-ink underline">
+                Read Apple&apos;s TestFlight guide ↗
+              </a>
+            </article>
+          </div>
+        </Container>
+      </Section>
+
       <Section className="border-b-2 border-ink bg-brand">
         <Container className="max-w-3xl text-center">
           <Badge variant="dark" size="md" className="mb-6">

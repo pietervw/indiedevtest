@@ -19,7 +19,7 @@ export function DeleteAccountForm() {
     <section className="mt-12 max-w-xl rounded-2xl border-2 border-red-700 bg-red-50 p-5 shadow-brutal">
       <h2 className="font-display text-xl font-extrabold text-ink">Delete account</h2>
       <p className="mt-2 text-sm text-ink-muted">
-        This permanently deletes your account, public profile, app listings, tester requests, and feedback. Your listings and profile will immediately disappear from IndieDevTest.
+        This is permanent and cannot be undone. It deletes your account, public profile, app listings, tester requests, and feedback. Your listings and profile will immediately disappear from IndieDevTest.
       </p>
       <form action={formAction} className="mt-4 space-y-3">
         <label htmlFor="delete-account-confirmation" className="block text-sm font-semibold text-ink">
