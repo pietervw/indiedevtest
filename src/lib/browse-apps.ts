@@ -42,6 +42,13 @@ type CachedApp = App & {
   requests: number;
 };
 
+type BrowseRelationship = {
+  id: string;
+  userId: string;
+  testerRequests: { status: "pending" | "accepted" }[];
+  testAssignments: { id: string }[];
+};
+
 type CacheEntry = {
   expiresAt: number;
   apps: CachedApp[];
@@ -192,8 +199,68 @@ function applyBrowseFilters(
 
 /** Open listings for /browse — cached fetch, then filter/sort in memory. */
 export async function getBrowseApps(
-  filters: BrowseFilters = { sort: "newest" }
+  filters: BrowseFilters = { sort: "newest" },
+  viewerUserId?: string
 ): Promise<App[]> {
   const apps = await loadBrowseApps();
-  return applyBrowseFilters(apps, filters);
+  const filteredApps = applyBrowseFilters(apps, filters);
+  if (!viewerUserId || filteredApps.length === 0 || !process.env.DATABASE_URL) {
+    return filteredApps;
+  }
+
+  try {
+    const relationships = await prisma.appListing.findMany({
+      where: {
+        id: { in: filteredApps.map((app) => String(app.id)) },
+        OR: [
+          { userId: viewerUserId },
+          {
+            testerRequests: {
+              some: {
+                testerUserId: viewerUserId,
+                status: { in: ["pending", "accepted"] },
+              },
+            },
+          },
+          { testAssignments: { some: { testerUserId: viewerUserId } } },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        testerRequests: {
+          where: {
+            testerUserId: viewerUserId,
+            status: { in: ["pending", "accepted"] },
+          },
+          select: { status: true },
+        },
+        testAssignments: {
+          where: { testerUserId: viewerUserId },
+          select: { id: true },
+        },
+      },
+    });
+    const relationshipByListingId = new Map(
+      relationships.map((relationship) => [
+        relationship.id,
+        relationship as BrowseRelationship,
+      ])
+    );
+
+    return filteredApps.map((app) => {
+      const relationship = relationshipByListingId.get(String(app.id));
+      if (!relationship) return app;
+      if (relationship.userId === viewerUserId) {
+        return { ...app, browseState: "own" };
+      }
+      if (relationship.testAssignments.length > 0 || relationship.testerRequests.some((request) => request.status === "accepted")) {
+        return { ...app, browseState: "testing" };
+      }
+      return { ...app, browseState: "requested" };
+    });
+  } catch (err) {
+    console.error("[browse-apps] viewer relationship query failed", err);
+    return filteredApps;
+  }
 }

@@ -46,6 +46,8 @@ export type App = {
   logoUrl?: string;
   href?: string;
   developer?: AppDeveloper;
+  /** Viewer-specific state shown only on the browse board. */
+  browseState?: "own" | "requested" | "testing";
 };
 
 export const categoryLabel: Record<string, string> = {

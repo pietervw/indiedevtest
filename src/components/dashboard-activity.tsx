@@ -306,7 +306,7 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
       </div>
       <div className="flex flex-wrap gap-2 sm:shrink-0">
         <Button href={appPath(listing.id)} size="sm" variant="secondary">
-          Manage
+          View
         </Button>
         <Button href={editPath(listing.id)} size="sm" variant="ghost">
           Edit

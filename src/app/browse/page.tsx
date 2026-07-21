@@ -3,6 +3,7 @@ import { BrowseAddButton, BrowseEmptyCta } from "@/components/browse-add-button"
 import { BrowseFilters } from "@/components/browse-filters";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { getBrowseApps, parseBrowseFilters } from "@/lib/browse-apps";
+import { getOptionalDbUser } from "@/lib/auth-guards";
 import { canonicalMetadata, siteConfig } from "@/lib/site";
 import type { Metadata } from "next";
 import { connection } from "next/server";
@@ -21,7 +22,8 @@ export default async function BrowsePage({ searchParams }: Props) {
   await connection();
   const params = await searchParams;
   const filters = parseBrowseFilters(params);
-  const apps = await getBrowseApps(filters);
+  const viewer = await getOptionalDbUser();
+  const apps = await getBrowseApps(filters, viewer?.id);
   const hasActiveFilters = Boolean(filters.category || filters.platform);
 
   return (
