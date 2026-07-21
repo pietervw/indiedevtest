@@ -101,8 +101,8 @@ export function ProfileSettingsForm({
         </label>
         <input id="settings-trustmrr" name="trustMrrProfileUrl" type="url" defaultValue={trustMrrProfileUrl ?? ""} placeholder="https://trustmrr.com/founder/your-name" className={cn(fieldClassName, "h-12")} aria-invalid={Boolean(state.fieldErrors?.trustMrrProfileUrl)} />
         <p className="mt-1 text-sm text-ink-muted">
-          Displayed on your public profile. Learn about{" "}
-          <a href="https://trustmrr.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink underline">Visit TrustMRR ↗</a>
+          Displayed on your public profile. Learn more about{" "}
+          <a href="https://trustmrr.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink underline">TrustMRR ↗</a>
         </p>
         {state.fieldErrors?.trustMrrProfileUrl ? <p className="mt-1 text-sm font-semibold text-red-600" role="alert">{state.fieldErrors.trustMrrProfileUrl}</p> : null}
       </div>

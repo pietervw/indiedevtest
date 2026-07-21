@@ -126,7 +126,7 @@ export default function PrivacyPage() {
           <p>
             If configured, the site can send optional Pushover notifications to
             the site admin for operational events such as a first-time signup, a
-            a contact-form submission, a tester request, or a listing report. Email addresses in
+            contact-form submission, a tester request, or a listing report. Email addresses in
             those alerts are masked where applicable.
           </p>
         </LegalSection>
