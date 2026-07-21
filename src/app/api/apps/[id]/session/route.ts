@@ -23,6 +23,7 @@ const emptySession: ListingSessionPayload = {
   viewerInvitation: null,
   canWriteReview: false,
   hasWrittenReview: false,
+  canApproveTesters: false,
   pendingRequests: [],
   acceptedRequests: [],
   assignments: [],
@@ -182,6 +183,7 @@ export async function GET(_request: Request, { params }: Props) {
         : null,
     canWriteReview,
     hasWrittenReview,
+    canApproveTesters: listing.status === "open_for_testing",
     pendingRequests: pendingRequests.map((req) => ({
       id: req.id,
       testerEmail: req.testerEmail,

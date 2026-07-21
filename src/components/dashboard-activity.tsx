@@ -239,6 +239,7 @@ export function DashboardActivity({
 
 function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) {
   const approve = acceptTesterRequest.bind(null, request.id);
+  const canApprove = request.listing.status === "open_for_testing";
 
   return (
     <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -266,11 +267,16 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
           >
             View listing
           </Link>
+          {!canApprove ? (
+            <p className="mt-2 text-sm text-ink-muted">
+              Reopen this listing for testing to approve new testers.
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
         <form action={approve}>
-          <SubmitButton size="sm" pendingLabel="Approving…">
+          <SubmitButton size="sm" pendingLabel="Approving…" disabled={!canApprove}>
             Approve tester
           </SubmitButton>
         </form>
@@ -320,13 +326,17 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
           Edit
         </Button>
       </div>
-      {listing.testerRequests.length > 0 ? (
+      {listing.testerRequests.length > 0 ||
+      listing.testerHistory.length > 0 ||
+      listing.activity.length > 0 ||
+      listing.feedback.length > 0 ? (
         <div className="w-full sm:pl-[3.25rem]">
           <DashboardTesterTable
             testers={listing.testerRequests}
             history={listing.testerHistory}
             activity={listing.activity}
             feedback={listing.feedback}
+            canApprove={listing.status === "open_for_testing"}
             canResendInvitation={listing.canResendInvitation}
             platformLabel={platformLabel[listing.platform] ?? listing.platform}
           />

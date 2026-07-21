@@ -21,6 +21,7 @@ export function DashboardTesterTable({
   history,
   activity,
   feedback,
+  canApprove,
   canResendInvitation,
   platformLabel,
 }: {
@@ -28,6 +29,7 @@ export function DashboardTesterTable({
   history: DashboardTesterHistory[];
   activity: DashboardTesterActivity[];
   feedback: DashboardTesterFeedback[];
+  canApprove: boolean;
   canResendInvitation: boolean;
   platformLabel: string;
 }) {
@@ -72,6 +74,7 @@ export function DashboardTesterTable({
 
   return (
     <>
+      {testers.length > 0 ? (
       <div className="mt-5 overflow-x-auto rounded-xl border-2 border-line">
         <table className="w-full min-w-[680px] text-left text-sm">
           <thead className="border-b-2 border-line bg-paper-muted text-ink">
@@ -112,7 +115,7 @@ export function DashboardTesterTable({
                         <SubmitButton
                           size="sm"
                           pendingLabel="Approving…"
-                          disabled={isApproved}
+                          disabled={isApproved || !canApprove}
                         >
                           Approve
                         </SubmitButton>
@@ -146,6 +149,12 @@ export function DashboardTesterTable({
           </tbody>
         </table>
       </div>
+      ) : null}
+      {!canApprove && testers.some((tester) => tester.status === "pending") ? (
+        <p className="mt-2 text-sm text-ink-muted">
+          Reopen this listing for testing to approve pending testers.
+        </p>
+      ) : null}
       {resendMessage ? <p className="mt-2 text-sm text-ink-muted" role="status">{resendMessage}</p> : null}
 
       {history.length > 0 ? (
@@ -157,12 +166,19 @@ export function DashboardTesterTable({
                 <span><Link href={profilePath(row.tester.profileSlug)} className="font-semibold underline">{row.tester.displayName}</Link> · {row.withdrawnAt ? "Withdrew" : row.status === "rejected" ? "Declined" : "Expired"}</span>
                 {row.status === "rejected" ? (
                   <form action={undoTesterRequestDecline.bind(null, row.id)}>
-                    <SubmitButton size="sm" variant="secondary" pendingLabel="Restoring…">Undo decline</SubmitButton>
+                    <SubmitButton size="sm" variant="secondary" pendingLabel="Restoring…" disabled={!canApprove}>
+                      Undo decline
+                    </SubmitButton>
                   </form>
                 ) : null}
               </li>
             ))}
           </ul>
+          {!canApprove && history.some((row) => row.status === "rejected") ? (
+            <p className="mt-2 text-sm text-ink-muted">
+              Reopen this listing for testing to restore declined requests.
+            </p>
+          ) : null}
         </section>
       ) : null}
 

@@ -73,6 +73,7 @@ type DashboardListingRef = {
   name: string;
   logoUrl: string;
   platform: Platform;
+  status: AppListingStatus;
 };
 
 type DashboardAssignmentListingRef = {
@@ -149,6 +150,7 @@ const listingSummarySelect = {
   name: true,
   logoUrl: true,
   platform: true,
+  status: true,
 } as const;
 
 const testerSelect = {
@@ -307,6 +309,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       name: request.appListing.name,
       logoUrl: request.appListing.logoUrl.trim(),
       platform: request.appListing.platform,
+      status: request.appListing.status,
     };
     if (request.status === "pending") {
       pendingRequests.push({ id: request.id, listing });
@@ -434,6 +437,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         name: request.appListing.name,
         logoUrl: request.appListing.logoUrl.trim(),
         platform: request.appListing.platform,
+        status: request.appListing.status,
       },
     })),
     pendingRequests,
