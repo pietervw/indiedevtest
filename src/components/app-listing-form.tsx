@@ -144,6 +144,31 @@ export function AppListingForm({
           ) : null}
         </div>
 
+        <div>
+          <label htmlFor="app-tester-capacity" className={labelClassName}>
+            Testers needed <span className="font-medium text-ink-muted">(optional)</span>
+          </label>
+          <input
+            id="app-tester-capacity"
+            name="testerCapacity"
+            type="number"
+            min={1}
+            max={10000}
+            inputMode="numeric"
+            placeholder="For example: 10"
+            className={cn(fieldClassName, "h-12")}
+            aria-invalid={Boolean(state.fieldErrors?.testerCapacity)}
+          />
+          <p className="mt-1 text-sm text-ink-muted">
+            Leave blank to keep accepting testers without a set limit.
+          </p>
+          {state.fieldErrors?.testerCapacity ? (
+            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              {state.fieldErrors.testerCapacity}
+            </p>
+          ) : null}
+        </div>
+
         <fieldset className="rounded-2xl border-2 border-ink bg-paper-muted p-5">
           <legend className="px-1 font-display text-lg font-extrabold text-ink">
             Private tester invitation

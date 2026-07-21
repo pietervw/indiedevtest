@@ -71,6 +71,7 @@ export async function getDevProfile(
         appListings: {
           where: {
             status: { in: [...PUBLIC_LISTING_STATUSES] },
+            moderationStatus: "visible",
           },
           include: {
             _count: {

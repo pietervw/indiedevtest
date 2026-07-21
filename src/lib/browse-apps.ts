@@ -135,6 +135,7 @@ async function loadBrowseApps(): Promise<CachedApp[]> {
       FROM app_listings al
       INNER JOIN users u ON u.id = al.user_id
       WHERE al.status = 'open_for_testing'::"AppListingStatus"
+        AND al.moderation_status = 'visible'::"ListingModerationStatus"
       ORDER BY al.created_at DESC
     `;
 

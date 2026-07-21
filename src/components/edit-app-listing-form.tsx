@@ -26,6 +26,7 @@ export type EditListingDefaults = {
   logoUrl: string;
   testingAccessUrl: string;
   testerInstructions: string;
+  testerCapacity: number | null;
   status: AppListingStatus;
   storeLink: string;
 };
@@ -208,6 +209,32 @@ export function EditAppListingForm({
           ) : null}
         </div>
       </fieldset>
+
+      <div>
+        <label htmlFor="edit-app-tester-capacity" className={labelClassName}>
+          Testers needed <span className="font-medium text-ink-muted">(optional)</span>
+        </label>
+        <input
+          id="edit-app-tester-capacity"
+          name="testerCapacity"
+          type="number"
+          min={1}
+          max={10000}
+          inputMode="numeric"
+          defaultValue={defaults.testerCapacity ?? ""}
+          placeholder="For example: 10"
+          className={cn(fieldClassName, "h-12")}
+          aria-invalid={Boolean(state.fieldErrors?.testerCapacity)}
+        />
+        <p className="mt-1 text-sm text-ink-muted">
+          Accepted testers fill this capacity. Clear it to remove the limit.
+        </p>
+        {state.fieldErrors?.testerCapacity ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.testerCapacity}
+          </p>
+        ) : null}
+      </div>
 
       <div>
         <label htmlFor="edit-app-status" className={labelClassName}>

@@ -80,8 +80,9 @@ export default function TermsPage() {
             Use the site for genuine reciprocal testing. Do not spam, harass,
             scrape personal data, post malware or abusive content, or try to
             break or overload the service. Listing owners decide whether to
-            accept a tester request; the site does not guarantee slots or
-            launch outcomes.
+            accept a tester request; the site may hide or remove listings that
+            breach these rules. The site does not guarantee slots or launch
+            outcomes.
           </p>
         </LegalSection>
 

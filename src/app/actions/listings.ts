@@ -27,6 +27,7 @@ export type UpdateListingState = {
       | "logoUrl"
       | "testingAccessUrl"
       | "testerInstructions"
+      | "testerCapacity"
       | "status"
       | "storeLink",
       string
@@ -60,6 +61,7 @@ export async function updateAppListing(
   const logoUrl = field(formData, "logoUrl");
   const testingAccessUrl = field(formData, "testingAccessUrl");
   const testerInstructions = field(formData, "testerInstructions");
+  const testerCapacityRaw = field(formData, "testerCapacity");
   const status = field(formData, "status");
   const storeLink = field(formData, "storeLink");
 
@@ -89,6 +91,13 @@ export async function updateAppListing(
   if (testerInstructions.length > 2000) {
     fieldErrors.testerInstructions = "Instructions must be 2,000 characters or fewer.";
   }
+  const testerCapacity = testerCapacityRaw ? Number(testerCapacityRaw) : null;
+  if (
+    testerCapacity !== null &&
+    (!Number.isInteger(testerCapacity) || testerCapacity < 1 || testerCapacity > 10000)
+  ) {
+    fieldErrors.testerCapacity = "Tester capacity must be a whole number from 1 to 10,000.";
+  }
   if (!STATUSES.has(status)) {
     fieldErrors.status = "Pick a valid status.";
   } else if (
@@ -115,6 +124,18 @@ export async function updateAppListing(
     return { ok: false, message: "Fix the highlighted fields.", fieldErrors };
   }
 
+  // If capacity is reduced below the number already accepted, preserve those
+  // acceptances and close the program to further requests.
+  const acceptedCount = await prisma.testerRequest.count({
+    where: { appListingId: listingId, status: "accepted" },
+  });
+  const nextStatus =
+    status === "open_for_testing" &&
+    testerCapacity !== null &&
+    acceptedCount >= testerCapacity
+      ? "closed_for_testing"
+      : (status as AppListingStatus);
+
   await prisma.appListing.update({
     where: { id: listingId },
     data: {
@@ -125,7 +146,8 @@ export async function updateAppListing(
       logoUrl: logoUrl || "",
       testingAccessUrl: testingAccessUrl || null,
       testerInstructions: testerInstructions || null,
-      status: status as AppListingStatus,
+      testerCapacity,
+      status: nextStatus,
       storeLink:
         status === "launched"
           ? storeLink

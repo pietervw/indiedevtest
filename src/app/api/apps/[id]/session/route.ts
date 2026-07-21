@@ -57,6 +57,7 @@ export async function GET(_request: Request, { params }: Props) {
       id: true,
       userId: true,
       status: true,
+      moderationStatus: true,
       testingAccessUrl: true,
       testerInstructions: true,
       user: { select: { contactEmail: true } },
@@ -70,7 +71,10 @@ export async function GET(_request: Request, { params }: Props) {
   const isOwner = viewer.id === listing.userId;
   // Match /apps/[id]: non-owners must not learn that a draft (or other
   // non-public) listing id exists.
-  if (!isOwner && !isPublicListingStatus(listing.status)) {
+  if (
+    !isOwner &&
+    (!isPublicListingStatus(listing.status) || listing.moderationStatus !== "visible")
+  ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

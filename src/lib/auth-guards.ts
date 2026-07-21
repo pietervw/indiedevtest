@@ -18,6 +18,22 @@ export async function requireDbUser(): Promise<User> {
   return user;
 }
 
+/** Restrict internal moderation pages/actions to explicitly configured Clerk IDs. */
+export async function requireAdmin(): Promise<User> {
+  const user = await requireDbUser();
+  const adminIds = new Set(
+    (process.env.ADMIN_CLERK_USER_IDS ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+  );
+
+  if (!adminIds.has(user.clerkId)) {
+    redirect("/browse");
+  }
+  return user;
+}
+
 /** Signed-in users who still need the listing step. */
 export async function requireOnboardingPending(): Promise<User> {
   const user = await requireDbUser();

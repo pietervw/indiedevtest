@@ -26,7 +26,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const [listings, developers] = await Promise.all([
       prisma.appListing.findMany({
-        where: { status: { in: [...PUBLIC_LISTING_STATUSES] } },
+        where: { status: { in: [...PUBLIC_LISTING_STATUSES] }, moderationStatus: "visible" },
         select: { id: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
         take: 5000,
@@ -34,7 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       prisma.user.findMany({
         where: {
           appListings: {
-            some: { status: { in: [...PUBLIC_LISTING_STATUSES] } },
+            some: { status: { in: [...PUBLIC_LISTING_STATUSES] }, moderationStatus: "visible" },
           },
         },
         select: { profileSlug: true, updatedAt: true },

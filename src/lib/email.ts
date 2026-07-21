@@ -248,6 +248,52 @@ export async function sendNewTesterRequestEmail(options: {
   });
 }
 
+/** Notify a developer that a tester has withdrawn, freeing a program place. */
+export async function sendTesterWithdrawalEmail(options: {
+  devClerkId: string;
+  devName: string;
+  appName: string;
+  testerName: string;
+  listingUrl: string;
+}): Promise<void> {
+  const devEmail = await primaryEmailForClerkUser(options.devClerkId);
+  if (!devEmail) {
+    console.warn("[email] dev has no email on file; skipping withdrawal notice", {
+      devClerkId: options.devClerkId,
+    });
+    return;
+  }
+
+  const product = siteConfig.name;
+  const subject = `${options.testerName} withdrew from ${options.appName}`;
+
+  await sendMail({
+    to: devEmail,
+    subject,
+    text: [
+      `${options.testerName} withdrew their request to test ${options.appName}.`,
+      "",
+      "Their tester place is now available again.",
+      `Listing: ${options.listingUrl}`,
+      "",
+      `— ${product}`,
+    ].join("\n"),
+    html: renderBrandedEmail({
+      title: subject,
+      preheader: `${options.testerName} withdrew from your testing program`,
+      heading: "Tester withdrew",
+      bodyHtml: [
+        emailParagraphHtml(
+          `${emailStrong(options.testerName)} withdrew their request to test ${emailStrong(options.appName)}.`
+        ),
+        emailParagraph("Their tester place is now available again."),
+        emailCtaButton(options.listingUrl, "View listing"),
+        emailMutedNote(`Sent from ${product}`),
+      ].join(""),
+    }),
+  });
+}
+
 /** Tell a tester their request was accepted. */
 export async function sendRequestAcceptedEmail(options: {
   testerEmail: string;

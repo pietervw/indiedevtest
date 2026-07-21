@@ -1,4 +1,9 @@
-import type { AppCategory, AppListingStatus, Platform } from "@/generated/prisma";
+import {
+  TesterRequestStatus,
+  type AppCategory,
+  type AppListingStatus,
+  type Platform,
+} from "@/generated/prisma";
 import { prisma } from "@/lib/db";
 import {
   COUNTED_ASSIGNMENT_STATUSES,
@@ -33,6 +38,8 @@ export type PublicListing = {
   status: AppListingStatus;
   storeLink: string | null;
   testers: number;
+  testerCapacity: number | null;
+  acceptedTesters: number;
   updatedAt: string;
   user: {
     id: string;
@@ -77,6 +84,9 @@ const listingInclude = {
       testAssignments: {
         where: { status: { in: [...COUNTED_ASSIGNMENT_STATUSES] } },
       },
+      testerRequests: {
+        where: { status: TesterRequestStatus.accepted },
+      },
     },
   },
 };
@@ -103,6 +113,8 @@ function toPublicListing(
     status: row.status,
     storeLink: row.storeLink,
     testers: row._count.testAssignments,
+    testerCapacity: row.testerCapacity,
+    acceptedTesters: row._count.testerRequests,
     updatedAt: row.updatedAt.toISOString(),
     user: row.user,
     reviews: row.reviews.map((review) => ({
@@ -120,6 +132,7 @@ async function fetchPublicListingRow(id: string) {
     where: {
       id,
       status: { in: [...PUBLIC_LISTING_STATUSES] },
+      moderationStatus: "visible",
     },
     include: listingInclude,
   });

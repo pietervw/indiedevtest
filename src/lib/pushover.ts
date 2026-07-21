@@ -128,3 +128,20 @@ export async function sendFirstUserSignupNotification(input: {
     ].join("\n"),
   });
 }
+
+/** Alert the admin about a newly filed listing report without exposing email. */
+export async function sendListingReportNotification(input: {
+  appName: string;
+  reason: string;
+  listingUrl: string;
+}): Promise<boolean> {
+  return sendPushoverNotification({
+    title: `🚩 ${siteConfig.name} listing report`,
+    message: [
+      `A listing was reported: ${input.appName}`,
+      `Reason: ${input.reason}`,
+      `Review: ${input.listingUrl}`,
+      `Time: ${perthTimestamp()}`,
+    ].join("\n"),
+  });
+}

@@ -18,7 +18,8 @@ export type AppListingFormState = {
       | "platform"
       | "logoUrl"
       | "testingAccessUrl"
-      | "testerInstructions",
+      | "testerInstructions"
+      | "testerCapacity",
       string
     >
   >;
@@ -36,6 +37,7 @@ function validateListing(formData: FormData): {
     logoUrl: string;
     testingAccessUrl: string;
     testerInstructions: string;
+    testerCapacity: number | null;
   };
   fieldErrors?: AppListingFormState["fieldErrors"];
   message?: string;
@@ -47,6 +49,7 @@ function validateListing(formData: FormData): {
   const logoUrl = field(formData, "logoUrl");
   const testingAccessUrl = field(formData, "testingAccessUrl");
   const testerInstructions = field(formData, "testerInstructions");
+  const testerCapacityRaw = field(formData, "testerCapacity");
 
   const fieldErrors: AppListingFormState["fieldErrors"] = {};
 
@@ -74,6 +77,13 @@ function validateListing(formData: FormData): {
   if (testerInstructions.length > 2000) {
     fieldErrors.testerInstructions = "Instructions must be 2,000 characters or fewer.";
   }
+  const testerCapacity = testerCapacityRaw ? Number(testerCapacityRaw) : null;
+  if (
+    testerCapacity !== null &&
+    (!Number.isInteger(testerCapacity) || testerCapacity < 1 || testerCapacity > 10000)
+  ) {
+    fieldErrors.testerCapacity = "Tester capacity must be a whole number from 1 to 10,000.";
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, message: "Fix the highlighted fields." };
@@ -88,6 +98,7 @@ function validateListing(formData: FormData): {
       logoUrl: logoUrl || "",
       testingAccessUrl,
       testerInstructions,
+      testerCapacity,
     },
   };
 }
@@ -134,6 +145,7 @@ export async function createAppListing(
         logoUrl: listing.logoUrl,
         testingAccessUrl: listing.testingAccessUrl || null,
         testerInstructions: listing.testerInstructions || null,
+        testerCapacity: listing.testerCapacity,
         status: "open_for_testing",
       },
     });

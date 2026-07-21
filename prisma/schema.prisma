@@ -40,6 +40,25 @@ enum TestAssignmentStatus {
   cancelled
 }
 
+enum ListingModerationStatus {
+  visible
+  hidden
+  removed
+}
+
+enum ListingReportReason {
+  spam_or_scam
+  inappropriate_content
+  broken_or_misleading_link
+  impersonation
+  other
+}
+
+enum ListingReportStatus {
+  open
+  dismissed
+}
+
 enum BadgeType {
   first_12
   super_tester
@@ -71,6 +90,8 @@ model User {
   testAssignments TestAssignment[]
   reviews         Review[]
   badges          UserBadge[]
+  reportsFiled    ListingReport[] @relation("ReportedListings")
+  reportsResolved ListingReport[] @relation("ResolvedListingReports")
 
   @@map("users")
 }
@@ -84,9 +105,13 @@ model AppListing {
   category              AppCategory
   platform              Platform
   status                AppListingStatus @default(draft)
+  moderationStatus      ListingModerationStatus @default(visible) @map("moderation_status")
   storeLink             String?          @map("store_link")
   testingAccessUrl      String?          @map("testing_access_url")
   testerInstructions    String?          @map("tester_instructions")
+  /// Optional number of testers this program needs. Accepted requests consume
+  /// a place whether or not the developer has subsequently marked them joined.
+  testerCapacity        Int?             @map("tester_capacity")
   maxTestersPerPlatform Int              @default(14) @map("max_testers_per_platform")
   reminderSentAt        DateTime?        @map("reminder_sent_at")
   createdAt             DateTime         @default(now()) @map("created_at")
@@ -96,10 +121,33 @@ model AppListing {
   testerRequests  TesterRequest[]
   testAssignments TestAssignment[]
   reviews         Review[]
+  reports         ListingReport[]
 
   @@index([status])
   @@index([userId])
   @@map("app_listings")
+}
+
+model ListingReport {
+  id           String              @id @default(cuid())
+  appListingId String              @map("app_listing_id")
+  reporterId   String              @map("reporter_id")
+  reason       ListingReportReason
+  details      String?
+  status       ListingReportStatus @default(open)
+  resolvedAt   DateTime?           @map("resolved_at")
+  resolvedById String?             @map("resolved_by_id")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  appListing AppListing @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+  reporter   User       @relation("ReportedListings", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy User?      @relation("ResolvedListingReports", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([appListingId, status])
+  @@index([reporterId, createdAt])
+  @@index([status, createdAt])
+  @@map("listing_reports")
 }
 
 model TesterRequest {

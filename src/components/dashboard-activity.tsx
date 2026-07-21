@@ -16,7 +16,6 @@ import type {
 import { SubmitButton } from "@/components/submit-button";
 import type { Platform } from "@/generated/prisma";
 import {
-  TESTER_SLOT_MAX,
   appPath,
   categoryLabel,
   editPath,
@@ -297,10 +296,11 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
             </Badge>
           </div>
           <p className="mt-2 text-sm text-ink-muted">
-            {listing.liveTesterCount}/{TESTER_SLOT_MAX} live testers
-            {" · "}
-            {listing.pendingRequestCount} pending request
-            {listing.pendingRequestCount === 1 ? "" : "s"}
+            {listing.pendingRequestCount} pending · {listing.acceptedTesterCount} accepted
+            {" · "}{listing.joinedTesterCount} joined · {listing.completedTesterCount} completed
+            {listing.remainingTesterSpots === null
+              ? " · No tester limit"
+              : ` · ${listing.remainingTesterSpots} spot${listing.remainingTesterSpots === 1 ? "" : "s"} remaining`}
           </p>
         </div>
       </div>

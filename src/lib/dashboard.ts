@@ -7,9 +7,7 @@ import { prisma } from "@/lib/db";
 import {
   expirePendingTesterRequests,
   openTesterRequestWhere,
-  pendingNotExpiredWhere,
 } from "@/lib/expire-pending-tester-requests";
-import { COUNTED_ASSIGNMENT_STATUSES } from "@/lib/listing-status";
 import { testingPeriodProgress } from "@/lib/mock-data";
 import { isHttpUrl } from "@/lib/validation";
 
@@ -20,8 +18,12 @@ export type DashboardListing = {
   category: AppCategory;
   platform: Platform;
   status: AppListingStatus;
-  liveTesterCount: number;
+  testerCapacity: number | null;
   pendingRequestCount: number;
+  acceptedTesterCount: number;
+  joinedTesterCount: number;
+  completedTesterCount: number;
+  remainingTesterSpots: number | null;
 };
 
 type DashboardListingRef = {
@@ -160,16 +162,9 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         category: true,
         platform: true,
         status: true,
-        _count: {
-          select: {
-            testAssignments: {
-              where: { status: { in: [...COUNTED_ASSIGNMENT_STATUSES] } },
-            },
-            testerRequests: {
-              where: pendingNotExpiredWhere(now),
-            },
-          },
-        },
+        testerCapacity: true,
+        testerRequests: { select: { status: true, expiresAt: true } },
+        testAssignments: { select: { status: true } },
       },
       orderBy: { updatedAt: "desc" },
     }),
@@ -275,16 +270,37 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   }
 
   return {
-    listings: listings.map((listing) => ({
-      id: listing.id,
-      name: listing.name,
-      logoUrl: listing.logoUrl.trim(),
-      category: listing.category,
-      platform: listing.platform,
-      status: listing.status,
-      liveTesterCount: listing._count.testAssignments,
-      pendingRequestCount: listing._count.testerRequests,
-    })),
+    listings: listings.map((listing) => {
+      const pendingRequestCount = listing.testerRequests.filter(
+        (request) => request.status === "pending" && request.expiresAt > now
+      ).length;
+      // Accepted requests consume capacity, including testers who have since
+      // been confirmed joined or completed.
+      const acceptedTesterCount = listing.testerRequests.filter(
+        (request) => request.status === "accepted"
+      ).length;
+      const joinedTesterCount = listing.testAssignments.length;
+      const completedTesterCount = listing.testAssignments.filter(
+        (assignment) => assignment.status === "completed"
+      ).length;
+      return {
+        id: listing.id,
+        name: listing.name,
+        logoUrl: listing.logoUrl.trim(),
+        category: listing.category,
+        platform: listing.platform,
+        status: listing.status,
+        testerCapacity: listing.testerCapacity,
+        pendingRequestCount,
+        acceptedTesterCount,
+        joinedTesterCount,
+        completedTesterCount,
+        remainingTesterSpots:
+          listing.testerCapacity === null
+            ? null
+            : Math.max(0, listing.testerCapacity - acceptedTesterCount),
+      };
+    }),
     incomingRequests: incomingRequests.map((request) => ({
       id: request.id,
       testerEmail: request.testerEmail,
