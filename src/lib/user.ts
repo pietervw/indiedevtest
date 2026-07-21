@@ -45,6 +45,17 @@ export async function ensureDbUser() {
       imageUrl,
     };
 
+    // Keep githubId when GitHub is linked, but never wipe stored handles if
+    // Clerk omits username on this session (legacy /dev/<github> redirects).
+    const githubFields = github?.providerUserId
+      ? {
+          githubId: github.providerUserId,
+          ...(githubLogin
+            ? { githubUsername: githubLogin, githubLogin }
+            : {}),
+        }
+      : {};
+
     // Fast path for returning users — no notification.
     const existing = await prisma.user.findUnique({
       where: { clerkId: clerkUser.id },
@@ -55,10 +66,7 @@ export async function ensureDbUser() {
         where: { clerkId: clerkUser.id },
         data: {
           ...profileUpdate,
-          ...(github?.providerUserId
-            ? { githubUsername: githubLogin, githubLogin }
-            : {}),
-          ...(github?.providerUserId ? { githubId: github.providerUserId } : {}),
+          ...githubFields,
         },
       });
     }
@@ -91,9 +99,23 @@ export async function ensureDbUser() {
       }
     }
 
-    // GitHub's provider ID is a stable identity for re-linking a local row
-    // after a Clerk migration or account recreation. Email-only accounts rely
-    // on Clerk's stable user ID and are never auto-linked by email.
+    // Concurrent first-insert race: the other request already created this clerkId.
+    const raced = await prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+      select: { id: true },
+    });
+    if (raced) {
+      return await prisma.user.update({
+        where: { clerkId: clerkUser.id },
+        data: {
+          ...profileUpdate,
+          ...githubFields,
+        },
+      });
+    }
+
+    // Email-only accounts rely on Clerk's stable user ID and are never
+    // auto-linked by email. Without a matching clerkId row, fail closed.
     if (!github?.providerUserId) {
       console.warn("[user] unique conflict for email-only Clerk user", {
         clerkId: clerkUser.id,
@@ -118,9 +140,7 @@ export async function ensureDbUser() {
         data: {
           ...profileUpdate,
           clerkId: clerkUser.id,
-          githubId: github.providerUserId,
-          githubUsername: githubLogin,
-          githubLogin,
+          ...githubFields,
         },
       });
     }

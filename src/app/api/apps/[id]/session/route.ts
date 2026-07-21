@@ -160,7 +160,12 @@ export async function GET(_request: Request, { params }: Props) {
     viewerHasContactEmail: Boolean(viewer.contactEmail),
     isOwner,
     ownerHasPrivateInvitation:
-      isOwner && Boolean(testingAccessUrl || listing.testerInstructions),
+      isOwner &&
+      Boolean(
+        testingAccessUrl ||
+          listing.testerInstructions ||
+          listing.user.contactEmail
+      ),
     viewerRequestStatus: viewerRequest?.status ?? null,
     viewerHasJoined: viewerRequest?.testAssignmentId != null,
     viewerInvitation:

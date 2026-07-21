@@ -340,10 +340,15 @@ export async function resendTesterInvitation(
   ) {
     return { ok: false, message: "That tester is no longer awaiting an invitation." };
   }
-  if (!request.appListing.testingAccessUrl && !request.appListing.testerInstructions) {
+  if (
+    !request.appListing.testingAccessUrl &&
+    !request.appListing.testerInstructions &&
+    !request.appListing.user.contactEmail
+  ) {
     return {
       ok: false,
-      message: "Add a testing link or instructions before sending an invitation.",
+      message:
+        "Add a testing link, instructions, or a contact email before sending an invitation.",
     };
   }
 
@@ -360,12 +365,6 @@ export async function resendTesterInvitation(
     };
   }
 
-  // Consume before the external send to make concurrent clicks harmless.
-  takeRateLimit({
-    key: `tester-invitation:${user.id}`,
-    limit: 6,
-    windowMs: 60 * 60 * 1000,
-  });
   try {
     await sendRequestAcceptedEmail({
       testerEmail: request.testerEmail,
@@ -375,11 +374,17 @@ export async function resendTesterInvitation(
       testingAccessUrl: request.appListing.testingAccessUrl,
       testerInstructions: request.appListing.testerInstructions,
     });
-    return { ok: true, message: "Invitation resent." };
   } catch (err) {
     console.error("[requests] resend invitation email failed", err);
     return { ok: false, message: "Could not resend the invitation. Try again shortly." };
   }
+
+  takeRateLimit({
+    key: `tester-invitation:${user.id}`,
+    limit: 6,
+    windowMs: 60 * 60 * 1000,
+  });
+  return { ok: true, message: "Invitation resent." };
 }
 
 /**

@@ -47,18 +47,24 @@ export function RequestToTestForm({
   // Session status wins over optimistic state.ok so an accept cannot stay
   // masked behind a stale "waiting" / pending-withdraw UI.
   if (existing === "accepted") {
+    const hasInvitation = Boolean(
+      invitation?.testingAccessUrl ||
+        invitation?.testerInstructions ||
+        invitation?.developerContactEmail
+    );
+
     return (
       <div>
         <p className="font-display text-lg font-bold text-ink">You&apos;re in! 🎉</p>
-        {invitation?.testingAccessUrl || invitation?.testerInstructions ? (
+        {hasInvitation ? (
           <div className="mt-4 rounded-xl border-2 border-ink bg-paper-muted p-4 text-sm text-ink">
             <p className="font-display text-base font-bold">Your testing invitation</p>
-            {invitation.testerInstructions ? (
+            {invitation?.testerInstructions ? (
               <p className="mt-2 whitespace-pre-wrap text-ink-muted">
                 {invitation.testerInstructions}
               </p>
             ) : null}
-            {invitation.testingAccessUrl ? (
+            {invitation?.testingAccessUrl ? (
               <a
                 href={invitation.testingAccessUrl}
                 target="_blank"
@@ -68,7 +74,7 @@ export function RequestToTestForm({
                 Open testing access link ↗
               </a>
             ) : null}
-            {invitation.developerContactEmail ? (
+            {invitation?.developerContactEmail ? (
               <p className="mt-3 text-ink-muted">
                 Need help joining? Contact the developer at{" "}
                 <a
@@ -89,7 +95,7 @@ export function RequestToTestForm({
         ) : (
           <>
             <p className="mt-1 text-sm text-ink-muted">
-              {invitation?.testingAccessUrl || invitation?.testerInstructions
+              {hasInvitation
                 ? "Use the invitation above, then wait for the developer to confirm you joined."
                 : "The developer will email you next steps to join the testing track."}
             </p>
