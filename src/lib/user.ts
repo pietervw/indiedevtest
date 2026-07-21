@@ -91,10 +91,32 @@ export async function ensureDbUser() {
       }
     }
 
-    return await prisma.user.update({
-      where: { clerkId: clerkUser.id },
-      data: profileUpdate,
+    // A GitHub account is the stable identity for this GitHub-only product.
+    // Clerk may present a new Clerk user id after a Clerk migration, instance
+    // reset, or account recreation. Rebind the existing local profile by the
+    // immutable GitHub provider id rather than treating it as a new user.
+    const githubIdentity = await prisma.user.findUnique({
+      where: { githubId: github.providerUserId },
+      select: { id: true },
     });
+    if (githubIdentity) {
+      console.info("[user] rebinding local profile to Clerk user", {
+        githubId: github.providerUserId,
+        clerkId: clerkUser.id,
+      });
+      return await prisma.user.update({
+        where: { id: githubIdentity.id },
+        data: { ...profileUpdate, clerkId: clerkUser.id },
+      });
+    }
+
+    // Username-only (or other non-githubId) collisions must not auto-link.
+    // Fail closed to null — callers treat that as unusable session, not a 500.
+    console.warn("[user] unique conflict without matching githubId", {
+      githubId: github.providerUserId,
+      clerkId: clerkUser.id,
+    });
+    return null;
   } catch (err) {
     console.error("[user] ensureDbUser failed", err);
     return null;
