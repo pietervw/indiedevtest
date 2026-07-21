@@ -19,10 +19,13 @@ const inputClassName =
 export function RequestToTestForm({
   listingId,
   existing,
+  hasJoined = false,
   onWithdraw,
 }: {
   listingId: string;
   existing: TesterRequestStatus | null;
+  /** Owner already confirmed join — withdraw is no longer allowed. */
+  hasJoined?: boolean;
   onWithdraw?: () => Promise<void>;
 }) {
   const action = createTesterRequest.bind(null, listingId);
@@ -49,16 +52,28 @@ export function RequestToTestForm({
     return (
       <div>
         <p className="font-display text-lg font-bold text-ink">You&apos;re in! 🎉</p>
-        <p className="mt-1 text-sm text-ink-muted">
-          The developer will email you next steps to join the testing track.
-        </p>
-        {onWithdraw ? (
-          <form action={onWithdraw} className="mt-3">
-            <SubmitButton size="sm" variant="secondary" pendingLabel="Withdrawing…">
-              Can&apos;t test after all
-            </SubmitButton>
-          </form>
-        ) : null}
+        {hasJoined ? (
+          <p className="mt-1 text-sm text-ink-muted">
+            You&apos;re on the testing track for this app.
+          </p>
+        ) : (
+          <>
+            <p className="mt-1 text-sm text-ink-muted">
+              The developer will email you next steps to join the testing track.
+            </p>
+            {onWithdraw ? (
+              <form action={onWithdraw} className="mt-3">
+                <SubmitButton
+                  size="sm"
+                  variant="secondary"
+                  pendingLabel="Withdrawing…"
+                >
+                  Can&apos;t test after all
+                </SubmitButton>
+              </form>
+            ) : null}
+          </>
+        )}
       </div>
     );
   }

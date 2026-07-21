@@ -16,6 +16,7 @@ const emptySession: ListingSessionPayload = {
   viewerId: null,
   isOwner: false,
   viewerRequestStatus: null,
+  viewerHasJoined: false,
   canWriteReview: false,
   hasWrittenReview: false,
   pendingRequests: [],
@@ -77,7 +78,7 @@ export async function GET(_request: Request, { params }: Props) {
                 testerUserId: viewer.id,
               },
             },
-            select: { status: true },
+            select: { status: true, testAssignmentId: true },
           })
         : null,
       !isOwner && reviewListingOpen
@@ -140,6 +141,7 @@ export async function GET(_request: Request, { params }: Props) {
     viewerId: viewer.id,
     isOwner,
     viewerRequestStatus: viewerRequest?.status ?? null,
+    viewerHasJoined: viewerRequest?.testAssignmentId != null,
     canWriteReview,
     hasWrittenReview,
     pendingRequests: pendingRequests.map((req) => ({

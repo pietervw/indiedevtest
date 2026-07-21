@@ -255,10 +255,15 @@ export function ListingSessionPanels({
           ) : viewer ? (
             <RequestToTestForm
               // Remount when session status changes so useActionState can't keep a stale ok after withdraw.
-              key={session?.viewerRequestStatus ?? "none"}
+              key={`${session?.viewerRequestStatus ?? "none"}:${session?.viewerHasJoined ? "joined" : "open"}`}
               listingId={listingId}
               existing={session?.viewerRequestStatus ?? null}
-              onWithdraw={afterAction(() => withdrawTesterRequest(listingId))}
+              hasJoined={session?.viewerHasJoined ?? false}
+              onWithdraw={
+                session?.viewerHasJoined
+                  ? undefined
+                  : afterAction(() => withdrawTesterRequest(listingId))
+              }
             />
           ) : (
             <p className="font-semibold text-ink-muted">

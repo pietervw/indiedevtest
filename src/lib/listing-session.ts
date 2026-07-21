@@ -2,6 +2,8 @@ export type ListingSessionPayload = {
   viewerId: string | null;
   isOwner: boolean;
   viewerRequestStatus: "pending" | "accepted" | "rejected" | "expired" | null;
+  /** True once the owner confirmed the tester joined (assignment linked). */
+  viewerHasJoined: boolean;
   /** Confirmed tester may write a review (joined + listing open/closed + none yet). */
   canWriteReview: boolean;
   hasWrittenReview: boolean;
