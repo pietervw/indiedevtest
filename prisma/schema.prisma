@@ -49,10 +49,11 @@ enum BadgeType {
 model User {
   id                    String    @id @default(cuid())
   clerkId               String    @unique @map("clerk_id")
-  githubId              String    @unique @map("github_id")
+  githubId              String?   @unique @map("github_id")
   githubUsername        String    @unique @map("github_username")
   displayName           String    @map("display_name")
   imageUrl              String?   @map("image_url")
+  contactEmail          String?   @map("contact_email")
   bio                   String?
   twitterHandle         String?   @map("twitter_handle")
   profileScoreJoined    Int       @default(0) @map("profile_score_joined")

@@ -15,6 +15,7 @@ const DEV_PROFILE_CACHE_MAX = 1000;
 export type DevProfile = {
   id: string;
   displayName: string;
+  githubId: string | null;
   githubUsername: string;
   imageUrl: string | null;
   bio: string | null;
@@ -88,6 +89,7 @@ export async function getDevProfile(
       ? {
           id: user.id,
           displayName: user.displayName,
+          githubId: user.githubId,
           githubUsername: user.githubUsername,
           imageUrl: user.imageUrl,
           bio: user.bio,

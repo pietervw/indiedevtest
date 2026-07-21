@@ -282,27 +282,37 @@ export function ListingSessionPanels({
           {session == null && !failed ? (
             <p className="text-sm text-ink-muted">Checking sign-in…</p>
           ) : viewer ? (
-            <RequestToTestForm
-              // Remount when session status changes so useActionState can't keep a stale ok after withdraw.
-              key={`${session?.viewerRequestStatus ?? "none"}:${session?.viewerHasJoined ? "joined" : "open"}`}
-              listingId={listingId}
-              existing={session?.viewerRequestStatus ?? null}
-              hasJoined={session?.viewerHasJoined ?? false}
-              invitation={session?.viewerInvitation ?? null}
-              onRequestSuccess={refreshSession}
-              onWithdraw={
-                session?.viewerHasJoined
-                  ? undefined
-                  : afterAction(() =>
-                      withdrawTesterRequest(
-                        listingId,
-                        session?.viewerRequestStatus === "accepted"
-                          ? "accepted"
-                          : "pending"
+            session?.viewerHasContactEmail ? (
+              <RequestToTestForm
+                // Remount when session status changes so useActionState can't keep a stale ok after withdraw.
+                key={`${session?.viewerRequestStatus ?? "none"}:${session?.viewerHasJoined ? "joined" : "open"}`}
+                listingId={listingId}
+                existing={session?.viewerRequestStatus ?? null}
+                hasJoined={session?.viewerHasJoined ?? false}
+                invitation={session?.viewerInvitation ?? null}
+                onRequestSuccess={refreshSession}
+                onWithdraw={
+                  session?.viewerHasJoined
+                    ? undefined
+                    : afterAction(() =>
+                        withdrawTesterRequest(
+                          listingId,
+                          session?.viewerRequestStatus === "accepted"
+                            ? "accepted"
+                            : "pending"
+                        )
                       )
-                    )
-              }
-            />
+                }
+              />
+            ) : (
+              <p className="font-semibold text-ink-muted">
+                Add your testing contact email in{" "}
+                <Link href="/onboarding/profile" className="text-ink underline">
+                  your profile
+                </Link>{" "}
+                before requesting to test.
+              </p>
+            )
           ) : (
             <p className="font-semibold text-ink-muted">
               Sign in from the header to request testing.

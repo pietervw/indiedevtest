@@ -16,8 +16,8 @@ function githubAccount(
 }
 
 /**
- * Upsert the local User row from the signed-in Clerk session (GitHub OAuth).
- * Returns null when signed out, GitHub is not linked, or the DB is unavailable.
+ * Upsert the local User row from the signed-in Clerk session. Clerk's user ID
+ * is the primary identity; a linked GitHub account is optional enrichment.
  */
 export async function ensureDbUser() {
   if (!process.env.DATABASE_URL) {
@@ -29,21 +29,12 @@ export async function ensureDbUser() {
     if (!clerkUser) return null;
 
     const github = githubAccount(clerkUser.externalAccounts);
-    if (!github?.providerUserId) {
-      console.warn("[user] signed in without a linked GitHub account", {
-        clerkId: clerkUser.id,
-        providers: clerkUser.externalAccounts.map((account) => account.provider),
-      });
-      return null;
-    }
-
-    const githubUsername =
-      github.username ||
-      clerkUser.username ||
-      `gh-${github.providerUserId}`;
+    const profileHandle = github?.providerUserId
+      ? github.username || `gh-${github.providerUserId}`
+      : `member-${clerkUser.id.replace(/^user_/, "")}`;
 
     const displayName =
-      github.username ||
+      github?.username ||
       clerkUser.username ||
       [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
       "Indie Dev";
@@ -52,20 +43,26 @@ export async function ensureDbUser() {
 
     const profileUpdate = {
       displayName,
-      githubId: github.providerUserId,
-      githubUsername,
       imageUrl,
     };
 
     // Fast path for returning users — no notification.
     const existing = await prisma.user.findUnique({
       where: { clerkId: clerkUser.id },
-      select: { id: true },
+      select: { id: true, githubUsername: true },
     });
     if (existing) {
       return await prisma.user.update({
         where: { clerkId: clerkUser.id },
-        data: profileUpdate,
+        data: {
+          ...profileUpdate,
+          // Preserve an existing public handle for email sign-ins; only a
+          // linked GitHub identity is allowed to replace it.
+          githubUsername: github?.providerUserId
+            ? profileHandle
+            : existing.githubUsername,
+          ...(github?.providerUserId ? { githubId: github.providerUserId } : {}),
+        },
       });
     }
 
@@ -75,11 +72,13 @@ export async function ensureDbUser() {
         data: {
           clerkId: clerkUser.id,
           ...profileUpdate,
+          githubUsername: profileHandle,
+          ...(github?.providerUserId ? { githubId: github.providerUserId } : {}),
         },
       });
       void sendFirstUserSignupNotification({
         displayName: created.displayName,
-        githubUsername: created.githubUsername,
+        profileHandle: created.githubUsername,
       });
       return created;
     } catch (err) {
@@ -91,7 +90,16 @@ export async function ensureDbUser() {
       }
     }
 
-    // A GitHub account is the stable identity for this GitHub-only product.
+    // GitHub's provider ID is a stable identity for re-linking a local row
+    // after a Clerk migration or account recreation. Email-only accounts rely
+    // on Clerk's stable user ID and are never auto-linked by email.
+    if (!github?.providerUserId) {
+      console.warn("[user] unique conflict for email-only Clerk user", {
+        clerkId: clerkUser.id,
+      });
+      return null;
+    }
+
     // Clerk may present a new Clerk user id after a Clerk migration, instance
     // reset, or account recreation. Rebind the existing local profile by the
     // immutable GitHub provider id rather than treating it as a new user.
@@ -106,7 +114,12 @@ export async function ensureDbUser() {
       });
       return await prisma.user.update({
         where: { id: githubIdentity.id },
-        data: { ...profileUpdate, clerkId: clerkUser.id },
+        data: {
+          ...profileUpdate,
+          clerkId: clerkUser.id,
+          githubId: github.providerUserId,
+          githubUsername: profileHandle,
+        },
       });
     }
 

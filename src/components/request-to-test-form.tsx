@@ -9,13 +9,9 @@ import type { TesterRequestStatus } from "@/generated/prisma";
 
 const initialState: RequestState = { ok: false, message: "" };
 
-const inputClassName =
-  "h-14 w-full rounded-xl border-2 border-ink bg-paper px-4 font-medium text-ink shadow-brutal outline-none transition-shadow placeholder:text-ink-muted focus:shadow-brutal-brand-lg disabled:opacity-50";
-
 /**
- * Tester-facing "Request to test" form. When the viewer already has an active
- * request we surface its state instead of the form; declined/expired requests
- * can be re-submitted.
+ * Tester-facing request button. Contact email is collected once in profile
+ * setup, then the server snapshots it onto each request for audit/history.
  */
 export function RequestToTestForm({
   listingId,
@@ -32,6 +28,7 @@ export function RequestToTestForm({
   invitation?: {
     testingAccessUrl: string | null;
     testerInstructions: string | null;
+    developerContactEmail: string | null;
   } | null;
   onWithdraw?: () => Promise<void>;
   /** Refresh listing session after a successful create so status stays authoritative. */
@@ -70,6 +67,18 @@ export function RequestToTestForm({
               >
                 Open testing access link ↗
               </a>
+            ) : null}
+            {invitation.developerContactEmail ? (
+              <p className="mt-3 text-ink-muted">
+                Need help joining? Contact the developer at{" "}
+                <a
+                  href={`mailto:${invitation.developerContactEmail}`}
+                  className="font-semibold text-ink underline"
+                >
+                  {invitation.developerContactEmail}
+                </a>
+                .
+              </p>
             ) : null}
           </div>
         ) : null}
@@ -124,32 +133,10 @@ export function RequestToTestForm({
         Request to test
       </h2>
       <p className="mt-2 text-sm text-ink-muted">
-        Share your email so the developer can add you to their Play Store /
-        TestFlight track. Everything else happens off-platform over email.
+        Your saved testing contact email will be shared with this developer so
+        they can add you to their Play Store / TestFlight track.
       </p>
       <form action={formAction} className="mt-4 flex flex-col gap-3">
-        <label className="sr-only" htmlFor="request-email">
-          Your email
-        </label>
-        <input
-          id="request-email"
-          name="email"
-          type="email"
-          required
-          maxLength={254}
-          autoComplete="email"
-          placeholder="you@indie.dev"
-          className={cn(
-            inputClassName,
-            state.fieldErrors?.email ? "border-red-600" : ""
-          )}
-          aria-invalid={Boolean(state.fieldErrors?.email)}
-        />
-        {state.fieldErrors?.email ? (
-          <p className="text-sm font-semibold text-red-600" role="alert">
-            {state.fieldErrors.email}
-          </p>
-        ) : null}
         <SubmitButton size="lg" pendingLabel="Sending…" className="w-full sm:w-auto">
           Request to test
         </SubmitButton>

@@ -197,7 +197,7 @@ export async function sendNewTesterRequestEmail(options: {
 }): Promise<void> {
   const devEmail = await primaryEmailForClerkUser(options.devClerkId);
   if (!devEmail) {
-    // GitHub OAuth via Clerk doesn't always expose an email — skip silently.
+    // Some Clerk sign-in methods do not expose an email — skip silently.
     console.warn("[email] dev has no email on file; skipping request notice", {
       devClerkId: options.devClerkId,
     });
@@ -253,6 +253,7 @@ export async function sendRequestAcceptedEmail(options: {
   testerEmail: string;
   appName: string;
   listingUrl: string;
+  developerContactEmail?: string | null;
   testingAccessUrl?: string | null;
   testerInstructions?: string | null;
 }): Promise<void> {
@@ -260,9 +261,13 @@ export async function sendRequestAcceptedEmail(options: {
   const subject = `You're accepted to test ${options.appName}`;
   const testingAccessUrl = safeTestingAccessUrl(options.testingAccessUrl);
   const testerInstructions = options.testerInstructions?.trim() || null;
+  const developerContactEmail = options.developerContactEmail?.trim() || null;
 
   const textInvitation = [
     testingAccessUrl ? `Testing access: ${testingAccessUrl}` : null,
+    developerContactEmail
+      ? `Developer contact: ${developerContactEmail}`
+      : null,
     testerInstructions
       ? `Instructions:\n${testerInstructions}`
       : null,
@@ -271,6 +276,14 @@ export async function sendRequestAcceptedEmail(options: {
   const htmlInvitation = [
     testingAccessUrl
       ? emailCtaButton(testingAccessUrl, "Open testing access")
+      : null,
+    developerContactEmail
+      ? emailParagraphHtml(
+          `Need help joining? Contact the developer at ${emailLink(
+            `mailto:${developerContactEmail}`,
+            developerContactEmail
+          )}.`
+        )
       : null,
     testerInstructions
       ? emailParagraphHtml(escapeHtmlWithBreaks(testerInstructions))
@@ -418,7 +431,7 @@ export async function sendListing14DayReminderEmail(options: {
 }): Promise<void> {
   const devEmail = await primaryEmailForClerkUser(options.devClerkId);
   if (!devEmail) {
-    // GitHub OAuth via Clerk doesn't always expose an email — skip silently.
+    // Some Clerk sign-in methods do not expose an email — skip silently.
     // Caller still treats this as success so cron won't retry forever.
     console.warn("[email] dev has no email on file; skipping 14-day reminder", {
       devClerkId: options.devClerkId,

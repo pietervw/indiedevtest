@@ -36,7 +36,7 @@ export async function requireProfileSetupPending(): Promise<User> {
   if (!user.onboardingCompletedAt) {
     redirect("/onboarding");
   }
-  if (user.profileCompletedAt) {
+  if (user.profileCompletedAt && user.contactEmail) {
     redirect("/browse");
   }
   return user;

@@ -69,14 +69,18 @@ export default async function DevProfilePage({ params }: Props) {
               {user.displayName}
             </h1>
             <p className="mt-1 text-ink-muted">
-              <Link
-                href={`https://github.com/${user.githubUsername}`}
-                className="font-semibold text-ink underline-offset-2 hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                @{user.githubUsername}
-              </Link>
+              {user.githubId ? (
+                <Link
+                  href={`https://github.com/${user.githubUsername}`}
+                  className="font-semibold text-ink underline-offset-2 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  @{user.githubUsername}
+                </Link>
+              ) : (
+                <span className="font-semibold text-ink">@{user.githubUsername}</span>
+              )}
               {user.twitterHandle ? (
                 <>
                   {" · "}

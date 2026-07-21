@@ -42,6 +42,18 @@ export type DashboardRequestItem = {
   listing: DashboardListingRef;
 };
 
+/** A request received by one of the user's own listings. */
+export type DashboardIncomingRequest = {
+  id: string;
+  listing: DashboardListingRef;
+  testerEmail: string;
+  tester: {
+    displayName: string;
+    githubUsername: string;
+    imageUrl: string | null;
+  };
+};
+
 export type DashboardActiveAssignment = {
   id: string;
   platform: Platform;
@@ -58,6 +70,7 @@ export type DashboardPastAssignment = {
 
 export type DashboardData = {
   listings: DashboardListing[];
+  incomingRequests: DashboardIncomingRequest[];
   pendingRequests: DashboardRequestItem[];
   acceptedAwaitingJoin: DashboardRequestItem[];
   activeAssignments: DashboardActiveAssignment[];
@@ -67,6 +80,7 @@ export type DashboardData = {
 
 const EMPTY_DASHBOARD: DashboardData = {
   listings: [],
+  incomingRequests: [],
   pendingRequests: [],
   acceptedAwaitingJoin: [],
   activeAssignments: [],
@@ -81,9 +95,15 @@ const listingSummarySelect = {
   platform: true,
 } as const;
 
+const testerSelect = {
+  displayName: true,
+  githubUsername: true,
+  imageUrl: true,
+} as const;
+
 /**
- * Private activity centre payload for the signed-in user.
- * Never selects tester emails or other requester-private fields.
+ * Private activity centre payload for the signed-in user. Tester contact email
+ * is selected only for the owner of the listing that received the request.
  */
 export async function getDashboardData(userId: string): Promise<DashboardData> {
   if (!process.env.DATABASE_URL) {
@@ -98,7 +118,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
 
   const now = new Date();
 
-  const [listings, testerRequests, assignments] = await Promise.all([
+  const [listings, incomingRequests, testerRequests, assignments] = await Promise.all([
     prisma.appListing.findMany({
       where: { userId },
       select: {
@@ -120,6 +140,20 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
         },
       },
       orderBy: { updatedAt: "desc" },
+    }),
+    prisma.testerRequest.findMany({
+      where: {
+        status: "pending",
+        expiresAt: { gt: now },
+        appListing: { userId },
+      },
+      select: {
+        id: true,
+        testerEmail: true,
+        tester: { select: testerSelect },
+        appListing: { select: listingSummarySelect },
+      },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.testerRequest.findMany({
       where: {
@@ -213,6 +247,17 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       status: listing.status,
       liveTesterCount: listing._count.testAssignments,
       pendingRequestCount: listing._count.testerRequests,
+    })),
+    incomingRequests: incomingRequests.map((request) => ({
+      id: request.id,
+      testerEmail: request.testerEmail,
+      tester: request.tester,
+      listing: {
+        id: request.appListing.id,
+        name: request.appListing.name,
+        logoUrl: request.appListing.logoUrl.trim(),
+        platform: request.appListing.platform,
+      },
     })),
     pendingRequests,
     acceptedAwaitingJoin,

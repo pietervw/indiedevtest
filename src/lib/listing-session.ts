@@ -1,5 +1,7 @@
 export type ListingSessionPayload = {
   viewerId: string | null;
+  /** Whether the signed-in viewer has a saved private testing contact email. */
+  viewerHasContactEmail: boolean;
   isOwner: boolean;
   /** Owner-only flag for whether an invitation can be resent. */
   ownerHasPrivateInvitation: boolean;
@@ -10,6 +12,7 @@ export type ListingSessionPayload = {
   viewerInvitation: {
     testingAccessUrl: string | null;
     testerInstructions: string | null;
+    developerContactEmail: string | null;
   } | null;
   /** Confirmed tester may write a review (joined + listing open/closed + none yet). */
   canWriteReview: boolean;

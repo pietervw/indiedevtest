@@ -15,6 +15,7 @@ type Props = { params: Promise<{ id: string }> };
 
 const emptySession: ListingSessionPayload = {
   viewerId: null,
+  viewerHasContactEmail: false,
   isOwner: false,
   ownerHasPrivateInvitation: false,
   viewerRequestStatus: null,
@@ -58,6 +59,7 @@ export async function GET(_request: Request, { params }: Props) {
       status: true,
       testingAccessUrl: true,
       testerInstructions: true,
+      user: { select: { contactEmail: true } },
     },
   });
 
@@ -155,6 +157,7 @@ export async function GET(_request: Request, { params }: Props) {
 
   const payload: ListingSessionPayload = {
     viewerId: viewer.id,
+    viewerHasContactEmail: Boolean(viewer.contactEmail),
     isOwner,
     ownerHasPrivateInvitation:
       isOwner && Boolean(testingAccessUrl || listing.testerInstructions),
@@ -165,6 +168,7 @@ export async function GET(_request: Request, { params }: Props) {
         ? {
             testingAccessUrl,
             testerInstructions: listing.testerInstructions,
+            developerContactEmail: listing.user.contactEmail,
           }
         : null,
     canWriteReview,

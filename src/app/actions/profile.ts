@@ -4,12 +4,12 @@ import { redirect } from "next/navigation";
 import { requireProfileSetupPending } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import { invalidateDevProfileCache } from "@/lib/dev-profile";
-import { field } from "@/lib/validation";
+import { field, isValidEmail, normalizeEmail } from "@/lib/validation";
 
 export type ProfileSetupState = {
   ok: boolean;
   message: string;
-  fieldErrors?: Partial<Record<"bio" | "twitterHandle", string>>;
+  fieldErrors?: Partial<Record<"contactEmail" | "bio" | "twitterHandle", string>>;
 };
 
 function normalizeTwitterHandle(raw: string): string {
@@ -22,11 +22,15 @@ export async function completeProfileSetup(
 ): Promise<ProfileSetupState> {
   const user = await requireProfileSetupPending();
 
+  const contactEmail = normalizeEmail(field(formData, "contactEmail"));
   const bio = field(formData, "bio");
   const twitterHandle = normalizeTwitterHandle(field(formData, "twitterHandle"));
 
   const fieldErrors: ProfileSetupState["fieldErrors"] = {};
 
+  if (!isValidEmail(contactEmail)) {
+    fieldErrors.contactEmail = "Enter a valid email address.";
+  }
   if (bio.length > 280) {
     fieldErrors.bio = "Bio must be 280 characters or fewer.";
   }
@@ -42,6 +46,7 @@ export async function completeProfileSetup(
   await prisma.user.update({
     where: { id: user.id },
     data: {
+      contactEmail,
       bio: bio || null,
       twitterHandle: twitterHandle || null,
       profileCompletedAt: new Date(),
@@ -49,17 +54,6 @@ export async function completeProfileSetup(
   });
 
   invalidateDevProfileCache(user.githubUsername);
-
-  redirect("/browse");
-}
-
-export async function skipProfileSetup() {
-  const user = await requireProfileSetupPending();
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { profileCompletedAt: new Date() },
-  });
 
   redirect("/browse");
 }

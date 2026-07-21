@@ -22,12 +22,10 @@ import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
 import { takeRateLimit, checkRateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site";
-import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
 export type RequestState = {
   ok: boolean;
   message: string;
-  fieldErrors?: { email?: string };
 };
 
 export type ResendInvitationState = {
@@ -41,7 +39,7 @@ function revalidateListingActivity(listingId: string) {
 }
 
 /**
- * Tester asks to test an app. Shares their email with the dev.
+ * Tester asks to test an app. Their saved profile email is shared with the dev.
  * One active request per (listing, tester); re-requesting after a
  * decline/expiry reactivates the existing row.
  */
@@ -50,6 +48,9 @@ export async function createTesterRequest(
   _prev: RequestState,
   formData: FormData
 ): Promise<RequestState> {
+  // The saved profile address is authoritative; this button has no fields.
+  void _prev;
+  void formData;
   const user = await requireDbUser();
 
   const listing = await prisma.appListing.findUnique({
@@ -70,12 +71,11 @@ export async function createTesterRequest(
     return { ok: false, message: "You can't request to test your own app." };
   }
 
-  const email = normalizeEmail(String(formData.get("email") ?? ""));
-  if (!isValidEmail(email)) {
+  const email = user.contactEmail;
+  if (!email) {
     return {
       ok: false,
-      message: "Enter a valid email.",
-      fieldErrors: { email: "Enter a valid email address." },
+      message: "Add your testing contact email in your profile before requesting a test.",
     };
   }
 
@@ -245,7 +245,7 @@ async function resolveTesterRequest(
           name: true,
           testingAccessUrl: true,
           testerInstructions: true,
-          user: { select: { githubUsername: true } },
+          user: { select: { githubUsername: true, contactEmail: true } },
         },
       },
     },
@@ -285,6 +285,7 @@ async function resolveTesterRequest(
           testerEmail: request.testerEmail,
           appName: request.appListing.name,
           listingUrl: `${siteConfig.url}${appPath(request.appListingId)}`,
+          developerContactEmail: request.appListing.user.contactEmail,
           testingAccessUrl: request.appListing.testingAccessUrl,
           testerInstructions: request.appListing.testerInstructions,
         })
@@ -325,6 +326,7 @@ export async function resendTesterInvitation(
           name: true,
           testingAccessUrl: true,
           testerInstructions: true,
+          user: { select: { contactEmail: true } },
         },
       },
     },
@@ -369,6 +371,7 @@ export async function resendTesterInvitation(
       testerEmail: request.testerEmail,
       appName: request.appListing.name,
       listingUrl: `${siteConfig.url}${appPath(request.appListingId)}`,
+      developerContactEmail: request.appListing.user.contactEmail,
       testingAccessUrl: request.appListing.testingAccessUrl,
       testerInstructions: request.appListing.testerInstructions,
     });
