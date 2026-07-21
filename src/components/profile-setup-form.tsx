@@ -18,10 +18,14 @@ const labelClassName = "mb-1.5 block text-sm font-semibold text-ink";
 export function ProfileSetupForm({
   className,
   defaultContactEmail,
+  defaultBio = "",
+  defaultTwitterHandle = "",
   verifiedContactEmails,
 }: {
   className?: string;
   defaultContactEmail: string;
+  defaultBio?: string;
+  defaultTwitterHandle?: string;
   verifiedContactEmails: string[];
 }) {
   const [state, formAction] = useActionState(completeProfileSetup, initialState);
@@ -79,6 +83,7 @@ export function ProfileSetupForm({
             name="bio"
             maxLength={280}
             rows={3}
+            defaultValue={defaultBio}
             placeholder="Indie Android dev. Shipping small tools. Always down to test."
             className={cn(fieldClassName, "resize-y py-3")}
             aria-invalid={Boolean(state.fieldErrors?.bio)}
@@ -107,6 +112,7 @@ export function ProfileSetupForm({
               maxLength={16}
               autoComplete="off"
               spellCheck={false}
+              defaultValue={defaultTwitterHandle}
               placeholder="yourhandle"
               className={cn(fieldClassName, "h-12 pl-8")}
               aria-invalid={Boolean(state.fieldErrors?.twitterHandle)}

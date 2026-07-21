@@ -32,6 +32,8 @@ export default async function OnboardingProfilePage() {
         <div className="mt-10">
           <ProfileSetupForm
             defaultContactEmail={user.contactEmail ?? verifiedContactEmails[0] ?? ""}
+            defaultBio={user.bio ?? ""}
+            defaultTwitterHandle={user.twitterHandle ?? ""}
             verifiedContactEmails={verifiedContactEmails}
           />
         </div>

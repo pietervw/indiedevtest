@@ -358,7 +358,7 @@ export async function resendTesterInvitation(
     limit: 6,
     windowMs: 60 * 60 * 1000,
   });
-  if (!limit.allowed) {
+  if (!limit.allowed || !limit.reservation) {
     const minutes = Math.max(1, Math.ceil(limit.retryAfterSeconds / 60));
     return {
       ok: false,
@@ -376,7 +376,7 @@ export async function resendTesterInvitation(
       testerInstructions: request.appListing.testerInstructions,
     });
   } catch (err) {
-    releaseRateLimit({ key: invitationLimitKey });
+    releaseRateLimit(limit.reservation);
     console.error("[requests] resend invitation email failed", err);
     return { ok: false, message: "Could not resend the invitation. Try again shortly." };
   }

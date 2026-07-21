@@ -46,13 +46,12 @@ export async function ensureDbUser() {
     };
 
     // Keep githubId when GitHub is linked, but never wipe stored handles if
-    // Clerk omits username on this session (legacy /dev/<github> redirects).
+    // Clerk omits username on this session. githubUsername stays immutable for
+    // legacy /dev/<github> redirects; githubLogin tracks the current handle.
     const githubFields = github?.providerUserId
       ? {
           githubId: github.providerUserId,
-          ...(githubLogin
-            ? { githubUsername: githubLogin, githubLogin }
-            : {}),
+          ...(githubLogin ? { githubLogin } : {}),
         }
       : {};
 
@@ -81,7 +80,7 @@ export async function ensureDbUser() {
           // permanent public URL identifier, even if sign-in methods change.
           profileSlug: `member-${randomUUID()}`,
           ...githubFields,
-          // New rows may store null handles; updates above must not wipe existing ones.
+          // Freeze the first-seen handle for legacy redirects; may be null.
           githubUsername: githubLogin,
           githubLogin,
         },
