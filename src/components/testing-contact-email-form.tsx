@@ -85,7 +85,7 @@ export function ProfileSettingsForm({
         </label>
         <div className="relative">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-semibold text-ink-muted">@</span>
-          <input id="settings-twitter" name="twitterHandle" type="text" defaultValue={twitterHandle ?? ""} maxLength={16} autoComplete="off" spellCheck={false} className={cn(fieldClassName, "h-12 pl-8")} aria-invalid={Boolean(state.fieldErrors?.twitterHandle)} />
+          <input id="settings-twitter" name="twitterHandle" type="text" defaultValue={twitterHandle ?? ""} maxLength={15} autoComplete="off" spellCheck={false} className={cn(fieldClassName, "h-12 pl-8")} aria-invalid={Boolean(state.fieldErrors?.twitterHandle)} />
         </div>
         {state.fieldErrors?.twitterHandle ? <p className="mt-1 text-sm font-semibold text-red-600" role="alert">{state.fieldErrors.twitterHandle}</p> : null}
       </div>

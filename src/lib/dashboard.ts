@@ -10,7 +10,6 @@ import {
   expirePendingTesterRequests,
   openTesterRequestWhere,
 } from "@/lib/expire-pending-tester-requests";
-import { isCountedAssignmentStatus } from "@/lib/listing-status";
 import { testingPeriodProgress } from "@/lib/mock-data";
 import { isHttpUrl } from "@/lib/validation";
 
@@ -246,7 +245,13 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
             tester: { select: { displayName: true, profileSlug: true } },
           },
         },
-        testAssignments: { select: { status: true } },
+        _count: {
+          select: {
+            testAssignments: {
+              where: { status: { in: ["active", "completed"] } },
+            },
+          },
+        },
       },
       orderBy: { updatedAt: "desc" },
     }),
@@ -361,11 +366,9 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       const acceptedTesterCount = listing.testerRequests.filter(
         (request) => request.status === "accepted"
       ).length;
-      const joinedTesterCount = listing.testAssignments.filter((assignment) =>
-        isCountedAssignmentStatus(assignment.status)
-      ).length;
-      const completedTesterCount = listing.testAssignments.filter(
-        (assignment) => assignment.status === "completed"
+      const joinedTesterCount = listing._count.testAssignments;
+      const completedTesterCount = listing.testerRequests.filter(
+        (request) => request.testAssignment?.status === "completed"
       ).length;
       return {
         id: listing.id,

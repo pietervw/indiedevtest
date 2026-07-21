@@ -85,13 +85,14 @@ export function SiteHeader() {
                 Settings
               </Link>
             </Show>
-            <Link
+            <Button
               href="/apps/new"
               onClick={() => setOpen(false)}
-              className="mt-1 rounded-lg border-2 border-ink bg-brand px-3 py-2 text-base font-display font-bold text-brand-ink shadow-brutal"
+              size="sm"
+              className="mt-1 w-full"
             >
               + Add
-            </Link>
+            </Button>
             <div className="flex items-center gap-5 border-t-2 border-line px-2 py-3">
               <AuthControls />
             </div>

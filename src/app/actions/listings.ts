@@ -120,48 +120,66 @@ export async function updateAppListing(
     fieldErrors.storeLink = "Store link must be an http(s) URL.";
   }
 
-  const acceptedCount = await prisma.testerRequest.count({
-    where: { appListingId: listingId, status: "accepted" },
-  });
-  if (
-    testerCapacity !== null &&
-    !fieldErrors.testerCapacity &&
-    acceptedCount > testerCapacity
-  ) {
-    fieldErrors.testerCapacity = `Capacity can't be below the ${acceptedCount} already accepted tester${acceptedCount === 1 ? "" : "s"}.`;
-  }
-  if (
-    status === "open_for_testing" &&
-    testerCapacity !== null &&
-    !fieldErrors.status &&
-    acceptedCount >= testerCapacity
-  ) {
-    fieldErrors.status =
-      "This program is full. Raise capacity or set status to Closed for testing.";
-  }
-
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, message: "Fix the highlighted fields.", fieldErrors };
   }
 
-  await prisma.appListing.update({
-    where: { id: listingId },
-    data: {
-      name,
-      description,
-      category: category as AppCategory,
-      platform: platform as Platform,
-      logoUrl: logoUrl || "",
-      testingAccessUrl: testingAccessUrl || null,
-      testerInstructions: testerInstructions || null,
-      testerCapacity,
-      status: status as AppListingStatus,
-      storeLink:
-        status === "launched"
-          ? storeLink
-          : storeLink || null,
-    },
+  // Lock the listing so a concurrent acceptance cannot race past the capacity check.
+  const capacityGate = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listingId} FOR UPDATE`;
+    const acceptedCount = await tx.testerRequest.count({
+      where: { appListingId: listingId, status: "accepted" },
+    });
+    if (testerCapacity !== null && acceptedCount > testerCapacity) {
+      return {
+        ok: false as const,
+        fieldErrors: {
+          testerCapacity: `Capacity can't be below the ${acceptedCount} already accepted tester${acceptedCount === 1 ? "" : "s"}.`,
+        },
+      };
+    }
+    if (
+      status === "open_for_testing" &&
+      testerCapacity !== null &&
+      acceptedCount >= testerCapacity
+    ) {
+      return {
+        ok: false as const,
+        fieldErrors: {
+          status:
+            "This program is full. Raise capacity or set status to Closed for testing.",
+        },
+      };
+    }
+
+    await tx.appListing.update({
+      where: { id: listingId },
+      data: {
+        name,
+        description,
+        category: category as AppCategory,
+        platform: platform as Platform,
+        logoUrl: logoUrl || "",
+        testingAccessUrl: testingAccessUrl || null,
+        testerInstructions: testerInstructions || null,
+        testerCapacity,
+        status: status as AppListingStatus,
+        storeLink:
+          status === "launched"
+            ? storeLink
+            : storeLink || null,
+      },
+    });
+    return { ok: true as const };
   });
+
+  if (!capacityGate.ok) {
+    return {
+      ok: false,
+      message: "Fix the highlighted fields.",
+      fieldErrors: capacityGate.fieldErrors,
+    };
+  }
 
   revalidatePath("/browse");
   revalidatePath("/");

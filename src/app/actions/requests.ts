@@ -244,14 +244,11 @@ export async function createTesterRequest(
   }).catch((err) => {
     console.error("[requests] new-request email failed", err);
   });
-  // Request row already committed — don't fail the action if the activity log write fails.
-  void recordTesterActivity({
+  await recordTesterActivity({
     requestId: createResult.requestId,
     listingId: listing.id,
     testerUserId: user.id,
     type: TesterActivityType.requested,
-  }).catch((err) => {
-    console.error("[requests] request activity failed", err);
   });
   void sendTesterRequestNotification({
     appName: listing.name,
@@ -414,14 +411,19 @@ async function recordTesterActivity(input: {
   testerUserId: string;
   type: TesterActivityType;
 }) {
-  await prisma.testerActivity.create({
-    data: {
-      testerRequestId: input.requestId,
-      appListingId: input.listingId,
-      testerUserId: input.testerUserId,
-      type: input.type,
-    },
-  });
+  try {
+    await prisma.testerActivity.create({
+      data: {
+        testerRequestId: input.requestId,
+        appListingId: input.listingId,
+        testerUserId: input.testerUserId,
+        type: input.type,
+      },
+    });
+  } catch (err) {
+    // Audit trail only — never fail an already-committed request mutation.
+    console.error("[requests] recordTesterActivity failed", err);
+  }
 }
 
 /** Shared accept/reject path: ownership + state guard, update, revalidate, notify. */
