@@ -42,8 +42,9 @@ export function checkRateLimit(options: {
  * Database state transitions remain the source of truth; this only limits
  * bursty abuse without introducing a new service for the MVP.
  *
- * Prefer {@link checkRateLimit} before a fallible write, then call this after
- * success so failed attempts do not consume the budget.
+ * For fallible DB writes: {@link checkRateLimit} first, then call this after
+ * success. For external sends with TOCTOU risk: call this to reserve a slot,
+ * then {@link releaseRateLimit} if the send fails.
  */
 export function takeRateLimit(options: {
   key: string;
@@ -68,4 +69,16 @@ export function takeRateLimit(options: {
 
   current.count += 1;
   return { allowed: true, retryAfterSeconds: 0 };
+}
+
+/** Refund one reserved slot after a failed external send. */
+export function releaseRateLimit(options: { key: string }): void {
+  const now = Date.now();
+  const current = buckets.get(options.key);
+  if (!current || current.resetAt <= now) return;
+  if (current.count <= 1) {
+    buckets.delete(options.key);
+    return;
+  }
+  current.count -= 1;
 }

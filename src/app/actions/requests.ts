@@ -20,7 +20,7 @@ import {
 } from "@/lib/expire-pending-tester-requests";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
-import { takeRateLimit, checkRateLimit } from "@/lib/rate-limit";
+import { takeRateLimit, checkRateLimit, releaseRateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site";
 
 export type RequestState = {
@@ -352,8 +352,9 @@ export async function resendTesterInvitation(
     };
   }
 
-  const limit = checkRateLimit({
-    key: `tester-invitation:${user.id}`,
+  const invitationLimitKey = `tester-invitation:${user.id}`;
+  const limit = takeRateLimit({
+    key: invitationLimitKey,
     limit: 6,
     windowMs: 60 * 60 * 1000,
   });
@@ -375,15 +376,11 @@ export async function resendTesterInvitation(
       testerInstructions: request.appListing.testerInstructions,
     });
   } catch (err) {
+    releaseRateLimit({ key: invitationLimitKey });
     console.error("[requests] resend invitation email failed", err);
     return { ok: false, message: "Could not resend the invitation. Try again shortly." };
   }
 
-  takeRateLimit({
-    key: `tester-invitation:${user.id}`,
-    limit: 6,
-    windowMs: 60 * 60 * 1000,
-  });
   return { ok: true, message: "Invitation resent." };
 }
 

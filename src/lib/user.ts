@@ -56,19 +56,19 @@ export async function ensureDbUser() {
         }
       : {};
 
+    const syncByClerkId = () =>
+      prisma.user.update({
+        where: { clerkId: clerkUser.id },
+        data: { ...profileUpdate, ...githubFields },
+      });
+
     // Fast path for returning users — no notification.
     const existing = await prisma.user.findUnique({
       where: { clerkId: clerkUser.id },
       select: { id: true },
     });
     if (existing) {
-      return await prisma.user.update({
-        where: { clerkId: clerkUser.id },
-        data: {
-          ...profileUpdate,
-          ...githubFields,
-        },
-      });
+      return await syncByClerkId();
     }
 
     // First local profile: only the unique-insert winner may notify (CAS on clerkId).
@@ -80,9 +80,10 @@ export async function ensureDbUser() {
           // This is deliberately unrelated to Clerk and GitHub IDs. It is a
           // permanent public URL identifier, even if sign-in methods change.
           profileSlug: `member-${randomUUID()}`,
+          ...githubFields,
+          // New rows may store null handles; updates above must not wipe existing ones.
           githubUsername: githubLogin,
           githubLogin,
-          ...(github?.providerUserId ? { githubId: github.providerUserId } : {}),
         },
       });
       void sendFirstUserSignupNotification({
@@ -99,19 +100,13 @@ export async function ensureDbUser() {
       }
     }
 
-    // Concurrent first-insert race: the other request already created this clerkId.
+    // P2002 race: recover the winner's row.
     const raced = await prisma.user.findUnique({
       where: { clerkId: clerkUser.id },
       select: { id: true },
     });
     if (raced) {
-      return await prisma.user.update({
-        where: { clerkId: clerkUser.id },
-        data: {
-          ...profileUpdate,
-          ...githubFields,
-        },
-      });
+      return await syncByClerkId();
     }
 
     // Email-only accounts rely on Clerk's stable user ID and are never

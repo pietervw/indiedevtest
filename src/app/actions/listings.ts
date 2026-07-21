@@ -83,6 +83,9 @@ export async function updateAppListing(
   if (testingAccessUrl && !isHttpUrl(testingAccessUrl)) {
     fieldErrors.testingAccessUrl = "Testing link must be an http(s) URL.";
   }
+  if (testingAccessUrl.length > 500) {
+    fieldErrors.testingAccessUrl = "Testing link must be 500 characters or fewer.";
+  }
   if (testerInstructions.length > 2000) {
     fieldErrors.testerInstructions = "Instructions must be 2,000 characters or fewer.";
   }

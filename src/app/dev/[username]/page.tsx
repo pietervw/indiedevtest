@@ -22,6 +22,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = await getDevProfile(decoded);
 
   if (!profile) {
+    const legacyProfileSlug = await getProfileSlugForLegacyGithubUsername(decoded);
+    if (legacyProfileSlug) {
+      return canonicalMetadata(profilePath(legacyProfileSlug));
+    }
     return {
       ...canonicalMetadata(profilePath(decoded)),
       title: `${decoded} · Developer`,
