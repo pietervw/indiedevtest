@@ -131,6 +131,34 @@ export const siteRoutes = [
   },
 ] as const;
 
+export type SiteRoutePath = (typeof siteRoutes)[number]["path"];
+
+export function getSiteRouteOrThrow(path: SiteRoutePath) {
+  const route = siteRoutes.find((entry) => entry.path === path);
+  if (!route) {
+    throw new Error(`Missing ${path} entry in siteRoutes`);
+  }
+  return route;
+}
+
+export function legalWebPageJsonLd(options: {
+  path: SiteRoutePath;
+  name: string;
+  description: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": absoluteUrl(`${options.path}#webpage`),
+    url: absoluteUrl(options.path),
+    name: options.name,
+    description: options.description,
+    isPartOf: { "@id": absoluteUrl("/#website") },
+    about: { "@id": absoluteUrl("/#organization") },
+    inLanguage: "en-US",
+  };
+}
+
 export function absoluteUrl(path = "/"): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return `${siteConfig.url}${normalized === "/" ? "" : normalized}`;

@@ -30,6 +30,11 @@ export type RequestState = {
   fieldErrors?: { email?: string };
 };
 
+function revalidateListingActivity(listingId: string) {
+  revalidatePath(appPath(listingId));
+  revalidatePath("/dashboard");
+}
+
 /**
  * Tester asks to test an app. Shares their email with the dev.
  * One active request per (listing, tester); re-requesting after a
@@ -140,7 +145,7 @@ export async function createTesterRequest(
     };
   }
 
-  revalidatePath(appPath(listing.id));
+  revalidateListingActivity(listing.id);
   invalidatePublicCaches({
     listingId: listing.id,
     githubUsernames: listing.user.githubUsername,
@@ -198,8 +203,7 @@ export async function withdrawTesterRequest(listingId: string): Promise<void> {
   });
   if (count !== 1) return;
 
-  revalidatePath(appPath(listingId));
-  revalidatePath("/dashboard");
+  revalidateListingActivity(listingId);
   invalidatePublicCaches({
     listingId,
     githubUsernames: [user.githubUsername, request.appListing.user.githubUsername],
@@ -249,7 +253,7 @@ async function resolveTesterRequest(
     return;
   }
 
-  revalidatePath(appPath(request.appListingId));
+  revalidateListingActivity(request.appListingId);
   // Reject drops pending count used by browse "most requested" sort.
   invalidatePublicCaches({
     listingId: request.appListingId,
@@ -338,7 +342,7 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
     });
   }
 
-  revalidatePath(appPath(request.appListingId));
+  revalidateListingActivity(request.appListingId);
   invalidatePublicCaches({
     listingId: request.appListingId,
     githubUsernames: [
@@ -393,7 +397,7 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
     return;
   }
 
-  revalidatePath(appPath(assignment.appListingId));
+  revalidateListingActivity(assignment.appListingId);
   revalidatePath(profilePath(assignment.tester.githubUsername));
   revalidatePath(profilePath(assignment.appListing.user.githubUsername));
   invalidatePublicCaches({
@@ -455,7 +459,7 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
     });
   }
 
-  revalidatePath(appPath(assignment.appListingId));
+  revalidateListingActivity(assignment.appListingId);
   revalidatePath(profilePath(assignment.tester.githubUsername));
   revalidatePath(profilePath(assignment.appListing.user.githubUsername));
   invalidatePublicCaches({

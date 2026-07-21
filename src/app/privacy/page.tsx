@@ -2,18 +2,13 @@ import type { Metadata } from "next";
 import { JsonLd } from "@/components/json-ld";
 import { LegalDoc, LegalLink, LegalSection } from "@/components/legal-doc";
 import {
-  absoluteUrl,
   canonicalMetadata,
+  getSiteRouteOrThrow,
+  legalWebPageJsonLd,
   siteConfig,
-  siteRoutes,
 } from "@/lib/site";
 
-const privacyRoute = siteRoutes.find((route) => route.path === "/privacy");
-
-if (!privacyRoute) {
-  throw new Error("Missing /privacy entry in siteRoutes");
-}
-
+const privacyRoute = getSiteRouteOrThrow("/privacy");
 const privacyDescription = privacyRoute.description;
 const privacyCanonical = canonicalMetadata("/privacy");
 
@@ -28,17 +23,11 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebPage",
-  "@id": absoluteUrl("/privacy#webpage"),
-  url: absoluteUrl("/privacy"),
+const jsonLd = legalWebPageJsonLd({
+  path: "/privacy",
   name: `Privacy | ${siteConfig.name}`,
   description: privacyDescription,
-  isPartOf: { "@id": absoluteUrl("/#website") },
-  about: { "@id": absoluteUrl("/#organization") },
-  inLanguage: "en-US",
-};
+});
 
 export default function PrivacyPage() {
   return (

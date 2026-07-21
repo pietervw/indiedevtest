@@ -2,18 +2,13 @@ import type { Metadata } from "next";
 import { JsonLd } from "@/components/json-ld";
 import { LegalDoc, LegalLink, LegalSection } from "@/components/legal-doc";
 import {
-  absoluteUrl,
   canonicalMetadata,
+  getSiteRouteOrThrow,
+  legalWebPageJsonLd,
   siteConfig,
-  siteRoutes,
 } from "@/lib/site";
 
-const termsRoute = siteRoutes.find((route) => route.path === "/terms");
-
-if (!termsRoute) {
-  throw new Error("Missing /terms entry in siteRoutes");
-}
-
+const termsRoute = getSiteRouteOrThrow("/terms");
 const termsDescription = termsRoute.description;
 const termsCanonical = canonicalMetadata("/terms");
 
@@ -28,17 +23,11 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebPage",
-  "@id": absoluteUrl("/terms#webpage"),
-  url: absoluteUrl("/terms"),
+const jsonLd = legalWebPageJsonLd({
+  path: "/terms",
   name: `Terms | ${siteConfig.name}`,
   description: termsDescription,
-  isPartOf: { "@id": absoluteUrl("/#website") },
-  about: { "@id": absoluteUrl("/#organization") },
-  inLanguage: "en-US",
-};
+});
 
 export default function TermsPage() {
   return (

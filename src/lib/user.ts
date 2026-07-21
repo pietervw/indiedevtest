@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { sendFirstUserSignupNotification } from "@/lib/pushover";
@@ -49,38 +50,51 @@ export async function ensureDbUser() {
 
     const imageUrl = clerkUser.imageUrl || null;
 
-    // Record this before upsert so the optional admin notification is sent only
-    // for a first local profile, never on routine authenticated page loads.
+    const profileUpdate = {
+      displayName,
+      githubId: github.providerUserId,
+      githubUsername,
+      imageUrl,
+    };
+
+    // Fast path for returning users — no notification.
     const existing = await prisma.user.findUnique({
       where: { clerkId: clerkUser.id },
       select: { id: true },
     });
-
-    const user = await prisma.user.upsert({
-      where: { clerkId: clerkUser.id },
-      create: {
-        clerkId: clerkUser.id,
-        githubId: github.providerUserId,
-        githubUsername,
-        displayName,
-        imageUrl,
-      },
-      update: {
-        displayName,
-        githubId: github.providerUserId,
-        githubUsername,
-        imageUrl,
-      },
-    });
-
-    if (!existing) {
-      void sendFirstUserSignupNotification({
-        displayName: user.displayName,
-        githubUsername: user.githubUsername,
+    if (existing) {
+      return await prisma.user.update({
+        where: { clerkId: clerkUser.id },
+        data: profileUpdate,
       });
     }
 
-    return user;
+    // First local profile: only the unique-insert winner may notify (CAS on clerkId).
+    try {
+      const created = await prisma.user.create({
+        data: {
+          clerkId: clerkUser.id,
+          ...profileUpdate,
+        },
+      });
+      void sendFirstUserSignupNotification({
+        displayName: created.displayName,
+        githubUsername: created.githubUsername,
+      });
+      return created;
+    } catch (err) {
+      if (
+        !(err instanceof Prisma.PrismaClientKnownRequestError) ||
+        err.code !== "P2002"
+      ) {
+        throw err;
+      }
+    }
+
+    return await prisma.user.update({
+      where: { clerkId: clerkUser.id },
+      data: profileUpdate,
+    });
   } catch (err) {
     console.error("[user] ensureDbUser failed", err);
     return null;
