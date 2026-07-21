@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireDbUser } from "@/lib/auth-guards";
+import { awardBadgesAfterReviewWritten } from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import {
@@ -102,19 +103,24 @@ export async function createReview(
   }
 
   try {
-    await prisma.$transaction([
-      prisma.review.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.review.create({
         data: {
           appListingId: listing.id,
           testerUserId: user.id,
           content,
         },
-      }),
-      prisma.user.update({
+      });
+      const updated = await tx.user.update({
         where: { id: user.id },
         data: { reviewsWrittenCount: { increment: 1 } },
-      }),
-    ]);
+        select: { reviewsWrittenCount: true },
+      });
+      await awardBadgesAfterReviewWritten(tx, {
+        userId: user.id,
+        reviewsWrittenCount: updated.reviewsWrittenCount,
+      });
+    });
   } catch (err) {
     console.error("[reviews] createReview failed", err);
     return {

@@ -8,6 +8,7 @@ import {
   Platform,
 } from "@/generated/prisma";
 import { requireDbUser } from "@/lib/auth-guards";
+import { revokeBadgeBelowThreshold, syncFirst12Badge } from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { isAllowedStatusTransition } from "@/lib/listing-status";
@@ -173,22 +174,67 @@ export async function deleteAppListing(listingId: string): Promise<void> {
         }),
       ]);
 
-      await Promise.all([
-        ...completedAssignments.map((assignment) =>
-          tx.user.update({
-            where: { id: assignment.testerUserId },
-            data: { profileScoreCompleted: { decrement: 1 } },
-          })
-        ),
-        ...reviews.map((review) =>
-          tx.user.update({
-            where: { id: review.testerUserId },
-            data: { reviewsWrittenCount: { decrement: 1 } },
-          })
-        ),
+      // One update (+ badge sync) per affected user — Prisma serializes
+      // interactive-tx queries, so Promise.all wouldn't parallelize anyway.
+      const completedByUser = new Map<string, number>();
+      for (const assignment of completedAssignments) {
+        completedByUser.set(
+          assignment.testerUserId,
+          (completedByUser.get(assignment.testerUserId) ?? 0) + 1
+        );
+      }
+      const reviewsByUser = new Map<string, number>();
+      for (const review of reviews) {
+        reviewsByUser.set(
+          review.testerUserId,
+          (reviewsByUser.get(review.testerUserId) ?? 0) + 1
+        );
+      }
+
+      const affectedUserIds = new Set([
+        ...completedByUser.keys(),
+        ...reviewsByUser.keys(),
       ]);
+      for (const userId of affectedUserIds) {
+        const completedDec = completedByUser.get(userId) ?? 0;
+        const reviewDec = reviewsByUser.get(userId) ?? 0;
+        const updated = await tx.user.update({
+          where: { id: userId },
+          data: {
+            ...(completedDec > 0
+              ? { profileScoreCompleted: { decrement: completedDec } }
+              : {}),
+            ...(reviewDec > 0
+              ? { reviewsWrittenCount: { decrement: reviewDec } }
+              : {}),
+          },
+          select: {
+            profileScoreCompleted: true,
+            reviewsWrittenCount: true,
+          },
+        });
+        if (completedDec > 0) {
+          await revokeBadgeBelowThreshold(
+            tx,
+            userId,
+            "super_tester",
+            updated.profileScoreCompleted
+          );
+        }
+        if (reviewDec > 0) {
+          await revokeBadgeBelowThreshold(
+            tx,
+            userId,
+            "helpful_dev",
+            updated.reviewsWrittenCount
+          );
+        }
+      }
 
       await tx.appListing.delete({ where: { id: listingId } });
+      if (completedAssignments.length > 0) {
+        await syncFirst12Badge(tx, listing.userId);
+      }
       return { completedAssignments, reviews };
     }
   );

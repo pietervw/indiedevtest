@@ -24,7 +24,11 @@ import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { WriteReviewForm } from "@/components/write-review-form";
 import type { ListingSessionPayload } from "@/lib/listing-session";
-import { profilePath } from "@/lib/mock-data";
+import {
+  profilePath,
+  TESTING_PERIOD_MS,
+  testingPeriodProgress,
+} from "@/lib/mock-data";
 
 type SessionState = {
   session: ListingSessionPayload | null;
@@ -68,7 +72,9 @@ export function ListingSessionProvider({
 
   useEffect(() => {
     const controller = new AbortController();
-    void refresh(controller.signal);
+    // Queue the initial request outside the effect's synchronous phase. This
+    // avoids a cascading render while still letting the public RSC shell paint.
+    queueMicrotask(() => void refresh(controller.signal));
     return () => controller.abort();
   }, [refresh]);
 
@@ -120,6 +126,66 @@ function TesterRow({ tester, sub }: { tester: TesterInfo; sub?: string }) {
         {sub ? <p className="truncate text-sm text-ink-muted">{sub}</p> : null}
       </div>
     </div>
+  );
+}
+
+/** Re-render once when `at` elapses so the complete button can unlock live. */
+function useRerenderAt(at: number | null) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (at == null) return;
+    const delay = at - Date.now();
+    if (delay <= 0) return;
+    const id = window.setTimeout(() => setTick((n) => n + 1), delay);
+    return () => window.clearTimeout(id);
+  }, [at]);
+}
+
+function OwnerAssignmentRow({
+  assignment,
+  afterAction,
+}: {
+  assignment: ListingSessionPayload["assignments"][number];
+  afterAction: (fn: () => Promise<void>) => () => Promise<void>;
+}) {
+  const done = assignment.status === "completed";
+  const unlockAt = new Date(assignment.joinedAt).getTime() + TESTING_PERIOD_MS;
+  useRerenderAt(done ? null : unlockAt);
+  const progress = testingPeriodProgress(assignment.joinedAt);
+
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+      <TesterRow
+        tester={assignment.tester}
+        sub={
+          done
+            ? `Completed ${new Date(
+                assignment.completedAt ?? assignment.joinedAt
+              ).toLocaleDateString()}`
+            : `${progress.label} · joined ${new Date(
+                assignment.joinedAt
+              ).toLocaleDateString()}`
+        }
+      />
+      <div className="flex shrink-0 items-center gap-2">
+        {!done ? (
+          <form action={afterAction(() => markTestComplete(assignment.id))}>
+            <SubmitButton
+              size="sm"
+              pendingLabel="Marking…"
+              disabled={!progress.canComplete}
+            >
+              Mark complete
+            </SubmitButton>
+          </form>
+        ) : null}
+        <form action={afterAction(() => markTestIncomplete(assignment.id))}>
+          <SubmitButton size="sm" variant="secondary" pendingLabel="Marking…">
+            Mark incomplete
+          </SubmitButton>
+        </form>
+      </div>
+    </li>
   );
 }
 
@@ -275,54 +341,13 @@ export function ListingSessionPanels({
             <span className="text-ink-muted">({session.assignments.length})</span>
           </h2>
           <ul className="mt-6 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-ink bg-paper">
-            {session.assignments.map((assignment) => {
-              const done = assignment.status === "completed";
-              return (
-                <li
-                  key={assignment.id}
-                  className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
-                >
-                  <TesterRow
-                    tester={assignment.tester}
-                    sub={
-                      done
-                        ? `Completed ${new Date(
-                            assignment.completedAt ?? assignment.joinedAt
-                          ).toLocaleDateString()}`
-                        : `Joined ${new Date(
-                            assignment.joinedAt
-                          ).toLocaleDateString()}`
-                    }
-                  />
-                  <div className="flex shrink-0 items-center gap-2">
-                    {!done ? (
-                      <form
-                        action={afterAction(() =>
-                          markTestComplete(assignment.id)
-                        )}
-                      >
-                        <SubmitButton size="sm" pendingLabel="Marking…">
-                          Mark complete
-                        </SubmitButton>
-                      </form>
-                    ) : null}
-                    <form
-                      action={afterAction(() =>
-                        markTestIncomplete(assignment.id)
-                      )}
-                    >
-                      <SubmitButton
-                        size="sm"
-                        variant="secondary"
-                        pendingLabel="Marking…"
-                      >
-                        Mark incomplete
-                      </SubmitButton>
-                    </form>
-                  </div>
-                </li>
-              );
-            })}
+            {session.assignments.map((assignment) => (
+              <OwnerAssignmentRow
+                key={assignment.id}
+                assignment={assignment}
+                afterAction={afterAction}
+              />
+            ))}
           </ul>
         </section>
       ) : null}

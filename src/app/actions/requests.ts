@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireDbUser } from "@/lib/auth-guards";
+import {
+  awardBadgesAfterTestCompleted,
+  revokeBadgeBelowThreshold,
+  syncFirst12Badge,
+} from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import {
   sendNewTesterRequestEmail,
@@ -10,7 +15,7 @@ import {
   sendTestCompletedEmail,
 } from "@/lib/email";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
-import { appPath } from "@/lib/mock-data";
+import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
 import { siteConfig } from "@/lib/site";
 import { isValidEmail, normalizeEmail } from "@/lib/validation";
 
@@ -287,9 +292,14 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
   if (!assignment) {
     return;
   }
+  // The platform requirement is 14 complete days. The UI shows the countdown,
+  // but keep this guard server-side so a forged action cannot award credit early.
+  if (Date.now() - assignment.joinedAt.getTime() < TESTING_PERIOD_MS) {
+    return;
+  }
 
   // CAS: only the call that actually flips active→completed grants the credit
-  // (and emails), so concurrent submits can't double-count.
+  // (and badges / emails), so concurrent submits can't double-count.
   const { count } = await prisma.testAssignment.updateMany({
     where: { id: assignmentId, status: "active" },
     data: { status: "completed", completedAt: new Date() },
@@ -298,12 +308,24 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
     return;
   }
 
-  await prisma.user.update({
-    where: { id: assignment.testerUserId },
-    data: { profileScoreCompleted: { increment: 1 } },
+  await prisma.$transaction(async (tx) => {
+    const tester = await tx.user.update({
+      where: { id: assignment.testerUserId },
+      data: { profileScoreCompleted: { increment: 1 } },
+      select: { profileScoreCompleted: true },
+    });
+
+    await awardBadgesAfterTestCompleted(tx, {
+      developerUserId: assignment.appListing.userId,
+      testerUserId: assignment.testerUserId,
+      testerCompletedCount: tester.profileScoreCompleted,
+      assignmentId,
+    });
   });
 
   revalidatePath(appPath(assignment.appListingId));
+  revalidatePath(profilePath(assignment.tester.githubUsername));
+  revalidatePath(profilePath(assignment.appListing.user.githubUsername));
   invalidatePublicCaches({
     listingId: assignment.appListingId,
     githubUsernames: [
@@ -341,9 +363,19 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
       data: { status: "incomplete", completedAt: null },
     });
     if (count === 1) {
-      await prisma.user.update({
-        where: { id: assignment.testerUserId },
-        data: { profileScoreCompleted: { decrement: 1 } },
+      await prisma.$transaction(async (tx) => {
+        const tester = await tx.user.update({
+          where: { id: assignment.testerUserId },
+          data: { profileScoreCompleted: { decrement: 1 } },
+          select: { profileScoreCompleted: true },
+        });
+        await revokeBadgeBelowThreshold(
+          tx,
+          assignment.testerUserId,
+          "super_tester",
+          tester.profileScoreCompleted
+        );
+        await syncFirst12Badge(tx, assignment.appListing.userId);
       });
     }
   } else if (assignment.status === "active") {
@@ -354,6 +386,8 @@ export async function markTestIncomplete(assignmentId: string): Promise<void> {
   }
 
   revalidatePath(appPath(assignment.appListingId));
+  revalidatePath(profilePath(assignment.tester.githubUsername));
+  revalidatePath(profilePath(assignment.appListing.user.githubUsername));
   invalidatePublicCaches({
     listingId: assignment.appListingId,
     githubUsernames: [
@@ -369,6 +403,7 @@ async function fetchOwnedAssignment(assignmentId: string, userId: string) {
     where: { id: assignmentId },
     select: {
       status: true,
+      joinedAt: true,
       testerUserId: true,
       appListingId: true,
       tester: { select: { githubUsername: true } },

@@ -1,4 +1,25 @@
 export const TESTER_SLOT_MAX = 14;
+/** Google Play closed-testing duration (days). */
+export const TESTING_PERIOD_DAYS = 14;
+export const TESTING_PERIOD_MS = TESTING_PERIOD_DAYS * 24 * 60 * 60 * 1000;
+
+/** UI countdown for an active assignment's 14-day testing period. */
+export function testingPeriodProgress(joinedAt: string | Date) {
+  const joinedMs =
+    joinedAt instanceof Date ? joinedAt.getTime() : new Date(joinedAt).getTime();
+  const elapsedDays = Math.max(
+    0,
+    Math.floor((Date.now() - joinedMs) / (24 * 60 * 60 * 1000))
+  );
+  const remainingDays = Math.max(0, TESTING_PERIOD_DAYS - elapsedDays);
+  return {
+    canComplete: elapsedDays >= TESTING_PERIOD_DAYS,
+    label:
+      remainingDays === 0
+        ? `${TESTING_PERIOD_DAYS}-day testing period complete`
+        : `${remainingDays} day${remainingDays === 1 ? "" : "s"} remaining`,
+  };
+}
 
 export type AppDeveloper = {
   displayName: string;
