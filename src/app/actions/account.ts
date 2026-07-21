@@ -189,7 +189,10 @@ export async function deleteAccount(
             ]),
           ],
         };
-      }
+      },
+      // Account deletion can touch many testers/devs; keep locks long enough
+      // that score/badge cleanup finishes after Clerk is already removed.
+      { timeout: 20_000 }
     );
 
     invalidatePublicCaches({
