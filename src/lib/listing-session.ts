@@ -1,9 +1,16 @@
 export type ListingSessionPayload = {
   viewerId: string | null;
   isOwner: boolean;
+  /** Owner-only flag for whether an invitation can be resent. */
+  ownerHasPrivateInvitation: boolean;
   viewerRequestStatus: "pending" | "accepted" | "rejected" | "expired" | null;
   /** True once the owner confirmed the tester joined (assignment linked). */
   viewerHasJoined: boolean;
+  /** Private invitation details for an accepted tester only. */
+  viewerInvitation: {
+    testingAccessUrl: string | null;
+    testerInstructions: string | null;
+  } | null;
   /** Confirmed tester may write a review (joined + listing open/closed + none yet). */
   canWriteReview: boolean;
   hasWrittenReview: boolean;

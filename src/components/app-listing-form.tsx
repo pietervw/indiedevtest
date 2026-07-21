@@ -144,6 +144,53 @@ export function AppListingForm({
           ) : null}
         </div>
 
+        <fieldset className="rounded-2xl border-2 border-ink bg-paper-muted p-5">
+          <legend className="px-1 font-display text-lg font-extrabold text-ink">
+            Private tester invitation
+          </legend>
+          <p className="mt-1 text-sm text-ink-muted">
+            Sent only when you accept a tester. It is never displayed on your public listing.
+          </p>
+          <div className="mt-5">
+            <label htmlFor="app-testing-link" className={labelClassName}>
+              Testing access link <span className="font-medium text-ink-muted">(optional)</span>
+            </label>
+            <input
+              id="app-testing-link"
+              name="testingAccessUrl"
+              type="url"
+              maxLength={500}
+              placeholder="https://play.google.com/apps/testing/…"
+              className={cn(fieldClassName, "h-12")}
+              aria-invalid={Boolean(state.fieldErrors?.testingAccessUrl)}
+            />
+            {state.fieldErrors?.testingAccessUrl ? (
+              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+                {state.fieldErrors.testingAccessUrl}
+              </p>
+            ) : null}
+          </div>
+          <div className="mt-5">
+            <label htmlFor="app-tester-instructions" className={labelClassName}>
+              Tester instructions <span className="font-medium text-ink-muted">(optional)</span>
+            </label>
+            <textarea
+              id="app-tester-instructions"
+              name="testerInstructions"
+              maxLength={2000}
+              rows={5}
+              placeholder="For example: I’ll add your email to the Google Group today. Open the link once you receive access, install the app, and keep it installed for 14 days."
+              className={cn(fieldClassName, "resize-y py-3")}
+              aria-invalid={Boolean(state.fieldErrors?.testerInstructions)}
+            />
+            {state.fieldErrors?.testerInstructions ? (
+              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+                {state.fieldErrors.testerInstructions}
+              </p>
+            ) : null}
+          </div>
+        </fieldset>
+
         <SubmitButton size="lg" pendingLabel="Listing…" className="w-full sm:w-auto">
           {submitLabel}
         </SubmitButton>

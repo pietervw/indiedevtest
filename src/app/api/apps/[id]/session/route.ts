@@ -9,14 +9,17 @@ import {
   isReviewableListingStatus,
 } from "@/lib/listing-status";
 import type { ListingSessionPayload } from "@/lib/listing-session";
+import { isHttpUrl } from "@/lib/validation";
 
 type Props = { params: Promise<{ id: string }> };
 
 const emptySession: ListingSessionPayload = {
   viewerId: null,
   isOwner: false,
+  ownerHasPrivateInvitation: false,
   viewerRequestStatus: null,
   viewerHasJoined: false,
+  viewerInvitation: null,
   canWriteReview: false,
   hasWrittenReview: false,
   pendingRequests: [],
@@ -49,7 +52,13 @@ export async function GET(_request: Request, { params }: Props) {
 
   const listing = await prisma.appListing.findUnique({
     where: { id },
-    select: { id: true, userId: true, status: true },
+    select: {
+      id: true,
+      userId: true,
+      status: true,
+      testingAccessUrl: true,
+      testerInstructions: true,
+    },
   });
 
   if (!listing) {
@@ -62,6 +71,13 @@ export async function GET(_request: Request, { params }: Props) {
   if (!isOwner && !isPublicListingStatus(listing.status)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  // Write actions validate this field, but keep the private-session boundary
+  // defensive in case an older/manual database value is malformed.
+  const testingAccessUrl =
+    listing.testingAccessUrl && isHttpUrl(listing.testingAccessUrl)
+      ? listing.testingAccessUrl
+      : null;
 
   await expirePendingTesterRequests({ listingId: listing.id });
 
@@ -140,8 +156,17 @@ export async function GET(_request: Request, { params }: Props) {
   const payload: ListingSessionPayload = {
     viewerId: viewer.id,
     isOwner,
+    ownerHasPrivateInvitation:
+      isOwner && Boolean(testingAccessUrl || listing.testerInstructions),
     viewerRequestStatus: viewerRequest?.status ?? null,
     viewerHasJoined: viewerRequest?.testAssignmentId != null,
+    viewerInvitation:
+      !isOwner && viewerRequest?.status === "accepted"
+        ? {
+            testingAccessUrl,
+            testerInstructions: listing.testerInstructions,
+          }
+        : null,
     canWriteReview,
     hasWrittenReview,
     pendingRequests: pendingRequests.map((req) => ({

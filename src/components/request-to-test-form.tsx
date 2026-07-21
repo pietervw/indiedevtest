@@ -21,6 +21,7 @@ export function RequestToTestForm({
   listingId,
   existing,
   hasJoined = false,
+  invitation = null,
   onWithdraw,
   onRequestSuccess,
 }: {
@@ -28,6 +29,10 @@ export function RequestToTestForm({
   existing: TesterRequestStatus | null;
   /** Owner already confirmed join — withdraw is no longer allowed. */
   hasJoined?: boolean;
+  invitation?: {
+    testingAccessUrl: string | null;
+    testerInstructions: string | null;
+  } | null;
   onWithdraw?: () => Promise<void>;
   /** Refresh listing session after a successful create so status stays authoritative. */
   onRequestSuccess?: () => void;
@@ -48,6 +53,26 @@ export function RequestToTestForm({
     return (
       <div>
         <p className="font-display text-lg font-bold text-ink">You&apos;re in! 🎉</p>
+        {invitation?.testingAccessUrl || invitation?.testerInstructions ? (
+          <div className="mt-4 rounded-xl border-2 border-ink bg-paper-muted p-4 text-sm text-ink">
+            <p className="font-display text-base font-bold">Your testing invitation</p>
+            {invitation.testerInstructions ? (
+              <p className="mt-2 whitespace-pre-wrap text-ink-muted">
+                {invitation.testerInstructions}
+              </p>
+            ) : null}
+            {invitation.testingAccessUrl ? (
+              <a
+                href={invitation.testingAccessUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex font-semibold text-ink underline decoration-brand decoration-2 underline-offset-4"
+              >
+                Open testing access link ↗
+              </a>
+            ) : null}
+          </div>
+        ) : null}
         {hasJoined ? (
           <p className="mt-1 text-sm text-ink-muted">
             You&apos;re on the testing track for this app.
@@ -55,7 +80,9 @@ export function RequestToTestForm({
         ) : (
           <>
             <p className="mt-1 text-sm text-ink-muted">
-              The developer will email you next steps to join the testing track.
+              {invitation?.testingAccessUrl || invitation?.testerInstructions
+                ? "Use the invitation above, then wait for the developer to confirm you joined."
+                : "The developer will email you next steps to join the testing track."}
             </p>
             {onWithdraw ? (
               <form action={onWithdraw} className="mt-3">

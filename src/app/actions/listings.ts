@@ -25,6 +25,8 @@ export type UpdateListingState = {
       | "category"
       | "platform"
       | "logoUrl"
+      | "testingAccessUrl"
+      | "testerInstructions"
       | "status"
       | "storeLink",
       string
@@ -56,6 +58,8 @@ export async function updateAppListing(
   const category = field(formData, "category");
   const platform = field(formData, "platform");
   const logoUrl = field(formData, "logoUrl");
+  const testingAccessUrl = field(formData, "testingAccessUrl");
+  const testerInstructions = field(formData, "testerInstructions");
   const status = field(formData, "status");
   const storeLink = field(formData, "storeLink");
 
@@ -75,6 +79,12 @@ export async function updateAppListing(
   }
   if (logoUrl && !isHttpUrl(logoUrl)) {
     fieldErrors.logoUrl = "Logo must be an http(s) URL.";
+  }
+  if (testingAccessUrl && !isHttpUrl(testingAccessUrl)) {
+    fieldErrors.testingAccessUrl = "Testing link must be an http(s) URL.";
+  }
+  if (testerInstructions.length > 2000) {
+    fieldErrors.testerInstructions = "Instructions must be 2,000 characters or fewer.";
   }
   if (!STATUSES.has(status)) {
     fieldErrors.status = "Pick a valid status.";
@@ -110,6 +120,8 @@ export async function updateAppListing(
       category: category as AppCategory,
       platform: platform as Platform,
       logoUrl: logoUrl || "",
+      testingAccessUrl: testingAccessUrl || null,
+      testerInstructions: testerInstructions || null,
       status: status as AppListingStatus,
       storeLink:
         status === "launched"

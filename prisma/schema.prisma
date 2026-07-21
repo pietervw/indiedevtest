@@ -82,6 +82,8 @@ model AppListing {
   platform              Platform
   status                AppListingStatus @default(draft)
   storeLink             String?          @map("store_link")
+  testingAccessUrl      String?          @map("testing_access_url")
+  testerInstructions    String?          @map("tester_instructions")
   maxTestersPerPlatform Int              @default(14) @map("max_testers_per_platform")
   reminderSentAt        DateTime?        @map("reminder_sent_at")
   createdAt             DateTime         @default(now()) @map("created_at")

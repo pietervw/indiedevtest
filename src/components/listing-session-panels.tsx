@@ -9,6 +9,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useActionState,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ import {
   markTestComplete,
   markTestIncomplete,
   rejectTesterRequest,
+  resendTesterInvitation,
   withdrawTesterRequest,
 } from "@/app/actions/requests";
 import { RequestToTestForm } from "@/components/request-to-test-form";
@@ -127,6 +129,29 @@ function TesterRow({ tester, sub }: { tester: TesterInfo; sub?: string }) {
         </Link>
         {sub ? <p className="truncate text-sm text-ink-muted">{sub}</p> : null}
       </div>
+    </div>
+  );
+}
+
+function ResendInvitationButton({ requestId }: { requestId: string }) {
+  const action = resendTesterInvitation.bind(null, requestId);
+  const [state, formAction] = useActionState(action, { ok: false, message: "" });
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <form action={formAction}>
+        <SubmitButton size="sm" variant="secondary" pendingLabel="Resending…">
+          Resend invitation
+        </SubmitButton>
+      </form>
+      {state.message ? (
+        <p
+          className={`text-right text-xs font-semibold ${state.ok ? "text-ink-muted" : "text-red-600"}`}
+          role={state.ok ? "status" : "alert"}
+        >
+          {state.message}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -263,6 +288,7 @@ export function ListingSessionPanels({
               listingId={listingId}
               existing={session?.viewerRequestStatus ?? null}
               hasJoined={session?.viewerHasJoined ?? false}
+              invitation={session?.viewerInvitation ?? null}
               onRequestSuccess={refreshSession}
               onWithdraw={
                 session?.viewerHasJoined
@@ -358,6 +384,9 @@ export function ListingSessionPanels({
                     Confirm joined
                   </SubmitButton>
                 </form>
+                {session.ownerHasPrivateInvitation ? (
+                  <ResendInvitationButton requestId={req.id} />
+                ) : null}
               </li>
             ))}
           </ul>

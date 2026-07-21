@@ -30,6 +30,11 @@ export type RequestState = {
   fieldErrors?: { email?: string };
 };
 
+export type ResendInvitationState = {
+  ok: boolean;
+  message: string;
+};
+
 function revalidateListingActivity(listingId: string) {
   revalidatePath(appPath(listingId));
   revalidatePath("/dashboard");
@@ -238,6 +243,8 @@ async function resolveTesterRequest(
         select: {
           userId: true,
           name: true,
+          testingAccessUrl: true,
+          testerInstructions: true,
           user: { select: { githubUsername: true } },
         },
       },
@@ -278,6 +285,8 @@ async function resolveTesterRequest(
           testerEmail: request.testerEmail,
           appName: request.appListing.name,
           listingUrl: `${siteConfig.url}${appPath(request.appListingId)}`,
+          testingAccessUrl: request.appListing.testingAccessUrl,
+          testerInstructions: request.appListing.testerInstructions,
         })
       : sendRequestRejectedEmail({
           testerEmail: request.testerEmail,
@@ -286,6 +295,88 @@ async function resolveTesterRequest(
   void notify.catch((err) => {
     console.error(`[requests] ${outcome} email failed`, err);
   });
+}
+
+/**
+ * Owner may resend the saved private invitation to an accepted tester. This is
+ * intentionally one tester at a time; a small rate limit prevents accidental
+ * or abusive repeat sends without adding an outbound-email queue to the MVP.
+ */
+export async function resendTesterInvitation(
+  requestId: string,
+  _prev: ResendInvitationState,
+  _formData: FormData
+): Promise<ResendInvitationState> {
+  // useActionState supplies these arguments even though this mutation has no
+  // form fields and its response is only the delivery status.
+  void _prev;
+  void _formData;
+  const user = await requireDbUser();
+  const request = await prisma.testerRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      status: true,
+      testAssignmentId: true,
+      testerEmail: true,
+      appListingId: true,
+      appListing: {
+        select: {
+          userId: true,
+          name: true,
+          testingAccessUrl: true,
+          testerInstructions: true,
+        },
+      },
+    },
+  });
+
+  if (
+    !request ||
+    request.appListing.userId !== user.id ||
+    request.status !== "accepted" ||
+    request.testAssignmentId !== null
+  ) {
+    return { ok: false, message: "That tester is no longer awaiting an invitation." };
+  }
+  if (!request.appListing.testingAccessUrl && !request.appListing.testerInstructions) {
+    return {
+      ok: false,
+      message: "Add a testing link or instructions before sending an invitation.",
+    };
+  }
+
+  const limit = checkRateLimit({
+    key: `tester-invitation:${user.id}`,
+    limit: 6,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limit.allowed) {
+    const minutes = Math.max(1, Math.ceil(limit.retryAfterSeconds / 60));
+    return {
+      ok: false,
+      message: `You've resent several invitations recently. Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+    };
+  }
+
+  // Consume before the external send to make concurrent clicks harmless.
+  takeRateLimit({
+    key: `tester-invitation:${user.id}`,
+    limit: 6,
+    windowMs: 60 * 60 * 1000,
+  });
+  try {
+    await sendRequestAcceptedEmail({
+      testerEmail: request.testerEmail,
+      appName: request.appListing.name,
+      listingUrl: `${siteConfig.url}${appPath(request.appListingId)}`,
+      testingAccessUrl: request.appListing.testingAccessUrl,
+      testerInstructions: request.appListing.testerInstructions,
+    });
+    return { ok: true, message: "Invitation resent." };
+  } catch (err) {
+    console.error("[requests] resend invitation email failed", err);
+    return { ok: false, message: "Could not resend the invitation. Try again shortly." };
+  }
 }
 
 /**
