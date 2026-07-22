@@ -7,6 +7,7 @@ import {
   type AppListingFormState,
 } from "@/app/actions/onboarding";
 import { SubmitButton } from "@/components/submit-button";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: AppListingFormState = { ok: false, message: "" };
@@ -29,7 +30,13 @@ export function AppListingForm({
 
   return (
     <div className={cn("w-full max-w-xl", className)}>
-      <form action={formAction} className="flex flex-col gap-5">
+      <form
+        action={formAction}
+        className="flex flex-col gap-5"
+        {...umamiEvent("app_listing_submit", {
+          source: showSkip ? "onboarding" : "new_app",
+        })}
+      >
         <div>
           <label htmlFor="app-name" className={labelClassName}>
             App name
@@ -95,7 +102,10 @@ export function AppListingForm({
               <option value="productivity">Productivity</option>
             </select>
             {state.fieldErrors?.category ? (
-              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              <p
+                className="mt-1 text-sm font-semibold text-red-600"
+                role="alert"
+              >
                 {state.fieldErrors.category}
               </p>
             ) : null}
@@ -117,7 +127,10 @@ export function AppListingForm({
               <option value="ios">iOS</option>
             </select>
             {state.fieldErrors?.platform ? (
-              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              <p
+                className="mt-1 text-sm font-semibold text-red-600"
+                role="alert"
+              >
                 {state.fieldErrors.platform}
               </p>
             ) : null}
@@ -126,7 +139,8 @@ export function AppListingForm({
 
         <div>
           <label htmlFor="app-logo" className={labelClassName}>
-            Logo URL <span className="font-medium text-ink-muted">(optional)</span>
+            Logo URL{" "}
+            <span className="font-medium text-ink-muted">(optional)</span>
           </label>
           <input
             id="app-logo"
@@ -146,7 +160,8 @@ export function AppListingForm({
 
         <div>
           <label htmlFor="app-tester-capacity" className={labelClassName}>
-            Testers needed <span className="font-medium text-ink-muted">(optional)</span>
+            Testers needed{" "}
+            <span className="font-medium text-ink-muted">(optional)</span>
           </label>
           <input
             id="app-tester-capacity"
@@ -174,11 +189,13 @@ export function AppListingForm({
             Private tester invitation
           </legend>
           <p className="mt-1 text-sm text-ink-muted">
-            Sent only when you accept a tester. It is never displayed on your public listing.
+            Sent only when you accept a tester. It is never displayed on your
+            public listing.
           </p>
           <div className="mt-5">
             <label htmlFor="app-testing-link" className={labelClassName}>
-              Testing access link <span className="font-medium text-ink-muted">(optional)</span>
+              Testing access link{" "}
+              <span className="font-medium text-ink-muted">(optional)</span>
             </label>
             <input
               id="app-testing-link"
@@ -190,14 +207,18 @@ export function AppListingForm({
               aria-invalid={Boolean(state.fieldErrors?.testingAccessUrl)}
             />
             {state.fieldErrors?.testingAccessUrl ? (
-              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              <p
+                className="mt-1 text-sm font-semibold text-red-600"
+                role="alert"
+              >
                 {state.fieldErrors.testingAccessUrl}
               </p>
             ) : null}
           </div>
           <div className="mt-5">
             <label htmlFor="app-tester-instructions" className={labelClassName}>
-              Tester instructions <span className="font-medium text-ink-muted">(optional)</span>
+              Tester instructions{" "}
+              <span className="font-medium text-ink-muted">(optional)</span>
             </label>
             <textarea
               id="app-tester-instructions"
@@ -209,14 +230,24 @@ export function AppListingForm({
               aria-invalid={Boolean(state.fieldErrors?.testerInstructions)}
             />
             {state.fieldErrors?.testerInstructions ? (
-              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              <p
+                className="mt-1 text-sm font-semibold text-red-600"
+                role="alert"
+              >
                 {state.fieldErrors.testerInstructions}
               </p>
             ) : null}
           </div>
         </fieldset>
 
-        <SubmitButton size="lg" pendingLabel="Listing…" className="w-full sm:w-auto">
+        <SubmitButton
+          size="lg"
+          pendingLabel="Listing…"
+          className="w-full sm:w-auto"
+          {...umamiEvent("app_listing_submit_click", {
+            source: showSkip ? "onboarding" : "new_app",
+          })}
+        >
           {submitLabel}
         </SubmitButton>
 
@@ -228,13 +259,18 @@ export function AppListingForm({
       </form>
 
       {showSkip ? (
-        <form action={skipOnboarding} className="mt-8 border-t-2 border-line pt-6">
+        <form
+          action={skipOnboarding}
+          className="mt-8 border-t-2 border-line pt-6"
+          {...umamiEvent("onboarding_skip_submit")}
+        >
           <p className="text-sm text-ink-muted">
             Not ready to list an app? Jump in as a tester first.
           </p>
           <button
             type="submit"
             className="mt-3 cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-ink-muted transition-colors hover:text-ink"
+            {...umamiEvent("onboarding_skip_click")}
           >
             Skip — browse apps that need testers
           </button>

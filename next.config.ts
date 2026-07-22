@@ -29,11 +29,19 @@ const nextConfig: NextConfig = {
   },
 };
 
+const hasSentryUploadConfig = Boolean(
+  process.env.SENTRY_AUTH_TOKEN &&
+  process.env.SENTRY_ORG &&
+  process.env.SENTRY_PROJECT,
+);
+
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: !process.env.SENTRY_AUTH_TOKEN,
-  disable: !process.env.SENTRY_AUTH_TOKEN,
+  silent: !hasSentryUploadConfig,
+  disable: !hasSentryUploadConfig,
   widenClientFileUpload: true,
+  hideSourceMaps: true,
+  telemetry: false,
 });
