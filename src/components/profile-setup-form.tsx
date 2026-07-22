@@ -29,10 +29,7 @@ export function ProfileSetupForm({
   defaultTwitterHandle?: string;
   verifiedContactEmails: string[];
 }) {
-  const [state, formAction] = useActionState(
-    completeProfileSetup,
-    initialState,
-  );
+  const [state, formAction] = useActionState(completeProfileSetup, initialState);
 
   return (
     <div className={cn("w-full max-w-xl", className)}>
@@ -145,6 +142,7 @@ export function ProfileSetupForm({
           </p>
         ) : null}
       </form>
+
     </div>
   );
 }

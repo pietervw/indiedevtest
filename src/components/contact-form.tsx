@@ -24,7 +24,7 @@ export function ContactForm({ className }: { className?: string }) {
       }
       return next;
     },
-    initialState,
+    initialState
   );
 
   if (state.ok) {
@@ -39,7 +39,10 @@ export function ContactForm({ className }: { className?: string }) {
   }
 
   return (
-    <form action={formAction} className={cn("flex flex-col gap-4", className)}>
+    <form
+      action={formAction}
+      className={cn("flex flex-col gap-4", className)}
+    >
       <div className="hidden" aria-hidden="true">
         <label htmlFor="company">Company</label>
         <input

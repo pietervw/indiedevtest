@@ -19,7 +19,7 @@ export function WaitlistForm({ className }: { className?: string }) {
       }
       return next;
     },
-    initialState,
+    initialState
   );
 
   if (state.ok) {

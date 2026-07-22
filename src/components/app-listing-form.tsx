@@ -96,10 +96,7 @@ export function AppListingForm({
               <option value="productivity">Productivity</option>
             </select>
             {state.fieldErrors?.category ? (
-              <p
-                className="mt-1 text-sm font-semibold text-red-600"
-                role="alert"
-              >
+              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
                 {state.fieldErrors.category}
               </p>
             ) : null}
@@ -121,10 +118,7 @@ export function AppListingForm({
               <option value="ios">iOS</option>
             </select>
             {state.fieldErrors?.platform ? (
-              <p
-                className="mt-1 text-sm font-semibold text-red-600"
-                role="alert"
-              >
+              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
                 {state.fieldErrors.platform}
               </p>
             ) : null}
@@ -133,8 +127,7 @@ export function AppListingForm({
 
         <div>
           <label htmlFor="app-logo" className={labelClassName}>
-            Logo URL{" "}
-            <span className="font-medium text-ink-muted">(optional)</span>
+            Logo URL <span className="font-medium text-ink-muted">(optional)</span>
           </label>
           <input
             id="app-logo"
@@ -154,8 +147,7 @@ export function AppListingForm({
 
         <div>
           <label htmlFor="app-tester-capacity" className={labelClassName}>
-            Testers needed{" "}
-            <span className="font-medium text-ink-muted">(optional)</span>
+            Testers needed <span className="font-medium text-ink-muted">(optional)</span>
           </label>
           <input
             id="app-tester-capacity"
@@ -183,13 +175,11 @@ export function AppListingForm({
             Private tester invitation
           </legend>
           <p className="mt-1 text-sm text-ink-muted">
-            Sent only when you accept a tester. It is never displayed on your
-            public listing.
+            Sent only when you accept a tester. It is never displayed on your public listing.
           </p>
           <div className="mt-5">
             <label htmlFor="app-testing-link" className={labelClassName}>
-              Testing access link{" "}
-              <span className="font-medium text-ink-muted">(optional)</span>
+              Testing access link <span className="font-medium text-ink-muted">(optional)</span>
             </label>
             <input
               id="app-testing-link"
@@ -201,18 +191,14 @@ export function AppListingForm({
               aria-invalid={Boolean(state.fieldErrors?.testingAccessUrl)}
             />
             {state.fieldErrors?.testingAccessUrl ? (
-              <p
-                className="mt-1 text-sm font-semibold text-red-600"
-                role="alert"
-              >
+              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
                 {state.fieldErrors.testingAccessUrl}
               </p>
             ) : null}
           </div>
           <div className="mt-5">
             <label htmlFor="app-tester-instructions" className={labelClassName}>
-              Tester instructions{" "}
-              <span className="font-medium text-ink-muted">(optional)</span>
+              Tester instructions <span className="font-medium text-ink-muted">(optional)</span>
             </label>
             <textarea
               id="app-tester-instructions"
@@ -224,24 +210,14 @@ export function AppListingForm({
               aria-invalid={Boolean(state.fieldErrors?.testerInstructions)}
             />
             {state.fieldErrors?.testerInstructions ? (
-              <p
-                className="mt-1 text-sm font-semibold text-red-600"
-                role="alert"
-              >
+              <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
                 {state.fieldErrors.testerInstructions}
               </p>
             ) : null}
           </div>
         </fieldset>
 
-        <SubmitButton
-          size="lg"
-          pendingLabel="Listing…"
-          className="w-full sm:w-auto"
-          {...umamiEvent("app_listing_submit_click", {
-            source: showSkip ? "onboarding" : "new_app",
-          })}
-        >
+        <SubmitButton size="lg" pendingLabel="Listing…" className="w-full sm:w-auto" {...umamiEvent("app_listing_submit_click", { source: showSkip ? "onboarding" : "new_app" })}>
           {submitLabel}
         </SubmitButton>
 
@@ -253,10 +229,7 @@ export function AppListingForm({
       </form>
 
       {showSkip ? (
-        <form
-          action={skipOnboarding}
-          className="mt-8 border-t-2 border-line pt-6"
-        >
+        <form action={skipOnboarding} className="mt-8 border-t-2 border-line pt-6">
           <p className="text-sm text-ink-muted">
             Not ready to list an app? Jump in as a tester first.
           </p>

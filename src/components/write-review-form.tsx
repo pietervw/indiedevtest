@@ -37,8 +37,7 @@ export function WriteReviewForm({ listingId }: { listingId: string }) {
         Write a review
       </h3>
       <p className="mt-1 text-sm text-ink-muted">
-        Share what worked and what didn&apos;t. Provide useful feedback to the
-        developer.
+        Share what worked and what didn&apos;t. Provide useful feedback to the developer.
       </p>
       <form action={formAction} className="mt-4 flex flex-col gap-3">
         <label className="sr-only" htmlFor="review-content">
@@ -54,7 +53,7 @@ export function WriteReviewForm({ listingId }: { listingId: string }) {
           placeholder="How did your testing go? What should the developer know about your findings?"
           className={cn(
             textareaClassName,
-            state.fieldErrors?.content ? "border-red-600" : "",
+            state.fieldErrors?.content ? "border-red-600" : ""
           )}
           aria-invalid={Boolean(state.fieldErrors?.content)}
         />
@@ -63,12 +62,7 @@ export function WriteReviewForm({ listingId }: { listingId: string }) {
             {state.fieldErrors.content}
           </p>
         ) : null}
-        <SubmitButton
-          size="md"
-          pendingLabel="Publishing…"
-          className="w-full sm:w-auto"
-          {...umamiEvent("review_publish_click")}
-        >
+        <SubmitButton size="md" pendingLabel="Publishing…" className="w-full sm:w-auto" {...umamiEvent("review_publish_click")}>
           Publish review
         </SubmitButton>
         {state.message && !state.ok ? (

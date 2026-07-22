@@ -50,20 +50,16 @@ export function RequestToTestForm({
   if (existing === "accepted") {
     const hasInvitation = Boolean(
       invitation?.testingAccessUrl ||
-      invitation?.testerInstructions ||
-      invitation?.developerContactEmail,
+        invitation?.testerInstructions ||
+        invitation?.developerContactEmail
     );
 
     return (
       <div>
-        <p className="font-display text-lg font-bold text-ink">
-          You&apos;re in! 🎉
-        </p>
+        <p className="font-display text-lg font-bold text-ink">You&apos;re in! 🎉</p>
         {hasInvitation ? (
           <div className="mt-4 rounded-xl border-2 border-ink bg-paper-muted p-4 text-sm text-ink">
-            <p className="font-display text-base font-bold">
-              Your testing invitation
-            </p>
+            <p className="font-display text-base font-bold">Your testing invitation</p>
             {invitation?.testerInstructions ? (
               <p className="mt-2 whitespace-pre-wrap text-ink-muted">
                 {invitation.testerInstructions}
@@ -110,9 +106,7 @@ export function RequestToTestForm({
                   size="sm"
                   variant="secondary"
                   pendingLabel="Withdrawing…"
-                  {...umamiEvent("tester_request_withdraw_click", {
-                    state: "accepted",
-                  })}
+                  {...umamiEvent("tester_request_withdraw_click", { state: "accepted" })}
                 >
                   Can&apos;t test after all
                 </SubmitButton>
@@ -132,14 +126,7 @@ export function RequestToTestForm({
         </p>
         {onWithdraw ? (
           <form action={onWithdraw} className="mt-3">
-            <SubmitButton
-              size="sm"
-              variant="secondary"
-              pendingLabel="Withdrawing…"
-              {...umamiEvent("tester_request_withdraw_click", {
-                state: "pending",
-              })}
-            >
+            <SubmitButton size="sm" variant="secondary" pendingLabel="Withdrawing…" {...umamiEvent("tester_request_withdraw_click", { state: "pending" })}>
               Withdraw request
             </SubmitButton>
           </form>
@@ -158,19 +145,14 @@ export function RequestToTestForm({
         they can add you to their Play Store / TestFlight track.
       </p>
       <form action={formAction} className="mt-4 flex flex-col gap-3">
-        <SubmitButton
-          size="lg"
-          pendingLabel="Sending…"
-          className="w-full sm:w-auto"
-          {...umamiEvent("tester_request_create_click")}
-        >
+        <SubmitButton size="lg" pendingLabel="Sending…" className="w-full sm:w-auto" {...umamiEvent("tester_request_create_click")}>
           Request to test
         </SubmitButton>
         {state.message ? (
           <p
             className={cn(
               "text-sm font-semibold",
-              state.ok ? "text-ink" : "text-red-600",
+              state.ok ? "text-ink" : "text-red-600"
             )}
             role={state.ok ? "status" : "alert"}
           >
@@ -181,8 +163,8 @@ export function RequestToTestForm({
       {existing === "rejected" || existing === "expired" ? (
         <p className="mt-3 text-xs text-ink-muted">
           Your last request{" "}
-          {existing === "rejected" ? "was declined" : "expired"}. You can
-          request again.
+          {existing === "rejected" ? "was declined" : "expired"}. You can request
+          again.
         </p>
       ) : null}
     </div>
