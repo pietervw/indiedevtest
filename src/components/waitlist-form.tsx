@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { joinWaitlist, type WaitlistState } from "@/app/actions/waitlist";
 import { SubmitButton } from "@/components/submit-button";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: WaitlistState = { ok: false, message: "" };
@@ -18,7 +19,7 @@ export function WaitlistForm({ className }: { className?: string }) {
       }
       return next;
     },
-    initialState
+    initialState,
   );
 
   if (state.ok) {
@@ -68,6 +69,7 @@ export function WaitlistForm({ className }: { className?: string }) {
         size="lg"
         pendingLabel="Joining…"
         className="w-full sm:w-auto sm:min-w-[160px]"
+        {...umamiEvent("waitlist_join_click")}
       >
         Join waitlist
       </SubmitButton>

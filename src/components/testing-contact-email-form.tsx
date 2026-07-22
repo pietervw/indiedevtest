@@ -7,6 +7,7 @@ import {
   type ProfileSettingsState,
 } from "@/app/actions/profile";
 import { SubmitButton } from "@/components/submit-button";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: ProfileSettingsState = { ok: false, message: "" };
@@ -27,10 +28,13 @@ export function ProfileSettingsForm({
   trustMrrProfileUrl: string | null;
 }) {
   const router = useRouter();
-  const [state, formAction] = useActionState(updateProfileSettings, initialState);
+  const [state, formAction] = useActionState(
+    updateProfileSettings,
+    initialState,
+  );
   const defaultValue = verifiedEmails.includes(currentEmail ?? "")
     ? currentEmail!
-    : verifiedEmails[0] ?? "";
+    : (verifiedEmails[0] ?? "");
 
   useEffect(() => {
     if (state.ok) router.refresh();
@@ -39,7 +43,10 @@ export function ProfileSettingsForm({
   return (
     <form action={formAction} className="mt-8 flex max-w-xl flex-col gap-5">
       <div>
-        <label htmlFor="settings-contact-email" className="mb-1.5 block text-sm font-semibold text-ink">
+        <label
+          htmlFor="settings-contact-email"
+          className="mb-1.5 block text-sm font-semibold text-ink"
+        >
           Testing contact email
         </label>
         <select
@@ -78,44 +85,112 @@ export function ProfileSettingsForm({
         ) : null}
       </div>
       <div>
-        <label htmlFor="settings-bio" className="mb-1.5 block text-sm font-semibold text-ink">
-          Short bio <span className="font-medium text-ink-muted">(optional)</span>
+        <label
+          htmlFor="settings-bio"
+          className="mb-1.5 block text-sm font-semibold text-ink"
+        >
+          Short bio{" "}
+          <span className="font-medium text-ink-muted">(optional)</span>
         </label>
-        <textarea id="settings-bio" name="bio" defaultValue={bio ?? ""} maxLength={280} rows={3} className={cn(fieldClassName, "resize-y py-3")} aria-invalid={Boolean(state.fieldErrors?.bio)} />
-        <p className="mt-1 text-sm text-ink-muted">Shown on your public profile. Max 280 characters.</p>
-        {state.fieldErrors?.bio ? <p className="mt-1 text-sm font-semibold text-red-600" role="alert">{state.fieldErrors.bio}</p> : null}
+        <textarea
+          id="settings-bio"
+          name="bio"
+          defaultValue={bio ?? ""}
+          maxLength={280}
+          rows={3}
+          className={cn(fieldClassName, "resize-y py-3")}
+          aria-invalid={Boolean(state.fieldErrors?.bio)}
+        />
+        <p className="mt-1 text-sm text-ink-muted">
+          Shown on your public profile. Max 280 characters.
+        </p>
+        {state.fieldErrors?.bio ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.bio}
+          </p>
+        ) : null}
       </div>
       <div>
-        <label htmlFor="settings-twitter" className="mb-1.5 block text-sm font-semibold text-ink">
-          X / Twitter handle <span className="font-medium text-ink-muted">(optional)</span>
+        <label
+          htmlFor="settings-twitter"
+          className="mb-1.5 block text-sm font-semibold text-ink"
+        >
+          X / Twitter handle{" "}
+          <span className="font-medium text-ink-muted">(optional)</span>
         </label>
         <div className="relative">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-semibold text-ink-muted">@</span>
-          <input id="settings-twitter" name="twitterHandle" type="text" defaultValue={twitterHandle ?? ""} maxLength={15} autoComplete="off" spellCheck={false} className={cn(fieldClassName, "h-12 pl-8")} aria-invalid={Boolean(state.fieldErrors?.twitterHandle)} />
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-semibold text-ink-muted">
+            @
+          </span>
+          <input
+            id="settings-twitter"
+            name="twitterHandle"
+            type="text"
+            defaultValue={twitterHandle ?? ""}
+            maxLength={15}
+            autoComplete="off"
+            spellCheck={false}
+            className={cn(fieldClassName, "h-12 pl-8")}
+            aria-invalid={Boolean(state.fieldErrors?.twitterHandle)}
+          />
         </div>
-        {state.fieldErrors?.twitterHandle ? <p className="mt-1 text-sm font-semibold text-red-600" role="alert">{state.fieldErrors.twitterHandle}</p> : null}
+        {state.fieldErrors?.twitterHandle ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.twitterHandle}
+          </p>
+        ) : null}
       </div>
       <div>
-        <label htmlFor="settings-trustmrr" className="mb-1.5 block text-sm font-semibold text-ink">
-          TrustMRR founder profile <span className="font-medium text-ink-muted">(optional)</span>
+        <label
+          htmlFor="settings-trustmrr"
+          className="mb-1.5 block text-sm font-semibold text-ink"
+        >
+          TrustMRR founder profile{" "}
+          <span className="font-medium text-ink-muted">(optional)</span>
         </label>
-        <input id="settings-trustmrr" name="trustMrrProfileUrl" type="url" defaultValue={trustMrrProfileUrl ?? ""} placeholder="https://trustmrr.com/founder/your-name" className={cn(fieldClassName, "h-12")} aria-invalid={Boolean(state.fieldErrors?.trustMrrProfileUrl)} />
+        <input
+          id="settings-trustmrr"
+          name="trustMrrProfileUrl"
+          type="url"
+          defaultValue={trustMrrProfileUrl ?? ""}
+          placeholder="https://trustmrr.com/founder/your-name"
+          className={cn(fieldClassName, "h-12")}
+          aria-invalid={Boolean(state.fieldErrors?.trustMrrProfileUrl)}
+        />
         <p className="mt-1 text-sm text-ink-muted">
           Displayed on your public profile. Learn more about{" "}
-          <a href="https://trustmrr.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink underline">TrustMRR ↗</a>
+          <a
+            href="https://trustmrr.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-ink underline"
+          >
+            TrustMRR ↗
+          </a>
         </p>
-        {state.fieldErrors?.trustMrrProfileUrl ? <p className="mt-1 text-sm font-semibold text-red-600" role="alert">{state.fieldErrors.trustMrrProfileUrl}</p> : null}
+        {state.fieldErrors?.trustMrrProfileUrl ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.trustMrrProfileUrl}
+          </p>
+        ) : null}
       </div>
       <SubmitButton
         size="lg"
         pendingLabel="Saving…"
         disabled={verifiedEmails.length === 0}
         className="w-full sm:w-auto"
+        {...umamiEvent("profile_settings_save_click")}
       >
         Save profile settings
       </SubmitButton>
       {state.message ? (
-        <p className={cn("text-sm font-semibold", state.ok ? "text-ink" : "text-red-600")} role={state.ok ? "status" : "alert"}>
+        <p
+          className={cn(
+            "text-sm font-semibold",
+            state.ok ? "text-ink" : "text-red-600",
+          )}
+          role={state.ok ? "status" : "alert"}
+        >
           {state.message}
         </p>
       ) : null}

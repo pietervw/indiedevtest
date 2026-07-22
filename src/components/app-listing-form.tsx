@@ -30,13 +30,7 @@ export function AppListingForm({
 
   return (
     <div className={cn("w-full max-w-xl", className)}>
-      <form
-        action={formAction}
-        className="flex flex-col gap-5"
-        {...umamiEvent("app_listing_submit", {
-          source: showSkip ? "onboarding" : "new_app",
-        })}
-      >
+      <form action={formAction} className="flex flex-col gap-5">
         <div>
           <label htmlFor="app-name" className={labelClassName}>
             App name
@@ -262,7 +256,6 @@ export function AppListingForm({
         <form
           action={skipOnboarding}
           className="mt-8 border-t-2 border-line pt-6"
-          {...umamiEvent("onboarding_skip_submit")}
         >
           <p className="text-sm text-ink-muted">
             Not ready to list an app? Jump in as a tester first.

@@ -6,6 +6,7 @@ import {
   type ProfileSetupState,
 } from "@/app/actions/profile";
 import { SubmitButton } from "@/components/submit-button";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: ProfileSetupState = { ok: false, message: "" };
@@ -28,7 +29,10 @@ export function ProfileSetupForm({
   defaultTwitterHandle?: string;
   verifiedContactEmails: string[];
 }) {
-  const [state, formAction] = useActionState(completeProfileSetup, initialState);
+  const [state, formAction] = useActionState(
+    completeProfileSetup,
+    initialState,
+  );
 
   return (
     <div className={cn("w-full max-w-xl", className)}>
@@ -130,6 +134,7 @@ export function ProfileSetupForm({
           pendingLabel="Saving…"
           disabled={verifiedContactEmails.length === 0}
           className="w-full sm:w-auto"
+          {...umamiEvent("profile_setup_save_click")}
         >
           Save profile
         </SubmitButton>
@@ -140,7 +145,6 @@ export function ProfileSetupForm({
           </p>
         ) : null}
       </form>
-
     </div>
   );
 }

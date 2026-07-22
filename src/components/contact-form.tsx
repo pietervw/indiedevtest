@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { sendContactMessage, type ContactState } from "@/app/actions/contact";
 import { SubmitButton } from "@/components/submit-button";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: ContactState = { ok: false, message: "" };
@@ -23,7 +24,7 @@ export function ContactForm({ className }: { className?: string }) {
       }
       return next;
     },
-    initialState
+    initialState,
   );
 
   if (state.ok) {
@@ -38,10 +39,7 @@ export function ContactForm({ className }: { className?: string }) {
   }
 
   return (
-    <form
-      action={formAction}
-      className={cn("flex flex-col gap-4", className)}
-    >
+    <form action={formAction} className={cn("flex flex-col gap-4", className)}>
       <div className="hidden" aria-hidden="true">
         <label htmlFor="company">Company</label>
         <input
@@ -109,6 +107,7 @@ export function ContactForm({ className }: { className?: string }) {
           size="lg"
           pendingLabel="Sending…"
           className="w-full sm:w-auto"
+          {...umamiEvent("contact_message_send_click")}
         >
           Send message
         </SubmitButton>

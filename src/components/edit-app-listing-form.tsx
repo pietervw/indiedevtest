@@ -51,7 +51,6 @@ export function EditAppListingForm({
       <form
         action={formAction}
         className={cn("flex w-full max-w-xl flex-col gap-5", className)}
-        {...umamiEvent("app_listing_update_submit", { status })}
       >
         <div>
           <label htmlFor="edit-app-name" className={labelClassName}>
