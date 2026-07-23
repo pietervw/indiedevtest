@@ -134,8 +134,12 @@ export default function PrivacyPage() {
         <LegalSection title="Analytics (Umami)">
           <p>
             Analytics are optional. If Umami is configured for the deployment, a
-            self-hosted Umami script may load to collect basic page-view style
-            usage data. If those settings are empty, the script is not loaded.
+            self-hosted Umami script may load to collect page-view and
+            product-action event data, such as listing, tester-request, report,
+            and feedback button clicks. These events use fixed names and limited
+            non-content properties; they do not include form messages, feedback
+            text, or contact email addresses. If those settings are empty, the
+            script is not loaded.
           </p>
         </LegalSection>
 
