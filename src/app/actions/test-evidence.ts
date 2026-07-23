@@ -34,7 +34,7 @@ import {
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import {
-  isCountedAssignmentStatus,
+  isEvidenceEligibleAssignmentStatus,
   isReviewableListingStatus,
 } from "@/lib/listing-status";
 import { appPath, editPath, profilePath } from "@/lib/mock-data";
@@ -262,7 +262,7 @@ async function requireEvidenceEligibleTester(listingId: string) {
     select: { status: true },
   });
 
-  if (!assignment || !isCountedAssignmentStatus(assignment.status)) {
+  if (!assignment || !isEvidenceEligibleAssignmentStatus(assignment.status)) {
     return {
       ok: false as const,
       message:
@@ -583,6 +583,22 @@ export async function confirmEvidenceScreenshots(
         throw new PendingUploadError();
       }
 
+      await tx.$executeRaw`
+        SELECT id FROM reviews
+        WHERE id = ${review.id}
+        FOR UPDATE`;
+
+      const lockedReview = await tx.review.findUnique({
+        where: { id: review.id },
+        select: {
+          improvementSuggestion: true,
+          _count: { select: { screenshots: true } },
+        },
+      });
+      if (!lockedReview) {
+        throw new PendingUploadError();
+      }
+
       const pending = await tx.reviewScreenshotUpload.findMany({
         where: {
           appListingId: listingId,
@@ -596,12 +612,15 @@ export async function confirmEvidenceScreenshots(
         throw new PendingUploadError();
       }
 
-      const existingCount = await tx.reviewScreenshot.count({
-        where: { reviewId: review.id },
-      });
+      const existingCount = lockedReview._count.screenshots;
       if (existingCount + verified.length > IMAGE_LIMITS.maxFiles) {
         throw new ScreenshotLimitError();
       }
+
+      const wasComplete = isCompleteEvidence({
+        improvementSuggestion: lockedReview.improvementSuggestion,
+        screenshotCount: existingCount,
+      });
 
       const maxOrder = await tx.reviewScreenshot.aggregate({
         where: { reviewId: review.id },
@@ -643,6 +662,22 @@ export async function confirmEvidenceScreenshots(
           notBefore: row.expiresAt,
         }))
       );
+
+      const nowComplete = isCompleteEvidence({
+        improvementSuggestion: lockedReview.improvementSuggestion,
+        screenshotCount: existingCount + verified.length,
+      });
+      if (nowComplete && !wasComplete) {
+        const updated = await tx.user.update({
+          where: { id: testerUserId },
+          data: { reviewsWrittenCount: { increment: 1 } },
+          select: { reviewsWrittenCount: true },
+        });
+        await awardBadgesAfterReviewWritten(tx, {
+          userId: testerUserId,
+          reviewsWrittenCount: updated.reviewsWrittenCount,
+        });
+      }
 
       return rows;
     });
@@ -907,40 +942,46 @@ export async function saveTestEvidence(
 
   const { reviewId } = await ensureReviewRow(listingId, eligible.user.id);
 
-  const existing = await prisma.review.findUnique({
-    where: { id: reviewId },
-    select: {
-      improvementSuggestion: true,
-      _count: { select: { screenshots: true } },
-    },
-  });
-  if (!existing) {
-    return { ok: false, message: "Could not save your evidence. Try again." };
-  }
-
-  const screenshotCount = existing._count.screenshots;
-  if (screenshotCount < IMAGE_LIMITS.minFiles) {
-    return {
-      ok: false,
-      message: `Upload at least ${IMAGE_LIMITS.minFiles} screenshots showing you used the app.`,
-    };
-  }
-
-  const wasComplete = isCompleteEvidence({
-    improvementSuggestion: existing.improvementSuggestion,
-    screenshotCount,
-  });
-  const nowComplete = isCompleteEvidence({
-    improvementSuggestion,
-    screenshotCount,
-  });
+  let wasComplete = false;
+  let nowComplete = false;
 
   try {
     await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        SELECT id FROM reviews
+        WHERE id = ${reviewId}
+        FOR UPDATE`;
+
+      const existing = await tx.review.findUnique({
+        where: { id: reviewId },
+        select: {
+          improvementSuggestion: true,
+          _count: { select: { screenshots: true } },
+        },
+      });
+      if (!existing) {
+        throw new Error("REVIEW_NOT_FOUND");
+      }
+
+      const screenshotCount = existing._count.screenshots;
+      if (screenshotCount < IMAGE_LIMITS.minFiles) {
+        throw new Error("INSUFFICIENT_SCREENSHOTS");
+      }
+
+      wasComplete = isCompleteEvidence({
+        improvementSuggestion: existing.improvementSuggestion,
+        screenshotCount,
+      });
+      nowComplete = isCompleteEvidence({
+        improvementSuggestion,
+        screenshotCount,
+      });
+
       await tx.review.update({
         where: { id: reviewId },
         data: { improvementSuggestion },
       });
+
       if (nowComplete && !wasComplete) {
         const updated = await tx.user.update({
           where: { id: eligible.user.id },
@@ -954,6 +995,15 @@ export async function saveTestEvidence(
       }
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_SCREENSHOTS") {
+      return {
+        ok: false,
+        message: `Upload at least ${IMAGE_LIMITS.minFiles} screenshots showing you used the app.`,
+      };
+    }
+    if (err instanceof Error && err.message === "REVIEW_NOT_FOUND") {
+      return { ok: false, message: "Could not save your evidence. Try again." };
+    }
     console.error("[test-evidence] saveTestEvidence failed", err);
     return {
       ok: false,

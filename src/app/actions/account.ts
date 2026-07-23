@@ -128,6 +128,16 @@ export async function deleteAccount(
           },
           select: { objectKey: true, expiresAt: true },
         });
+        if (myReviewUploads.length > 0) {
+          await tx.reviewScreenshotUpload.deleteMany({
+            where: {
+              testerUserId: user.id,
+              ...(ownedListingIds.length > 0
+                ? { appListingId: { notIn: ownedListingIds } }
+                : {}),
+            },
+          });
+        }
 
         const deletionJobs = [
           ...screenshots.map((row) => ({ objectKey: row.objectKey })),

@@ -115,6 +115,7 @@ model User {
   testAssignments TestAssignment[]
   reviews         Review[]
   badges          UserBadge[]
+  reviewScreenshotUploads ReviewScreenshotUpload[]
   reportsFiled    ListingReport[] @relation("ReportedListings")
   reportsResolved ListingReport[] @relation("ResolvedListingReports")
   testerActivities TesterActivity[]
@@ -364,6 +365,7 @@ model ReviewScreenshotUpload {
   createdAt    DateTime @default(now()) @map("created_at")
 
   appListing AppListing @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+  tester     User       @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
 
   @@index([appListingId, testerUserId, expiresAt])
   @@map("review_screenshot_uploads")

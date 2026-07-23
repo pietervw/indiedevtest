@@ -16,6 +16,9 @@ export const PUBLIC_LISTING_TTL_MS = 10 * 60 * 1000;
 /** Upper bound on cached listings — guards against unbounded growth from
  *  distinct ids (e.g. a crawler hitting many /apps/<id> URLs). */
 const PUBLIC_LISTING_CACHE_MAX = 1000;
+const PUBLIC_FEEDBACK_DISPLAY_LIMIT = 50;
+/** Over-fetch so incomplete drafts don't crowd out complete feedback. */
+const PUBLIC_FEEDBACK_FETCH_LIMIT = 200;
 
 export type PublicListingFeedbackScreenshot = {
   id: string;
@@ -121,7 +124,7 @@ const listingInclude = {
       },
     },
     orderBy: { createdAt: "desc" as const },
-    take: 50,
+    take: PUBLIC_FEEDBACK_FETCH_LIMIT,
   },
   _count: {
     select: {
@@ -163,7 +166,8 @@ function toPublicListing(
         screenshots: review.screenshots,
       };
     })
-    .filter((item): item is NonNullable<typeof item> => item != null);
+    .filter((item): item is NonNullable<typeof item> => item != null)
+    .slice(0, PUBLIC_FEEDBACK_DISPLAY_LIMIT);
 
   return {
     id: row.id,

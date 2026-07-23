@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { expirePendingTesterRequests, openTesterRequestWhere } from "@/lib/expire-pending-tester-requests";
 import {
   COUNTED_ASSIGNMENT_STATUSES,
-  isCountedAssignmentStatus,
+  isEvidenceEligibleAssignmentStatus,
   isPublicListingStatus,
   isReviewableListingStatus,
 } from "@/lib/listing-status";
@@ -162,7 +162,9 @@ export async function GET(_request: Request, { params }: Props) {
   const canSubmitEvidence =
     !isOwner &&
     reviewListingOpen &&
-    Boolean(assignment && isCountedAssignmentStatus(assignment.status));
+    Boolean(
+      assignment && isEvidenceEligibleAssignmentStatus(assignment.status)
+    );
 
   const pendingRequests = ownerRequests.filter((req) => req.status === "pending");
   const acceptedRequests = ownerRequests.filter(

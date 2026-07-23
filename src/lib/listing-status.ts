@@ -59,6 +59,13 @@ export const REVIEWABLE_LISTING_STATUSES = [
 /** Assignments that count toward tester slots / review eligibility. */
 export const COUNTED_ASSIGNMENT_STATUSES = ["active", "completed"] as const;
 
+/** Assignments that may upload or edit evidence (includes repair after incomplete). */
+export const EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES = [
+  "active",
+  "completed",
+  "incomplete",
+] as const;
+
 export function isPublicListingStatus(status: AppListingStatus): boolean {
   return (PUBLIC_LISTING_STATUSES as readonly AppListingStatus[]).includes(
     status
@@ -76,4 +83,13 @@ export function isCountedAssignmentStatus(
   status: string
 ): status is (typeof COUNTED_ASSIGNMENT_STATUSES)[number] {
   return (COUNTED_ASSIGNMENT_STATUSES as readonly string[]).includes(status);
+}
+
+/** Type guard for {@link EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES}. */
+export function isEvidenceEligibleAssignmentStatus(
+  status: string
+): status is (typeof EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES)[number] {
+  return (EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES as readonly string[]).includes(
+    status
+  );
 }

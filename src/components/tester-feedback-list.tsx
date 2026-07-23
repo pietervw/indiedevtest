@@ -2,20 +2,24 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useSyncExternalStore } from "react";
 import { ListingScreenshotGallery } from "@/components/listing-screenshot-gallery";
 import type { PublicListingFeedback } from "@/lib/public-listing";
 import { profilePath } from "@/lib/mock-data";
 
 function LocalTimestamp({ iso }: { iso: string }) {
-  const label = useMemo(
-    () =>
-      new Intl.DateTimeFormat(undefined, {
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+
+  const label = mounted
+    ? new Intl.DateTimeFormat(undefined, {
         dateStyle: "medium",
         timeStyle: "short",
-      }).format(new Date(iso)),
-    [iso]
-  );
+      }).format(new Date(iso))
+    : new Date(iso).toISOString().slice(0, 10);
 
   return (
     <time dateTime={iso} className="text-sm text-ink-muted">

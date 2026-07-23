@@ -213,11 +213,8 @@ export function ImageUploadManager({
         return;
       }
 
-      setShots((prev) => {
-        const next = [...prev, ...confirmed.screenshots];
-        onChange?.(next);
-        return next;
-      });
+      const next = [...shots, ...confirmed.screenshots];
+      commitShots(next);
     } catch (err) {
       console.error(err);
       if (mintedKeys.length > 0) {
@@ -264,19 +261,16 @@ export function ImageUploadManager({
 
   function onDelete(id: string) {
     setError(null);
-    setShots((previous) => {
-      const next = previous.filter((s) => s.id !== id);
-      startTransition(async () => {
-        const result = await actions.delete(id);
-        if (!result.ok) {
-          setError(result.message);
-          setShots(previous);
-          onChange?.(previous);
-        } else {
-          onChange?.(next);
-        }
-      });
-      return next;
+    const previous = shots;
+    const next = previous.filter((s) => s.id !== id);
+    commitShots(next);
+
+    startTransition(async () => {
+      const result = await actions.delete(id);
+      if (!result.ok) {
+        setError(result.message);
+        commitShots(previous);
+      }
     });
   }
 
