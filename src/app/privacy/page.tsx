@@ -148,8 +148,10 @@ export default function PrivacyPage() {
             Error monitoring is optional. If Sentry is configured for the
             deployment, it receives error reports and limited performance
             telemetry from the browser, server, and edge runtime so we can find
-            and fix reliability issues. If the Sentry settings are empty, this
-            monitoring is not enabled.
+            and fix reliability issues. Server and edge error reports are
+            configured to exclude request bodies, cookies, headers, and user
+            fields. If the Sentry settings are empty, this monitoring is not
+            enabled.
           </p>
         </LegalSection>
 
