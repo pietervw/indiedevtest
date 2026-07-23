@@ -8,7 +8,10 @@ import { revokeBadgeBelowThreshold, syncFirst12Badge } from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath } from "@/lib/mock-data";
-import { deleteObject } from "@/lib/storage";
+import {
+  enqueueObjectDeletions,
+  settleObjectDeletions,
+} from "@/lib/storage/deletion-outbox";
 import { field } from "@/lib/validation";
 
 export type DeleteAccountState = { ok: boolean; message: string };
@@ -193,6 +196,7 @@ export async function deleteAccount(
           ...new Set(testerCompleted.map((row) => row.appListing.userId)),
         ];
 
+        await enqueueObjectDeletions(tx, screenshotObjectKeys);
         await tx.user.delete({ where: { id: user.id } });
 
         for (const developerId of developersToSync) {
@@ -216,13 +220,7 @@ export async function deleteAccount(
       { timeout: 20_000 }
     );
 
-    await Promise.all(
-      screenshotObjectKeys.map((key) =>
-        deleteObject(key).catch((err) => {
-          console.error("[account] failed to delete R2 object", key, err);
-        })
-      )
-    );
+    await settleObjectDeletions(screenshotObjectKeys);
 
     invalidatePublicCaches({
       profileSlugs: [user.profileSlug, ...affectedProfileSlugs],

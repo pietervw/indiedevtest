@@ -6,6 +6,7 @@ import {
   copyObject,
   createPresignedPutUrl,
   deleteObject,
+  getObjectBytes,
   headObject,
 } from "@/lib/storage";
 import {
@@ -31,6 +32,7 @@ import {
   takeRateLimit,
   type RateLimitReservation,
 } from "@/lib/rate-limit";
+import { imageSize } from "image-size";
 
 /** Pending upload rows expire slightly after the presigned PUT URL (10 min). */
 const PENDING_UPLOAD_TTL_MS = 15 * 60 * 1000;
@@ -413,6 +415,41 @@ export async function confirmListingScreenshots(
       await discardPendingUploads(listingId, objectKeys);
       await deleteObjectsBestEffort(promotedFinalKeys);
       return { ok: false, message: "Uploaded file type mismatch." };
+    }
+
+    const bytes = await getObjectBytes(item.objectKey);
+    if (!bytes || bytes.byteLength !== item.byteSize) {
+      await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
+      return {
+        ok: false,
+        message: "Upload not found in storage. Please try again.",
+      };
+    }
+
+    let measured: { width?: number; height?: number };
+    try {
+      measured = imageSize(bytes);
+    } catch {
+      await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
+      return { ok: false, message: "Could not read uploaded image dimensions." };
+    }
+    if (
+      measured.width === undefined ||
+      measured.height === undefined ||
+      measured.width !== item.width ||
+      measured.height !== item.height
+    ) {
+      await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
+      return { ok: false, message: "Uploaded image dimensions mismatch." };
+    }
+    const dimError = validateImageDimensions(measured.width, measured.height);
+    if (dimError) {
+      await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
+      return { ok: false, message: dimError };
     }
 
     const finalKey = finalKeyFromPendingKey(item.objectKey);

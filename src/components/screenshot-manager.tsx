@@ -136,7 +136,7 @@ export function ScreenshotManager({
 
       mintedKeys = slotsResult.slots.map((slot) => slot.objectKey);
 
-      const uploads = await Promise.all(
+      const uploadResults = await Promise.allSettled(
         slotsResult.slots.map((slot, i) =>
           fetch(slot.uploadUrl, {
             method: "PUT",
@@ -148,7 +148,12 @@ export function ScreenshotManager({
           })
         )
       );
-      if (uploads.some((res) => !res.ok)) {
+      const uploadsFailed = uploadResults.some(
+        (result) =>
+          result.status === "rejected" ||
+          (result.status === "fulfilled" && !result.value.ok)
+      );
+      if (uploadsFailed) {
         await cancelListingScreenshotUploads(listingId, mintedKeys);
         setError("Upload to storage failed. Please try again.");
         return;

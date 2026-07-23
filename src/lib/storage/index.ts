@@ -3,6 +3,7 @@ import "server-only";
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
@@ -89,4 +90,21 @@ export async function deleteObject(objectKey: string): Promise<void> {
       Key: objectKey,
     })
   );
+}
+
+/** Read object bytes (screenshots are capped at IMAGE_LIMITS.maxBytes). */
+export async function getObjectBytes(objectKey: string): Promise<Buffer | null> {
+  try {
+    const result = await getR2Client().send(
+      new GetObjectCommand({
+        Bucket: getR2Bucket(),
+        Key: objectKey,
+      })
+    );
+    if (!result.Body) return null;
+    const bytes = await result.Body.transformToByteArray();
+    return Buffer.from(bytes);
+  } catch {
+    return null;
+  }
 }

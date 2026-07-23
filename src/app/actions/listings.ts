@@ -13,7 +13,10 @@ import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { isAllowedStatusTransition } from "@/lib/listing-status";
 import { appPath, editPath, profilePath } from "@/lib/mock-data";
-import { deleteObject } from "@/lib/storage";
+import {
+  enqueueObjectDeletions,
+  settleObjectDeletions,
+} from "@/lib/storage/deletion-outbox";
 import { field, isHttpUrl } from "@/lib/validation";
 
 export type UpdateListingState = {
@@ -310,6 +313,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
         }
       }
 
+      await enqueueObjectDeletions(tx, screenshotKeys);
       await tx.appListing.delete({ where: { id: listingId } });
       if (completedAssignments.length > 0) {
         await syncFirst12Badge(tx, listing.userId);
@@ -336,13 +340,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
     profileSlugs: [...affectedProfileSlugs],
   });
 
-  await Promise.all(
-    screenshotKeys.map((key) =>
-      deleteObject(key).catch((err) => {
-        console.error("[storage] failed to delete listing object", key, err);
-      })
-    )
-  );
+  await settleObjectDeletions(screenshotKeys);
 
   redirect(profilePath(user.profileSlug));
 }

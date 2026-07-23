@@ -57,7 +57,7 @@ See `.env.example`. Required in production:
 | `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT` | (optional) Sentry source-map upload credentials; builds skip upload unless all three are set |
 | `PUSHOVER_API_TOKEN`                                  | (optional) Pushover app token — both Pushover vars required to enable                        |
 | `PUSHOVER_USER_KEY`                                   | (optional) Pushover user/group key (waitlist + contact alerts)                               |
-| `CRON_SECRET`                                         | Bearer token for `/api/cron/*` scheduler routes (listing 14-day reminders)                   |
+| `CRON_SECRET`                                         | Bearer token for `/api/cron/*` scheduler routes (reminders + R2 deletion outbox)             |
 | `R2_ACCOUNT_ID`                                       | Cloudflare account id for R2 S3 API                                                          |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`           | R2 S3 API token (Object Read & Write)                                                        |
 | `R2_BUCKET`                                           | `indiedevtest`                                                                               |
@@ -81,6 +81,10 @@ Set `CRON_SECRET` in the service env, then add a Coolify scheduled task that cal
 ```bash
 curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
   "$NEXT_PUBLIC_SITE_URL/api/cron/listing-14-day-reminders"
+
+# Retry failed R2 object deletions (every few minutes):
+curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  "$NEXT_PUBLIC_SITE_URL/api/cron/storage-object-deletions"
 ```
 
 Unauthenticated callers receive `401` with no job details. A successful run returns a small JSON summary (`checked`, `sent`, `skipped`, `failed`).
