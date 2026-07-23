@@ -9,16 +9,19 @@ import {
   COUNTED_ASSIGNMENT_STATUSES,
   PUBLIC_LISTING_STATUSES,
 } from "@/lib/listing-status";
-import { isCompleteEvidence } from "@/lib/test-evidence";
+import { EVIDENCE_IMAGE_LIMITS } from "@/lib/storage/image-limits";
+import {
+  isCompleteEvidence,
+  MIN_IMPROVEMENT_LENGTH,
+} from "@/lib/test-evidence";
 
 /** Public listing payload — 10 min memory cache per id. */
 export const PUBLIC_LISTING_TTL_MS = 10 * 60 * 1000;
 /** Upper bound on cached listings — guards against unbounded growth from
  *  distinct ids (e.g. a crawler hitting many /apps/<id> URLs). */
 const PUBLIC_LISTING_CACHE_MAX = 1000;
-const PUBLIC_FEEDBACK_DISPLAY_LIMIT = 50;
-/** Over-fetch so incomplete drafts don't crowd out complete feedback. */
-const PUBLIC_FEEDBACK_FETCH_LIMIT = 200;
+/** Max complete feedback rows shown on a public listing. */
+const PUBLIC_FEEDBACK_LIMIT = 50;
 
 export type PublicListingFeedbackScreenshot = {
   id: string;
@@ -102,30 +105,6 @@ const listingInclude = {
       height: true,
     },
   },
-  reviews: {
-    include: {
-      tester: {
-        select: {
-          id: true,
-          displayName: true,
-          imageUrl: true,
-          profileSlug: true,
-        },
-      },
-      screenshots: {
-        orderBy: { sortOrder: "asc" as const },
-        select: {
-          id: true,
-          publicUrl: true,
-          sortOrder: true,
-          width: true,
-          height: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" as const },
-    take: PUBLIC_FEEDBACK_FETCH_LIMIT,
-  },
   _count: {
     select: {
       testAssignments: {
@@ -137,6 +116,58 @@ const listingInclude = {
     },
   },
 };
+
+const completeFeedbackInclude = {
+  tester: {
+    select: {
+      id: true,
+      displayName: true,
+      imageUrl: true,
+      profileSlug: true,
+    },
+  },
+  screenshots: {
+    orderBy: { sortOrder: "asc" as const },
+    select: {
+      id: true,
+      publicUrl: true,
+      sortOrder: true,
+      width: true,
+      height: true,
+    },
+  },
+} as const;
+
+/** Complete evidence only — apply the display cap after completeness, not before. */
+async function fetchCompleteFeedback(listingId: string) {
+  const completeIds = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT r.id
+    FROM reviews r
+    WHERE r.app_listing_id = ${listingId}
+      AND length(btrim(r.improvement_suggestion)) >= ${MIN_IMPROVEMENT_LENGTH}
+      AND (
+        SELECT COUNT(*)::int
+        FROM review_screenshots s
+        WHERE s.review_id = r.id
+      ) >= ${EVIDENCE_IMAGE_LIMITS.minFiles}
+    ORDER BY r.created_at DESC
+    LIMIT ${PUBLIC_FEEDBACK_LIMIT}
+  `;
+
+  if (completeIds.length === 0) {
+    return [];
+  }
+
+  const reviews = await prisma.review.findMany({
+    where: { id: { in: completeIds.map((row) => row.id) } },
+    include: completeFeedbackInclude,
+  });
+
+  const order = new Map(completeIds.map((row, index) => [row.id, index]));
+  return reviews.sort(
+    (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
+  );
+}
 
 export function invalidatePublicListingCache(listingId?: string) {
   if (listingId) {
@@ -151,12 +182,15 @@ function toPublicListing(
 ): PublicListing {
   const feedback = row.reviews
     .map((review) => {
-      const screenshotCount = review.screenshots.length;
-      const isComplete = isCompleteEvidence({
-        improvementSuggestion: review.improvementSuggestion,
-        screenshotCount,
-      });
-      if (!isComplete) return null;
+      // SQL already constrained to complete rows; keep the helper as a guard.
+      if (
+        !isCompleteEvidence({
+          improvementSuggestion: review.improvementSuggestion,
+          screenshotCount: review.screenshots.length,
+        })
+      ) {
+        return null;
+      }
       return {
         id: review.id,
         improvementSuggestion: review.improvementSuggestion,
@@ -166,8 +200,7 @@ function toPublicListing(
         screenshots: review.screenshots,
       };
     })
-    .filter((item): item is NonNullable<typeof item> => item != null)
-    .slice(0, PUBLIC_FEEDBACK_DISPLAY_LIMIT);
+    .filter((item): item is NonNullable<typeof item> => item != null);
 
   return {
     id: row.id,
@@ -198,7 +231,7 @@ function toPublicListing(
 
 /** Public statuses only — never returns or caches drafts. */
 async function fetchPublicListingRow(id: string) {
-  return prisma.appListing.findFirst({
+  const listing = await prisma.appListing.findFirst({
     where: {
       id,
       status: { in: [...PUBLIC_LISTING_STATUSES] },
@@ -206,14 +239,24 @@ async function fetchPublicListingRow(id: string) {
     },
     include: listingInclude,
   });
+  if (!listing) {
+    return null;
+  }
+  const reviews = await fetchCompleteFeedback(id);
+  return { ...listing, reviews };
 }
 
 /** Owner draft/non-public preview — uncached, scoped to ownerId. */
 async function fetchOwnerListingRow(id: string, ownerId: string) {
-  return prisma.appListing.findFirst({
+  const listing = await prisma.appListing.findFirst({
     where: { id, userId: ownerId },
     include: listingInclude,
   });
+  if (!listing) {
+    return null;
+  }
+  const reviews = await fetchCompleteFeedback(id);
+  return { ...listing, reviews };
 }
 
 /** Cached public listing for /apps/[id] metadata + anonymous/public views. */
