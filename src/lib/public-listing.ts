@@ -144,7 +144,9 @@ async function fetchCompleteFeedback(listingId: string) {
     SELECT r.id
     FROM reviews r
     WHERE r.app_listing_id = ${listingId}
-      AND length(btrim(r.improvement_suggestion)) >= ${MIN_IMPROVEMENT_LENGTH}
+      AND length(
+        regexp_replace(r.improvement_suggestion, E'^\\s+|\\s+$', '', 'g')
+      ) >= ${MIN_IMPROVEMENT_LENGTH}
       AND (
         SELECT COUNT(*)::int
         FROM review_screenshots s
