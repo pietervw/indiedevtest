@@ -65,7 +65,7 @@ See `.env.example`. Required in production:
 
 `NEXT_PUBLIC_*` values are inlined at **build** time. Set them as Coolify build args / build-time env as well as runtime env.
 
-Container start runs `npm`-equivalent `node scripts/check-storage-env.mjs` and **exits** if any `R2_*` var is missing (unless `ALLOW_MISSING_R2=1`, which must not be set in Coolify runtime).
+Container start runs `node scripts/check-storage-env.mjs` and **exits** if any `R2_*` var is missing. `ALLOW_MISSING_R2=1` is only for Docker image builds without runtime secrets and is rejected when `NODE_ENV=production` (do not set it in Coolify).
 
 ### Cloudflare R2 setup
 

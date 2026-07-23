@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import {
   copyObject,
   createPresignedPutUrl,
-  deleteObject,
   getObjectBytes,
   headObject,
 } from "@/lib/storage";
@@ -91,10 +90,19 @@ class PendingUploadError extends Error {
   }
 }
 
-async function deleteObjectsBestEffort(objectKeys: string[]) {
-  await Promise.all(
-    objectKeys.map((key) => deleteObject(key).catch(() => undefined))
-  );
+/** Enqueue then attempt delete so failed R2 removals still retry via cron. */
+async function deleteObjectsWithOutbox(objectKeys: string[]) {
+  const keys = [...new Set(objectKeys.filter((key) => key.length > 0))];
+  if (keys.length === 0) return;
+  await enqueueObjectDeletions(prisma, keys);
+  try {
+    await settleObjectDeletions(keys);
+  } catch (error) {
+    console.error(
+      "[screenshots] object settlement failed; deferring to cron",
+      error
+    );
+  }
 }
 
 async function discardPendingUploads(listingId: string, objectKeys: string[]) {
@@ -411,7 +419,7 @@ export async function confirmListingScreenshots(
     const head = heads[i];
     if (!head) {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return {
         ok: false,
         message: "Upload not found in storage. Please try again.",
@@ -423,12 +431,12 @@ export async function confirmListingScreenshots(
       head.contentLength > IMAGE_LIMITS.maxBytes
     ) {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return { ok: false, message: "Uploaded file size mismatch." };
     }
     if (!isAllowedImageContentType(item.contentType)) {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return { ok: false, message: "Invalid image type." };
     }
     const expectedType = item.contentType.split(";")[0]!;
@@ -437,14 +445,14 @@ export async function confirmListingScreenshots(
       !head.contentType.toLowerCase().startsWith(expectedType.toLowerCase())
     ) {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return { ok: false, message: "Uploaded file type mismatch." };
     }
 
     const bytes = await getObjectBytes(item.objectKey);
     if (!bytes || bytes.byteLength !== item.byteSize) {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return {
         ok: false,
         message: "Upload not found in storage. Please try again.",
@@ -456,7 +464,7 @@ export async function confirmListingScreenshots(
       measured = imageSize(bytes);
     } catch {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return { ok: false, message: "Could not read uploaded image dimensions." };
     }
     if (
@@ -466,20 +474,20 @@ export async function confirmListingScreenshots(
       measured.height !== item.height
     ) {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return { ok: false, message: "Uploaded image dimensions mismatch." };
     }
     const dimError = validateImageDimensions(measured.width, measured.height);
     if (dimError) {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return { ok: false, message: dimError };
     }
 
     const finalKey = finalKeyFromPendingKey(item.objectKey);
     if (!finalKey) {
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return { ok: false, message: "Invalid upload key." };
     }
 
@@ -493,7 +501,7 @@ export async function confirmListingScreenshots(
     } catch (err) {
       console.error("[screenshots] promote failed", err);
       await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsBestEffort(promotedFinalKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
       return { ok: false, message: "Could not finalize upload. Please try again." };
     }
 
@@ -517,7 +525,7 @@ export async function confirmListingScreenshots(
           objectKey: { in: objectKeys },
           expiresAt: { gt: new Date() },
         },
-        select: { objectKey: true },
+        select: { objectKey: true, expiresAt: true },
       });
       if (pending.length !== objectKeys.length) {
         throw new PendingUploadError();
@@ -563,6 +571,14 @@ export async function confirmListingScreenshots(
       await tx.appListingScreenshotUpload.deleteMany({
         where: { objectKey: { in: objectKeys } },
       });
+      // Defer tmp deletes until the presigned PUT can no longer recreate the object.
+      await enqueueObjectDeletions(
+        tx,
+        pending.map((row) => ({
+          objectKey: row.objectKey,
+          notBefore: row.expiresAt,
+        }))
+      );
 
       return rows;
     });
@@ -578,7 +594,7 @@ export async function confirmListingScreenshots(
         select: { objectKey: true },
       });
       const keptSet = new Set(kept.map((row) => row.objectKey));
-      await deleteObjectsBestEffort(
+      await deleteObjectsWithOutbox(
         promotedFinalKeys.filter((key) => !keptSet.has(key))
       );
     }
@@ -599,8 +615,15 @@ export async function confirmListingScreenshots(
     return { ok: false, message: "Could not save screenshots. Please try again." };
   }
 
-  // Drop temporary upload objects; final keys no longer have a valid PUT URL.
-  await deleteObjectsBestEffort(objectKeys);
+  // Tmp keys are deferred in the outbox until PUT expiry; settle is a no-op until then.
+  try {
+    await settleObjectDeletions(objectKeys);
+  } catch (error) {
+    console.error(
+      "[screenshots] tmp object settlement failed; deferring to cron",
+      error
+    );
+  }
 
   revalidateListingScreenshots(listingId, owned.listing.user.profileSlug);
   return { ok: true, screenshots: created };
