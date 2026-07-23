@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -60,6 +61,25 @@ export async function headObject(objectKey: string): Promise<{
   } catch {
     return null;
   }
+}
+
+/** Copy within the bucket (tmp → final). Callers delete the source after. */
+export async function copyObject(options: {
+  sourceKey: string;
+  destKey: string;
+  contentType: AllowedImageContentType;
+}): Promise<void> {
+  const bucket = getR2Bucket();
+  await getR2Client().send(
+    new CopyObjectCommand({
+      Bucket: bucket,
+      CopySource: `${bucket}/${options.sourceKey}`,
+      Key: options.destKey,
+      ContentType: options.contentType,
+      CacheControl: OBJECT_CACHE_CONTROL,
+      MetadataDirective: "REPLACE",
+    })
+  );
 }
 
 export async function deleteObject(objectKey: string): Promise<void> {

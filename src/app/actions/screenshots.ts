@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  copyObject,
   createPresignedPutUrl,
   deleteObject,
   headObject,
@@ -16,7 +17,9 @@ import {
 } from "@/lib/storage/image-limits";
 import {
   assertListingScreenshotKey,
-  listingScreenshotObjectKey,
+  assertListingScreenshotPendingKey,
+  finalKeyFromPendingKey,
+  listingScreenshotPendingObjectKey,
 } from "@/lib/storage/keys";
 import { publicUrlForObjectKey } from "@/lib/storage/client";
 import { requireDbUser } from "@/lib/auth-guards";
@@ -89,17 +92,25 @@ async function deleteObjectsBestEffort(objectKeys: string[]) {
 }
 
 async function discardPendingUploads(listingId: string, objectKeys: string[]) {
-  // Never delete caller-supplied keys that aren't under this listing's prefix.
+  // Only remove keys that are still pending — never delete confirmed screenshot objects.
   const scopedKeys = [
     ...new Set(
       objectKeys.filter((key) => assertListingScreenshotKey(listingId, key))
     ),
   ];
   if (scopedKeys.length === 0) return;
-  await deleteObjectsBestEffort(scopedKeys);
+
+  const pending = await prisma.appListingScreenshotUpload.findMany({
+    where: { appListingId: listingId, objectKey: { in: scopedKeys } },
+    select: { objectKey: true },
+  });
+  const pendingKeys = pending.map((row) => row.objectKey);
+  if (pendingKeys.length === 0) return;
+
+  await deleteObjectsBestEffort(pendingKeys);
   await prisma.appListingScreenshotUpload
     .deleteMany({
-      where: { appListingId: listingId, objectKey: { in: scopedKeys } },
+      where: { appListingId: listingId, objectKey: { in: pendingKeys } },
     })
     .catch(() => undefined);
 }
@@ -276,7 +287,7 @@ export async function createListingScreenshotUploadSlots(
       return {
         slot,
         contentType,
-        objectKey: listingScreenshotObjectKey(listingId, contentType),
+        objectKey: listingScreenshotPendingObjectKey(listingId, contentType),
       };
     });
     mintedKeys.push(...planned.map((row) => row.objectKey));
@@ -351,7 +362,7 @@ export async function confirmListingScreenshots(
       await discardPendingUploads(listingId, objectKeys);
       return { ok: false, message: error };
     }
-    if (!assertListingScreenshotKey(listingId, item.objectKey)) {
+    if (!assertListingScreenshotPendingKey(listingId, item.objectKey)) {
       await discardPendingUploads(listingId, objectKeys);
       return { ok: false, message: "Invalid upload key." };
     }
@@ -361,12 +372,20 @@ export async function confirmListingScreenshots(
     items.map((item) => headObject(item.objectKey))
   );
 
-  const verified: Array<ConfirmScreenshotInput & { publicUrl: string }> = [];
+  type Verified = ConfirmScreenshotInput & {
+    publicUrl: string;
+    finalKey: string;
+    contentType: AllowedImageContentType;
+  };
+  const verified: Verified[] = [];
+  const promotedFinalKeys: string[] = [];
+
   for (let i = 0; i < items.length; i++) {
     const item = items[i]!;
     const head = heads[i];
     if (!head) {
       await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
       return {
         ok: false,
         message: "Upload not found in storage. Please try again.",
@@ -378,7 +397,13 @@ export async function confirmListingScreenshots(
       head.contentLength > IMAGE_LIMITS.maxBytes
     ) {
       await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
       return { ok: false, message: "Uploaded file size mismatch." };
+    }
+    if (!isAllowedImageContentType(item.contentType)) {
+      await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
+      return { ok: false, message: "Invalid image type." };
     }
     const expectedType = item.contentType.split(";")[0]!;
     if (
@@ -386,12 +411,37 @@ export async function confirmListingScreenshots(
       !head.contentType.toLowerCase().startsWith(expectedType.toLowerCase())
     ) {
       await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
       return { ok: false, message: "Uploaded file type mismatch." };
     }
+
+    const finalKey = finalKeyFromPendingKey(item.objectKey);
+    if (!finalKey) {
+      await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
+      return { ok: false, message: "Invalid upload key." };
+    }
+
+    try {
+      await copyObject({
+        sourceKey: item.objectKey,
+        destKey: finalKey,
+        contentType: item.contentType,
+      });
+      promotedFinalKeys.push(finalKey);
+    } catch (err) {
+      console.error("[screenshots] promote failed", err);
+      await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsBestEffort(promotedFinalKeys);
+      return { ok: false, message: "Could not finalize upload. Please try again." };
+    }
+
     verified.push({
       ...item,
+      contentType: item.contentType,
       byteSize: head.contentLength,
-      publicUrl: publicUrlForObjectKey(item.objectKey),
+      finalKey,
+      publicUrl: publicUrlForObjectKey(finalKey),
     });
   }
 
@@ -430,7 +480,7 @@ export async function confirmListingScreenshots(
         const row = await tx.appListingScreenshot.create({
           data: {
             appListingId: listingId,
-            objectKey: item.objectKey,
+            objectKey: item.finalKey,
             publicUrl: item.publicUrl,
             sortOrder: nextOrder++,
             width: item.width,
@@ -457,6 +507,7 @@ export async function confirmListingScreenshots(
     });
   } catch (err) {
     await discardPendingUploads(listingId, objectKeys);
+    await deleteObjectsBestEffort(promotedFinalKeys);
     if (err instanceof ScreenshotLimitError) {
       return {
         ok: false,
@@ -473,6 +524,9 @@ export async function confirmListingScreenshots(
     console.error("[screenshots] confirm transaction failed", err);
     return { ok: false, message: "Could not save screenshots. Please try again." };
   }
+
+  // Drop temporary objects; final keys are immutable and no longer have a valid PUT URL.
+  await deleteObjectsBestEffort(objectKeys);
 
   revalidateListingScreenshots(listingId, owned.listing.user.profileSlug);
   return { ok: true, screenshots: created };
