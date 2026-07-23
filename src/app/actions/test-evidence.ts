@@ -35,7 +35,7 @@ import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import {
   isEvidenceEligibleAssignmentStatus,
-  isReviewableListingStatus,
+  isEvidenceOpenListingStatus,
 } from "@/lib/listing-status";
 import { appPath, editPath, profilePath } from "@/lib/mock-data";
 import {
@@ -239,7 +239,7 @@ async function requireEvidenceEligibleTester(listingId: string) {
     },
   });
 
-  if (!listing || !isReviewableListingStatus(listing.status)) {
+  if (!listing || !isEvidenceOpenListingStatus(listing.status)) {
     return {
       ok: false as const,
       message: "Test evidence isn't open for this listing right now.",

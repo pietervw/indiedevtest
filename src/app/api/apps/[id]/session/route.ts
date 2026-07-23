@@ -5,8 +5,8 @@ import { expirePendingTesterRequests, openTesterRequestWhere } from "@/lib/expir
 import {
   COUNTED_ASSIGNMENT_STATUSES,
   isEvidenceEligibleAssignmentStatus,
+  isEvidenceOpenListingStatus,
   isPublicListingStatus,
-  isReviewableListingStatus,
 } from "@/lib/listing-status";
 import type { ListingSessionPayload } from "@/lib/listing-session";
 import { isCompleteEvidence } from "@/lib/test-evidence";
@@ -83,7 +83,7 @@ export async function GET(_request: Request, { params }: Props) {
 
   await expirePendingTesterRequests({ listingId: listing.id });
 
-  const reviewListingOpen = isReviewableListingStatus(listing.status);
+  const evidenceListingOpen = isEvidenceOpenListingStatus(listing.status);
   const now = new Date();
 
   const [viewerRequest, assignment, ownerRequests, assignments] =
@@ -99,7 +99,7 @@ export async function GET(_request: Request, { params }: Props) {
             select: { status: true, testAssignmentId: true },
           })
         : null,
-      !isOwner && reviewListingOpen
+      !isOwner && evidenceListingOpen
         ? prisma.testAssignment.findUnique({
             where: {
               appListingId_testerUserId: {
@@ -161,7 +161,7 @@ export async function GET(_request: Request, { params }: Props) {
 
   const canSubmitEvidence =
     !isOwner &&
-    reviewListingOpen &&
+    evidenceListingOpen &&
     Boolean(
       assignment && isEvidenceEligibleAssignmentStatus(assignment.status)
     );
