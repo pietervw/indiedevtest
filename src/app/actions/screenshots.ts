@@ -265,27 +265,8 @@ export async function createListingScreenshotUploadSlots(
 
   const mintedKeys: string[] = [];
   try {
+    // Best-effort before locking; expired rows are ignored by the count below.
     await purgeExpiredPendingUploads(listingId);
-
-    const [confirmedCount, pendingCount] = await Promise.all([
-      prisma.appListingScreenshot.count({ where: { appListingId: listingId } }),
-      prisma.appListingScreenshotUpload.count({
-        where: { appListingId: listingId, expiresAt: { gt: new Date() } },
-      }),
-    ]);
-    const remaining = IMAGE_LIMITS.maxFiles - confirmedCount - pendingCount;
-    if (slots.length > remaining) {
-      for (const reservation of reserved.reservations) {
-        releaseRateLimit(reservation);
-      }
-      return {
-        ok: false,
-        message:
-          remaining <= 0
-            ? `You can add at most ${IMAGE_LIMITS.maxFiles} screenshots.`
-            : `You can only add ${remaining} more screenshot${remaining === 1 ? "" : "s"}.`,
-      };
-    }
 
     const expiresAt = new Date(Date.now() + PENDING_UPLOAD_TTL_MS);
     const planned = slots.map((slot) => {
@@ -296,15 +277,46 @@ export async function createListingScreenshotUploadSlots(
         objectKey: listingScreenshotPendingObjectKey(listingId, contentType),
       };
     });
-    mintedKeys.push(...planned.map((row) => row.objectKey));
 
-    await prisma.appListingScreenshotUpload.createMany({
-      data: planned.map((row) => ({
-        appListingId: listingId,
-        objectKey: row.objectKey,
-        expiresAt,
-      })),
+    // Count + insert under the listing lock so concurrent tabs can't exceed maxFiles.
+    const reservedOk = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listingId} FOR UPDATE`;
+
+      const [confirmedCount, pendingCount] = await Promise.all([
+        tx.appListingScreenshot.count({ where: { appListingId: listingId } }),
+        tx.appListingScreenshotUpload.count({
+          where: { appListingId: listingId, expiresAt: { gt: new Date() } },
+        }),
+      ]);
+      const remaining = IMAGE_LIMITS.maxFiles - confirmedCount - pendingCount;
+      if (slots.length > remaining) {
+        return {
+          ok: false as const,
+          message:
+            remaining <= 0
+              ? `You can add at most ${IMAGE_LIMITS.maxFiles} screenshots.`
+              : `You can only add ${remaining} more screenshot${remaining === 1 ? "" : "s"}.`,
+        };
+      }
+
+      await tx.appListingScreenshotUpload.createMany({
+        data: planned.map((row) => ({
+          appListingId: listingId,
+          objectKey: row.objectKey,
+          expiresAt,
+        })),
+      });
+      return { ok: true as const };
     });
+
+    if (!reservedOk.ok) {
+      for (const reservation of reserved.reservations) {
+        releaseRateLimit(reservation);
+      }
+      return { ok: false, message: reservedOk.message };
+    }
+
+    mintedKeys.push(...planned.map((row) => row.objectKey));
 
     const signed = await Promise.all(
       planned.map((row) =>
@@ -643,7 +655,15 @@ export async function deleteListingScreenshot(
     await enqueueObjectDeletions(tx, [shot.objectKey]);
     await tx.appListingScreenshot.delete({ where: { id: shot.id } });
   });
-  await settleObjectDeletions([shot.objectKey]);
+  try {
+    await settleObjectDeletions([shot.objectKey]);
+  } catch (error) {
+    // Row is already gone; cron retries via the outbox.
+    console.error(
+      "[screenshots] object settlement failed; deferring to cron",
+      error
+    );
+  }
 
   revalidateListingScreenshots(listingId, owned.listing.user.profileSlug);
   return { ok: true };

@@ -345,7 +345,15 @@ export async function deleteAppListing(listingId: string): Promise<void> {
     profileSlugs: [...affectedProfileSlugs],
   });
 
-  await settleObjectDeletions(screenshotKeys);
+  try {
+    await settleObjectDeletions(screenshotKeys);
+  } catch (error) {
+    // Listing is already deleted; cron retries via the outbox.
+    console.error(
+      "[listings] screenshot object settlement failed; deferring to cron",
+      error
+    );
+  }
 
   redirect(profilePath(user.profileSlug));
 }

@@ -225,7 +225,15 @@ export async function deleteAccount(
       { timeout: 20_000 }
     );
 
-    await settleObjectDeletions(screenshotObjectKeys);
+    try {
+      await settleObjectDeletions(screenshotObjectKeys);
+    } catch (error) {
+      // Account rows are already gone; cron retries via the outbox.
+      console.error(
+        "[account] screenshot object settlement failed; deferring to cron",
+        error
+      );
+    }
 
     invalidatePublicCaches({
       profileSlugs: [user.profileSlug, ...affectedProfileSlugs],
