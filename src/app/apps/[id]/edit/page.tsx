@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { EditAppListingForm } from "@/components/edit-app-listing-form";
+import { ScreenshotManager } from "@/components/screenshot-manager";
 import { Container } from "@/components/ui/section";
 import { requireDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
@@ -29,6 +30,9 @@ export default async function EditAppPage({ params }: Props) {
 
   const listing = await prisma.appListing.findUnique({
     where: { id },
+    include: {
+      screenshots: { orderBy: { sortOrder: "asc" } },
+    },
   });
 
   if (!listing) {
@@ -71,6 +75,23 @@ export default async function EditAppPage({ params }: Props) {
             }}
           />
         </div>
+
+        <section className="mt-16 max-w-xl border-t-2 border-ink pt-12">
+          <h2 className="font-display text-2xl font-extrabold text-ink">
+            Screenshots
+          </h2>
+          <p className="mt-2 text-ink-muted">
+            Optional but recommended. Drag to reorder; visitors see these above
+            About on your listing.
+          </p>
+          <div className="mt-6">
+            <ScreenshotManager
+              listingId={listing.id}
+              mode="edit"
+              initialScreenshots={listing.screenshots}
+            />
+          </div>
+        </section>
       </Container>
     </div>
   );

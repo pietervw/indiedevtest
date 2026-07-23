@@ -58,8 +58,21 @@ See `.env.example`. Required in production:
 | `PUSHOVER_API_TOKEN`                                  | (optional) Pushover app token — both Pushover vars required to enable                        |
 | `PUSHOVER_USER_KEY`                                   | (optional) Pushover user/group key (waitlist + contact alerts)                               |
 | `CRON_SECRET`                                         | Bearer token for `/api/cron/*` scheduler routes (listing 14-day reminders)                   |
+| `R2_ACCOUNT_ID`                                       | Cloudflare account id for R2 S3 API                                                          |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`           | R2 S3 API token (Object Read & Write)                                                        |
+| `R2_BUCKET`                                           | `indiedevtest`                                                                               |
+| `R2_PUBLIC_BASE_URL`                                  | Public CDN base URL (custom domain or `*.r2.dev`), no trailing slash                         |
 
 `NEXT_PUBLIC_*` values are inlined at **build** time. Set them as Coolify build args / build-time env as well as runtime env.
+
+Container start runs `npm`-equivalent `node scripts/check-storage-env.mjs` and **exits** if any `R2_*` var is missing (unless `ALLOW_MISSING_R2=1`, which must not be set in Coolify runtime).
+
+### Cloudflare R2 setup
+
+1. Create bucket `indiedevtest` and an S3 API token with read/write on that bucket.
+2. Enable public access via a custom domain (recommended) or `r2.dev` URL; set `R2_PUBLIC_BASE_URL` to that origin.
+3. Apply CORS from [`r2-cors.json`](./r2-cors.json) (Dashboard → R2 → bucket → Settings → CORS, or S3 `PutBucketCors`) so browsers can `PUT` uploads and `GET` images from `indiedevtest.com` / localhost.
+4. Object keys use prefixes `listings/` (app screenshots) and `test-feedback/` (tester evidence).
 
 ### Scheduled jobs (Coolify)
 

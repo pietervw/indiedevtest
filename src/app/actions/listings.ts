@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { isAllowedStatusTransition } from "@/lib/listing-status";
 import { appPath, editPath, profilePath } from "@/lib/mock-data";
+import { deleteObject } from "@/lib/storage";
 import { field, isHttpUrl } from "@/lib/validation";
 
 export type UpdateListingState = {
@@ -205,12 +206,18 @@ export async function deleteAppListing(listingId: string): Promise<void> {
 
   const listing = await prisma.appListing.findUnique({
     where: { id: listingId },
-    select: { id: true, userId: true },
+    select: {
+      id: true,
+      userId: true,
+      screenshots: { select: { objectKey: true } },
+    },
   });
 
   if (!listing || listing.userId !== user.id) {
     redirect("/browse");
   }
+
+  const screenshotKeys = listing.screenshots.map((s) => s.objectKey);
 
   const testerSelect = {
     testerUserId: true,
@@ -319,6 +326,14 @@ export async function deleteAppListing(listingId: string): Promise<void> {
     listingId,
     profileSlugs: [...affectedProfileSlugs],
   });
+
+  await Promise.all(
+    screenshotKeys.map((key) =>
+      deleteObject(key).catch((err) => {
+        console.error("[storage] failed to delete listing object", key, err);
+      })
+    )
+  );
 
   redirect(profilePath(user.profileSlug));
 }

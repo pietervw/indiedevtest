@@ -120,7 +120,6 @@ export async function createAppListing(
 
   const listing = parsed.data;
   const needsProfile = !user.profileCompletedAt;
-  let claimedFirstListing = false;
 
   const created = await prisma.$transaction(async (tx) => {
     if (!user.onboardingCompletedAt) {
@@ -132,7 +131,6 @@ export async function createAppListing(
         // Concurrent first submit already completed onboarding — avoid duplicate listing
         return null;
       }
-      claimedFirstListing = true;
     }
 
     return tx.appListing.create({
@@ -160,9 +158,8 @@ export async function createAppListing(
     profileSlugs: user.profileSlug,
   });
 
-  redirect(
-    claimedFirstListing || needsProfile ? "/onboarding/profile" : "/browse"
-  );
+  // Step 2: optional screenshots, then profile or listing.
+  redirect(`/apps/${created.id}/screenshots?new=1`);
 }
 
 /** @deprecated alias — prefer createAppListing */

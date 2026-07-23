@@ -17,14 +17,18 @@ export default async function NewAppPage() {
     <div className="relative flex-1 overflow-hidden bg-grid">
       <div className="pointer-events-none absolute -right-16 top-8 size-56 rounded-full bg-brand/20" />
       <Container className="relative py-14 md:py-20">
-        <h1 className="max-w-xl font-display text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
+        <p className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+          Step 1 of 2
+        </p>
+        <h1 className="mt-2 max-w-xl font-display text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
           List an app
         </h1>
         <p className="mt-4 max-w-lg text-lg text-ink-muted">
-          Open it for testing and get in front of fellow indie developers.
+          Open it for testing and get in front of fellow indie developers. Next
+          you can add screenshots.
         </p>
         <div className="mt-10">
-          <AppListingForm submitLabel="List my app" />
+          <AppListingForm submitLabel="Continue to screenshots" />
         </div>
       </Container>
     </div>
