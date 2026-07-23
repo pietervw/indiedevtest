@@ -811,7 +811,12 @@ export async function deleteEvidenceScreenshot(
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Serialize with markTestComplete's evidence gate (same review row lock).
+      // Same lock order as markTestComplete: assignment, then review.
+      await tx.$executeRaw`
+        SELECT id FROM test_assignments
+        WHERE app_listing_id = ${listingId}
+          AND tester_user_id = ${eligible.user.id}
+        FOR UPDATE`;
       await tx.$executeRaw`
         SELECT id FROM reviews
         WHERE id = ${review.id}

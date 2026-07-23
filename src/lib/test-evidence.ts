@@ -7,8 +7,10 @@ export function isCompleteEvidence(options: {
   improvementSuggestion: string;
   screenshotCount: number;
 }): boolean {
+  const suggestionLength = options.improvementSuggestion.trim().length;
   return (
-    options.improvementSuggestion.trim().length >= MIN_IMPROVEMENT_LENGTH &&
+    suggestionLength >= MIN_IMPROVEMENT_LENGTH &&
+    suggestionLength <= MAX_IMPROVEMENT_LENGTH &&
     options.screenshotCount >= EVIDENCE_IMAGE_LIMITS.minFiles
   );
 }
