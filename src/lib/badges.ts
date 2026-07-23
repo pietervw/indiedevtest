@@ -36,7 +36,7 @@ export const BADGE_DEFINITIONS: readonly BadgeDefinition[] = [
   {
     type: "helpful_dev",
     label: "Helpful Dev",
-    description: `Wrote ${HELPFUL_DEV_THRESHOLD}+ reviews (MVP threshold).`,
+    description: `Submitted ${HELPFUL_DEV_THRESHOLD}+ tester feedback entries (MVP threshold).`,
   },
 ] as const;
 

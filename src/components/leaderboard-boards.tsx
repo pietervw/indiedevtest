@@ -9,7 +9,7 @@ const BOARDS: {
 }[] = [
   { key: "mostTested", title: "Most apps tested", unit: "done" },
   { key: "mostLaunched", title: "Most apps launched", unit: "live" },
-  { key: "mostReviews", title: "Most reviews written", unit: "reviews" },
+  { key: "mostReviews", title: "Most tester feedback", unit: "feedback" },
 ];
 
 function Board({

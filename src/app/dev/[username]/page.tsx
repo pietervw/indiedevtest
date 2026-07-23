@@ -139,7 +139,7 @@ export default async function DevProfilePage({ params }: Props) {
                 {user.profileScoreCompleted} completed
               </Badge>
               <Badge variant="outline" size="sm">
-                {user.reviewsWrittenCount} reviews
+                {user.reviewsWrittenCount} feedback
               </Badge>
             </div>
           </div>

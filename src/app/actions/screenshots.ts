@@ -3,17 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  copyObject,
   createPresignedPutUrl,
-  getObjectBytes,
-  headObject,
 } from "@/lib/storage";
 import {
   enqueueObjectDeletions,
   settleObjectDeletions,
 } from "@/lib/storage/deletion-outbox";
 import {
-  IMAGE_LIMITS,
+  LISTING_IMAGE_LIMITS,
   isAllowedImageContentType,
   validateImageByteSize,
   validateImageDimensions,
@@ -22,10 +19,15 @@ import {
 import {
   assertListingScreenshotKey,
   assertListingScreenshotPendingKey,
-  finalKeyFromPendingKey,
   listingScreenshotPendingObjectKey,
 } from "@/lib/storage/keys";
-import { publicUrlForObjectKey } from "@/lib/storage/client";
+import type {
+  ConfirmImageInput,
+  UploadSlot,
+  UploadSlotRequest,
+  UploadedImageDto,
+} from "@/lib/storage/upload-types";
+import { verifyAndPromotePendingImages } from "@/lib/storage/verify-promote";
 import { requireDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
@@ -35,7 +37,8 @@ import {
   takeRateLimit,
   type RateLimitReservation,
 } from "@/lib/rate-limit";
-import { imageSize } from "image-size";
+
+const IMAGE_LIMITS = LISTING_IMAGE_LIMITS;
 
 /** Pending upload rows expire slightly after the presigned PUT URL (10 min). */
 const PENDING_UPLOAD_TTL_MS = 15 * 60 * 1000;
@@ -43,38 +46,9 @@ const PENDING_UPLOAD_TTL_MS = 15 * 60 * 1000;
 const PRESIGN_SLOT_LIMIT = 15;
 const PRESIGN_SLOT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export type ListingScreenshotDto = {
-  id: string;
-  publicUrl: string;
-  sortOrder: number;
-  width: number;
-  height: number;
-  contentType: string;
-};
-
-export type UploadSlotRequest = {
-  contentType: string;
-  byteSize: number;
-  width: number;
-  height: number;
-};
-
-export type UploadSlot = {
-  objectKey: string;
-  uploadUrl: string;
-  contentType: string;
-  byteSize: number;
-  width: number;
-  height: number;
-};
-
-export type ConfirmScreenshotInput = {
-  objectKey: string;
-  contentType: string;
-  byteSize: number;
-  width: number;
-  height: number;
-};
+export type ListingScreenshotDto = UploadedImageDto;
+export type ConfirmScreenshotInput = ConfirmImageInput;
+export type { UploadSlotRequest, UploadSlot };
 
 class ScreenshotLimitError extends Error {
   constructor() {
@@ -402,139 +376,14 @@ export async function confirmListingScreenshots(
     }
   }
 
-  type Verified = ConfirmScreenshotInput & {
-    publicUrl: string;
-    finalKey: string;
-    contentType: AllowedImageContentType;
-  };
-  const verified: Verified[] = [];
-  const promotedFinalKeys: string[] = [];
-
-  let heads: Array<{
-    contentLength: number | undefined;
-    contentType: string | undefined;
-  } | null>;
-  try {
-    heads = await Promise.all(items.map((item) => headObject(item.objectKey)));
-  } catch (err) {
-    console.error("[screenshots] headObject failed", err);
+  const verifiedResult = await verifyAndPromotePendingImages(items, IMAGE_LIMITS);
+  if (!verifiedResult.ok) {
     await discardPendingUploads(listingId, objectKeys);
-    return {
-      ok: false,
-      message: "Storage temporarily unavailable. Please try again.",
-    };
+    await deleteObjectsWithOutbox(verifiedResult.promotedFinalKeys);
+    return { ok: false, message: verifiedResult.message };
   }
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i]!;
-    const head = heads[i];
-    if (!head) {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return {
-        ok: false,
-        message: "Upload not found in storage. Please try again.",
-      };
-    }
-    if (
-      head.contentLength === undefined ||
-      head.contentLength !== item.byteSize ||
-      head.contentLength > IMAGE_LIMITS.maxBytes
-    ) {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return { ok: false, message: "Uploaded file size mismatch." };
-    }
-    if (!isAllowedImageContentType(item.contentType)) {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return { ok: false, message: "Invalid image type." };
-    }
-    const expectedType = item.contentType.split(";")[0]!;
-    if (
-      head.contentType &&
-      !head.contentType.toLowerCase().startsWith(expectedType.toLowerCase())
-    ) {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return { ok: false, message: "Uploaded file type mismatch." };
-    }
-
-    let bytes: Buffer | null;
-    try {
-      bytes = await getObjectBytes(item.objectKey);
-    } catch (err) {
-      console.error("[screenshots] getObjectBytes failed", err);
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return {
-        ok: false,
-        message: "Storage temporarily unavailable. Please try again.",
-      };
-    }
-    if (!bytes || bytes.byteLength !== item.byteSize) {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return {
-        ok: false,
-        message: "Upload not found in storage. Please try again.",
-      };
-    }
-
-    let measured: { width?: number; height?: number };
-    try {
-      measured = imageSize(bytes);
-    } catch {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return { ok: false, message: "Could not read uploaded image dimensions." };
-    }
-    if (
-      measured.width === undefined ||
-      measured.height === undefined ||
-      measured.width !== item.width ||
-      measured.height !== item.height
-    ) {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return { ok: false, message: "Uploaded image dimensions mismatch." };
-    }
-    const dimError = validateImageDimensions(measured.width, measured.height);
-    if (dimError) {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return { ok: false, message: dimError };
-    }
-
-    const finalKey = finalKeyFromPendingKey(item.objectKey);
-    if (!finalKey) {
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return { ok: false, message: "Invalid upload key." };
-    }
-
-    try {
-      await copyObject({
-        sourceKey: item.objectKey,
-        destKey: finalKey,
-        contentType: item.contentType,
-      });
-      promotedFinalKeys.push(finalKey);
-    } catch (err) {
-      console.error("[screenshots] promote failed", err);
-      await discardPendingUploads(listingId, objectKeys);
-      await deleteObjectsWithOutbox(promotedFinalKeys);
-      return { ok: false, message: "Could not finalize upload. Please try again." };
-    }
-
-    verified.push({
-      ...item,
-      contentType: item.contentType,
-      byteSize: head.contentLength,
-      finalKey,
-      publicUrl: publicUrlForObjectKey(finalKey),
-    });
-  }
+  const verified = verifiedResult.promoted;
+  const promotedFinalKeys = verified.map((item) => item.finalKey);
 
   let created: ListingScreenshotDto[];
   try {
@@ -637,15 +486,12 @@ export async function confirmListingScreenshots(
     return { ok: false, message: "Could not save screenshots. Please try again." };
   }
 
-  // Tmp keys are deferred in the outbox until PUT expiry; settle is a no-op until then.
-  try {
-    await settleObjectDeletions(objectKeys);
-  } catch (error) {
+  void settleObjectDeletions(objectKeys).catch((error) => {
     console.error(
       "[screenshots] tmp object settlement failed; deferring to cron",
       error
     );
-  }
+  });
 
   revalidateListingScreenshots(listingId, owned.listing.user.profileSlug);
   return { ok: true, screenshots: created };

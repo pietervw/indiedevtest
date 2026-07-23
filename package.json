@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "check:storage-env": "node scripts/check-storage-env.mjs",
+    "apply:r2-cors": "node scripts/apply-r2-cors.mjs",
     "lint": "eslint .",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

@@ -25,7 +25,7 @@ import {
 import { RequestToTestForm } from "@/components/request-to-test-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
-import { WriteReviewForm } from "@/components/write-review-form";
+import { TestEvidenceForm } from "@/components/test-evidence-form";
 import { TesterFeedbackForm } from "@/components/tester-feedback-form";
 import type { ListingSessionPayload } from "@/lib/listing-session";
 import {
@@ -177,6 +177,7 @@ function OwnerAssignmentRow({
   afterAction: (fn: () => Promise<void>) => () => Promise<void>;
 }) {
   const done = assignment.status === "completed";
+  const [completeError, setCompleteError] = useState<string | null>(null);
   const progress = testingPeriodProgress(
     assignment.joinedAt,
     assignment.platform
@@ -187,6 +188,12 @@ function OwnerAssignmentRow({
       : null;
   useRerenderAt(unlockAt);
 
+  const canMarkComplete =
+    progress.canComplete && assignment.hasCompleteEvidence;
+  const completeHint = !assignment.hasCompleteEvidence
+    ? "Waiting for tester evidence (4+ screenshots + improvement suggestion)"
+    : progress.label || undefined;
+
   return (
     <li className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
       <TesterRow
@@ -196,30 +203,54 @@ function OwnerAssignmentRow({
             ? `Completed ${new Date(
                 assignment.completedAt ?? assignment.joinedAt
               ).toLocaleDateString()}`
-            : progress.label
-              ? `${progress.label} · joined ${new Date(
-                  assignment.joinedAt
-                ).toLocaleDateString()}`
-              : `Joined ${new Date(assignment.joinedAt).toLocaleDateString()}`
+            : [
+                progress.label,
+                assignment.hasCompleteEvidence
+                  ? "Evidence submitted"
+                  : "Evidence required",
+                `joined ${new Date(assignment.joinedAt).toLocaleDateString()}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")
         }
       />
-      <div className="flex shrink-0 items-center gap-2">
-        {!done ? (
-          <form action={afterAction(() => markTestComplete(assignment.id))}>
-            <SubmitButton
-              size="sm"
-              pendingLabel="Marking…"
-              disabled={!progress.canComplete}
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="flex items-center gap-2">
+          {!done ? (
+            <form
+              action={afterAction(async () => {
+                setCompleteError(null);
+                const result = await markTestComplete(assignment.id);
+                if (!result.ok) {
+                  setCompleteError(result.message);
+                }
+              })}
             >
-              Mark complete
+              <SubmitButton
+                size="sm"
+                pendingLabel="Marking…"
+                disabled={!canMarkComplete}
+                title={completeHint}
+              >
+                Mark complete
+              </SubmitButton>
+            </form>
+          ) : null}
+          <form action={afterAction(() => markTestIncomplete(assignment.id))}>
+            <SubmitButton size="sm" variant="secondary" pendingLabel="Marking…">
+              Mark incomplete
             </SubmitButton>
           </form>
+        </div>
+        {completeError ? (
+          <p className="max-w-xs text-right text-xs font-semibold text-red-600" role="alert">
+            {completeError}
+          </p>
+        ) : !done && !assignment.hasCompleteEvidence ? (
+          <p className="max-w-xs text-right text-xs text-ink-muted">
+            Tester must submit evidence before you can mark complete.
+          </p>
         ) : null}
-        <form action={afterAction(() => markTestIncomplete(assignment.id))}>
-          <SubmitButton size="sm" variant="secondary" pendingLabel="Marking…">
-            Mark incomplete
-          </SubmitButton>
-        </form>
       </div>
     </li>
   );
@@ -322,20 +353,12 @@ export function ListingSessionPanels({
         </div>
       ) : null}
 
-      {session?.canWriteReview ? (
-        <div className="mt-10">
-          <WriteReviewForm listingId={listingId} />
-        </div>
+      {session?.canSubmitEvidence ? (
+        <TestEvidenceForm listingId={listingId} />
       ) : null}
 
       {session?.viewerHasJoined ? (
         <TesterFeedbackForm listingId={listingId} />
-      ) : null}
-
-      {session?.hasWrittenReview ? (
-        <p className="mt-10 font-semibold text-ink-muted" role="status">
-          You already reviewed this app — thanks.
-        </p>
       ) : null}
 
       {isOwner && session && session.pendingRequests.length > 0 ? (

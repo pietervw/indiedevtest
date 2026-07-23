@@ -12,6 +12,7 @@ import {
   enqueueObjectDeletions,
   settleObjectDeletions,
 } from "@/lib/storage/deletion-outbox";
+import { isCompleteEvidence } from "@/lib/test-evidence";
 import { field } from "@/lib/validation";
 
 export type DeleteAccountState = { ok: boolean; message: string };
@@ -84,7 +85,7 @@ export async function deleteAccount(
         });
         const ownedListingIds = listingIds.map((listing) => listing.id);
 
-        const [screenshots, screenshotUploads] =
+        const [screenshots, screenshotUploads, reviewScreenshots, reviewUploads] =
           ownedListingIds.length > 0
             ? await Promise.all([
                 tx.appListingScreenshot.findMany({
@@ -95,13 +96,64 @@ export async function deleteAccount(
                   where: { appListingId: { in: ownedListingIds } },
                   select: { objectKey: true, expiresAt: true },
                 }),
+                tx.reviewScreenshot.findMany({
+                  where: { review: { appListingId: { in: ownedListingIds } } },
+                  select: { objectKey: true },
+                }),
+                tx.reviewScreenshotUpload.findMany({
+                  where: { appListingId: { in: ownedListingIds } },
+                  select: { objectKey: true, expiresAt: true },
+                }),
               ])
-            : [[], []];
+            : [[], [], [], []];
+
+        // Also collect evidence screenshots the user uploaded as a tester on others' apps.
+        const myReviewScreenshots = await tx.reviewScreenshot.findMany({
+          where: {
+            review: {
+              testerUserId: user.id,
+              ...(ownedListingIds.length > 0
+                ? { appListingId: { notIn: ownedListingIds } }
+                : {}),
+            },
+          },
+          select: { objectKey: true },
+        });
+        const myReviewUploads = await tx.reviewScreenshotUpload.findMany({
+          where: {
+            testerUserId: user.id,
+            ...(ownedListingIds.length > 0
+              ? { appListingId: { notIn: ownedListingIds } }
+              : {}),
+          },
+          select: { objectKey: true, expiresAt: true },
+        });
+        if (myReviewUploads.length > 0) {
+          await tx.reviewScreenshotUpload.deleteMany({
+            where: {
+              testerUserId: user.id,
+              ...(ownedListingIds.length > 0
+                ? { appListingId: { notIn: ownedListingIds } }
+                : {}),
+            },
+          });
+        }
+
         const deletionJobs = [
           ...screenshots.map((row) => ({ objectKey: row.objectKey })),
           ...screenshotUploads.map((row) => ({
             objectKey: row.objectKey,
             // Pending PUT URLs stay valid ~10m; row expiresAt is 15m after mint.
+            notBefore: row.expiresAt,
+          })),
+          ...reviewScreenshots.map((row) => ({ objectKey: row.objectKey })),
+          ...reviewUploads.map((row) => ({
+            objectKey: row.objectKey,
+            notBefore: row.expiresAt,
+          })),
+          ...myReviewScreenshots.map((row) => ({ objectKey: row.objectKey })),
+          ...myReviewUploads.map((row) => ({
+            objectKey: row.objectKey,
             notBefore: row.expiresAt,
           })),
         ];
@@ -124,7 +176,12 @@ export async function deleteAccount(
                   appListingId: { in: ownedListingIds },
                   testerUserId: { not: user.id },
                 },
-                select: testerSelect,
+                select: {
+                  testerUserId: true,
+                  improvementSuggestion: true,
+                  tester: { select: { profileSlug: true } },
+                  _count: { select: { screenshots: true } },
+                },
               })
             : Promise.resolve([]),
           tx.testAssignment.findMany({
@@ -153,6 +210,14 @@ export async function deleteAccount(
         }
         const reviewsByUser = new Map<string, number>();
         for (const review of ownedReviews) {
+          if (
+            !isCompleteEvidence({
+              improvementSuggestion: review.improvementSuggestion,
+              screenshotCount: review._count.screenshots,
+            })
+          ) {
+            continue;
+          }
           reviewsByUser.set(
             review.testerUserId,
             (reviewsByUser.get(review.testerUserId) ?? 0) + 1

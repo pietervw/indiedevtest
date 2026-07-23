@@ -72,6 +72,7 @@ export default async function EditAppPage({ params }: Props) {
               testerCapacity: listing.testerCapacity,
               status: listing.status,
               storeLink: listing.storeLink ?? "",
+              showTesterFeedback: listing.showTesterFeedback,
             }}
           />
         </div>

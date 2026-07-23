@@ -56,8 +56,25 @@ export const REVIEWABLE_LISTING_STATUSES = [
   "closed_for_testing",
 ] as const satisfies readonly AppListingStatus[];
 
+/**
+ * Listings where assigned testers may still upload/edit evidence.
+ * Includes `testing_complete` so active testers can finish evidence after
+ * the owner closes the program (status cannot move back).
+ */
+export const EVIDENCE_OPEN_LISTING_STATUSES = [
+  "open_for_testing",
+  "closed_for_testing",
+  "testing_complete",
+] as const satisfies readonly AppListingStatus[];
+
 /** Assignments that count toward tester slots / review eligibility. */
 export const COUNTED_ASSIGNMENT_STATUSES = ["active", "completed"] as const;
+
+/** Assignments that may upload or edit evidence. */
+export const EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES = [
+  "active",
+  "completed",
+] as const;
 
 export function isPublicListingStatus(status: AppListingStatus): boolean {
   return (PUBLIC_LISTING_STATUSES as readonly AppListingStatus[]).includes(
@@ -71,9 +88,24 @@ export function isReviewableListingStatus(status: AppListingStatus): boolean {
   );
 }
 
+export function isEvidenceOpenListingStatus(status: AppListingStatus): boolean {
+  return (EVIDENCE_OPEN_LISTING_STATUSES as readonly AppListingStatus[]).includes(
+    status
+  );
+}
+
 /** Type guard for {@link COUNTED_ASSIGNMENT_STATUSES} (also narrows the enum). */
 export function isCountedAssignmentStatus(
   status: string
 ): status is (typeof COUNTED_ASSIGNMENT_STATUSES)[number] {
   return (COUNTED_ASSIGNMENT_STATUSES as readonly string[]).includes(status);
+}
+
+/** Type guard for {@link EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES}. */
+export function isEvidenceEligibleAssignmentStatus(
+  status: string
+): status is (typeof EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES)[number] {
+  return (EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES as readonly string[]).includes(
+    status
+  );
 }

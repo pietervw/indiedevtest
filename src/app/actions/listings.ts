@@ -17,6 +17,7 @@ import {
   enqueueObjectDeletions,
   settleObjectDeletions,
 } from "@/lib/storage/deletion-outbox";
+import { isCompleteEvidence } from "@/lib/test-evidence";
 import { field, isHttpUrl } from "@/lib/validation";
 
 export type UpdateListingState = {
@@ -68,6 +69,7 @@ export async function updateAppListing(
   const testerCapacityRaw = field(formData, "testerCapacity");
   const status = field(formData, "status");
   const storeLink = field(formData, "storeLink");
+  const showTesterFeedback = formData.get("showTesterFeedback") === "on";
 
   const fieldErrors: UpdateListingState["fieldErrors"] = {};
 
@@ -172,6 +174,7 @@ export async function updateAppListing(
           status === "launched"
             ? storeLink
             : storeLink || null,
+        showTesterFeedback,
       },
     });
     return { ok: true as const };
@@ -202,7 +205,7 @@ export async function updateAppListing(
  * - Cancel ongoing tests (rows cascade-delete with the listing)
  * - Revoke Completed credits; keep Joined credits
  * - Expire pending requests (cascade-delete)
- * - Reviews cascade-delete with the listing
+ * - Reviews / test evidence cascade-delete with the listing (R2 keys outboxed)
  */
 export async function deleteAppListing(listingId: string): Promise<void> {
   const user = await requireDbUser();
@@ -231,13 +234,27 @@ export async function deleteAppListing(listingId: string): Promise<void> {
       await tx.$executeRaw`SELECT id FROM reviews WHERE app_listing_id = ${listingId} FOR UPDATE`;
 
       // Collect R2 keys under the lock so concurrent uploads can't orphan objects.
-      const [screenshots, screenshotUploads, completedAssignments, reviews] =
-        await Promise.all([
+      const [
+        screenshots,
+        screenshotUploads,
+        reviewScreenshots,
+        reviewScreenshotUploads,
+        completedAssignments,
+        reviews,
+      ] = await Promise.all([
           tx.appListingScreenshot.findMany({
             where: { appListingId: listingId },
             select: { objectKey: true },
           }),
           tx.appListingScreenshotUpload.findMany({
+            where: { appListingId: listingId },
+            select: { objectKey: true, expiresAt: true },
+          }),
+          tx.reviewScreenshot.findMany({
+            where: { review: { appListingId: listingId } },
+            select: { objectKey: true },
+          }),
+          tx.reviewScreenshotUpload.findMany({
             where: { appListingId: listingId },
             select: { objectKey: true, expiresAt: true },
           }),
@@ -247,7 +264,12 @@ export async function deleteAppListing(listingId: string): Promise<void> {
           }),
           tx.review.findMany({
             where: { appListingId: listingId },
-            select: testerSelect,
+            select: {
+              testerUserId: true,
+              improvementSuggestion: true,
+              tester: { select: { profileSlug: true } },
+              _count: { select: { screenshots: true } },
+            },
           }),
         ]);
 
@@ -256,6 +278,11 @@ export async function deleteAppListing(listingId: string): Promise<void> {
         ...screenshotUploads.map((s) => ({
           objectKey: s.objectKey,
           // Pending PUT URLs stay valid ~10m; row expiresAt is 15m after mint.
+          notBefore: s.expiresAt,
+        })),
+        ...reviewScreenshots.map((s) => ({ objectKey: s.objectKey })),
+        ...reviewScreenshotUploads.map((s) => ({
+          objectKey: s.objectKey,
           notBefore: s.expiresAt,
         })),
       ];
@@ -270,8 +297,17 @@ export async function deleteAppListing(listingId: string): Promise<void> {
           (completedByUser.get(assignment.testerUserId) ?? 0) + 1
         );
       }
+      // Only complete evidence ever incremented reviewsWrittenCount.
       const reviewsByUser = new Map<string, number>();
       for (const review of reviews) {
+        if (
+          !isCompleteEvidence({
+            improvementSuggestion: review.improvementSuggestion,
+            screenshotCount: review._count.screenshots,
+          })
+        ) {
+          continue;
+        }
         reviewsByUser.set(
           review.testerUserId,
           (reviewsByUser.get(review.testerUserId) ?? 0) + 1
