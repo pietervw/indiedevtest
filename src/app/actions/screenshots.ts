@@ -402,10 +402,6 @@ export async function confirmListingScreenshots(
     }
   }
 
-  const heads = await Promise.all(
-    items.map((item) => headObject(item.objectKey))
-  );
-
   type Verified = ConfirmScreenshotInput & {
     publicUrl: string;
     finalKey: string;
@@ -413,6 +409,21 @@ export async function confirmListingScreenshots(
   };
   const verified: Verified[] = [];
   const promotedFinalKeys: string[] = [];
+
+  let heads: Array<{
+    contentLength: number | undefined;
+    contentType: string | undefined;
+  } | null>;
+  try {
+    heads = await Promise.all(items.map((item) => headObject(item.objectKey)));
+  } catch (err) {
+    console.error("[screenshots] headObject failed", err);
+    await discardPendingUploads(listingId, objectKeys);
+    return {
+      ok: false,
+      message: "Storage temporarily unavailable. Please try again.",
+    };
+  }
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i]!;
@@ -449,7 +460,18 @@ export async function confirmListingScreenshots(
       return { ok: false, message: "Uploaded file type mismatch." };
     }
 
-    const bytes = await getObjectBytes(item.objectKey);
+    let bytes: Buffer | null;
+    try {
+      bytes = await getObjectBytes(item.objectKey);
+    } catch (err) {
+      console.error("[screenshots] getObjectBytes failed", err);
+      await discardPendingUploads(listingId, objectKeys);
+      await deleteObjectsWithOutbox(promotedFinalKeys);
+      return {
+        ok: false,
+        message: "Storage temporarily unavailable. Please try again.",
+      };
+    }
     if (!bytes || bytes.byteLength !== item.byteSize) {
       await discardPendingUploads(listingId, objectKeys);
       await deleteObjectsWithOutbox(promotedFinalKeys);

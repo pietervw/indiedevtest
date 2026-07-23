@@ -1,4 +1,5 @@
-/** CDN cache for listing screenshots (deletable — avoid long immutable TTLs). */
+/** CDN cache for listing screenshots (deletable — avoid long immutable TTLs).
+ * Deleted objects may remain visible in caches for up to max-age (1 hour). */
 export const OBJECT_CACHE_CONTROL = "public, max-age=3600";
 
 export const IMAGE_LIMITS = {
@@ -39,8 +40,8 @@ export function validateImageDimensions(
   height: number
 ): string | null {
   if (
-    !Number.isFinite(width) ||
-    !Number.isFinite(height) ||
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
     width < 1 ||
     height < 1
   ) {
@@ -56,7 +57,7 @@ export function validateImageDimensions(
 }
 
 export function validateImageByteSize(byteSize: number): string | null {
-  if (!Number.isFinite(byteSize) || byteSize < 1) {
+  if (!Number.isSafeInteger(byteSize) || byteSize < 1) {
     return "Invalid file size.";
   }
   if (byteSize > IMAGE_LIMITS.maxBytes) {

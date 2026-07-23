@@ -17,6 +17,18 @@ import { OBJECT_CACHE_CONTROL } from "@/lib/storage/image-limits";
 
 const PRESIGN_EXPIRES_SECONDS = 10 * 60;
 
+function isMissingObjectError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const err = error as {
+    name?: string;
+    Code?: string;
+    $metadata?: { httpStatusCode?: number };
+  };
+  const code = err.name ?? err.Code;
+  if (code === "NotFound" || code === "NoSuchKey") return true;
+  return err.$metadata?.httpStatusCode === 404;
+}
+
 export async function createPresignedPutUrl(options: {
   objectKey: string;
   contentType: AllowedImageContentType;
@@ -68,8 +80,9 @@ export async function headObject(objectKey: string): Promise<{
       contentLength: result.ContentLength,
       contentType: result.ContentType,
     };
-  } catch {
-    return null;
+  } catch (error) {
+    if (isMissingObjectError(error)) return null;
+    throw error;
   }
 }
 
@@ -113,7 +126,8 @@ export async function getObjectBytes(objectKey: string): Promise<Buffer | null> 
     if (!result.Body) return null;
     const bytes = await result.Body.transformToByteArray();
     return Buffer.from(bytes);
-  } catch {
-    return null;
+  } catch (error) {
+    if (isMissingObjectError(error)) return null;
+    throw error;
   }
 }
