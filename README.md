@@ -71,7 +71,9 @@ Container start runs `node scripts/check-storage-env.mjs` and **exits** if any `
 
 1. Create bucket `indiedevtest` and an S3 API token with read/write on that bucket.
 2. Enable public access via a custom domain (recommended) or `r2.dev` URL; set `R2_PUBLIC_BASE_URL` to that origin.
-3. Apply CORS from [`r2-cors.json`](./r2-cors.json) (Dashboard → R2 → bucket → Settings → CORS, or S3 `PutBucketCors`) so browsers can `PUT` uploads and `GET` images from `indiedevtest.com` / localhost.
+3. Apply CORS from [`r2-cors.json`](./r2-cors.json) so browsers can `PUT` uploads and `GET` images from `indiedevtest.com` / localhost. Re-apply after changing that file — the JSON in the repo does not update the live bucket by itself:
+   - `npm run apply:r2-cors` (loads `R2_*` from the environment; use `node --env-file=.env.local scripts/apply-r2-cors.mjs` locally), or
+   - Cloudflare Dashboard → R2 → bucket → Settings → CORS (paste the file contents).
 4. Object keys use prefixes `listings/` (app screenshots) and `test-feedback/` (tester evidence).
 
 ### Scheduled jobs (Coolify)

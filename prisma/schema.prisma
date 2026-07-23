@@ -141,6 +141,8 @@ model AppListing {
   testerCapacity        Int?             @map("tester_capacity")
   autoClosedForCapacity Boolean          @default(false) @map("auto_closed_for_capacity")
   maxTestersPerPlatform Int              @default(14) @map("max_testers_per_platform")
+  /// When false, tester evidence is hidden from the public listing (owner + authors still see it).
+  showTesterFeedback    Boolean          @default(true) @map("show_tester_feedback")
   reminderSentAt        DateTime?        @map("reminder_sent_at")
   createdAt             DateTime         @default(now()) @map("created_at")
   updatedAt             DateTime         @updatedAt @map("updated_at")
@@ -154,6 +156,7 @@ model AppListing {
   testerFeedback   TesterFeedback[]
   screenshots     AppListingScreenshot[]
   screenshotUploads AppListingScreenshotUpload[]
+  reviewScreenshotUploads ReviewScreenshotUpload[]
 
   @@index([status])
   @@index([userId])
@@ -316,18 +319,54 @@ model TestAssignment {
   @@map("test_assignments")
 }
 
+/// Tester evidence (formerly free-text reviews): improvement suggestion + screenshots.
 model Review {
-  id           String   @id @default(cuid())
-  appListingId String   @map("app_listing_id")
-  testerUserId String   @map("tester_user_id")
-  content      String
-  createdAt    DateTime @default(now()) @map("created_at")
+  id                     String   @id @default(cuid())
+  appListingId           String   @map("app_listing_id")
+  testerUserId           String   @map("tester_user_id")
+  improvementSuggestion  String   @map("improvement_suggestion")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  appListing AppListing @relation(fields: [appListingId], references: [id], onDelete: Cascade)
-  tester     User       @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
+  appListing  AppListing         @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+  tester      User               @relation(fields: [testerUserId], references: [id], onDelete: Cascade)
+  screenshots ReviewScreenshot[]
 
   @@unique([appListingId, testerUserId])
   @@map("reviews")
+}
+
+model ReviewScreenshot {
+  id           String   @id @default(cuid())
+  reviewId     String   @map("review_id")
+  objectKey    String   @unique @map("object_key")
+  publicUrl    String   @map("public_url")
+  sortOrder    Int      @default(0) @map("sort_order")
+  width        Int
+  height       Int
+  byteSize     Int      @map("byte_size")
+  contentType  String   @map("content_type")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, sortOrder])
+  @@map("review_screenshots")
+}
+
+/// Presigned upload slots for tester evidence under test-feedback/.
+model ReviewScreenshotUpload {
+  id           String   @id @default(cuid())
+  appListingId String   @map("app_listing_id")
+  testerUserId String   @map("tester_user_id")
+  objectKey    String   @unique @map("object_key")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  appListing AppListing @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+
+  @@index([appListingId, testerUserId, expiresAt])
+  @@map("review_screenshot_uploads")
 }
 
 model UserBadge {

@@ -309,6 +309,12 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
 }
 
 function ListingRow({ listing }: { listing: DashboardListing }) {
+  const hasTesterDetails =
+    listing.testerRequests.length > 0 ||
+    listing.testerHistory.length > 0 ||
+    listing.activity.length > 0 ||
+    listing.feedback.length > 0;
+
   return (
     <li className="p-4 sm:px-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -350,21 +356,31 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
         </Button>
         </div>
       </div>
-      {listing.testerRequests.length > 0 ||
-      listing.testerHistory.length > 0 ||
-      listing.activity.length > 0 ||
-      listing.feedback.length > 0 ? (
-        <div className="mt-5 w-full sm:pl-[3.25rem]">
-          <DashboardTesterTable
-            testers={listing.testerRequests}
-            history={listing.testerHistory}
-            activity={listing.activity}
-            feedback={listing.feedback}
-            canApprove={listing.status === "open_for_testing"}
-            canResendInvitation={listing.canResendInvitation}
-            platformLabel={platformLabel[listing.platform] ?? listing.platform}
-          />
-        </div>
+      {hasTesterDetails ? (
+        <details className="group mt-5 w-full sm:pl-[3.25rem]">
+          <summary className="cursor-pointer list-none font-display text-sm font-bold text-ink underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-2">
+              <span
+                aria-hidden
+                className="inline-block text-ink-muted transition-transform group-open:rotate-90"
+              >
+                ▸
+              </span>
+              View testers & activity
+            </span>
+          </summary>
+          <div className="mt-3">
+            <DashboardTesterTable
+              testers={listing.testerRequests}
+              history={listing.testerHistory}
+              activity={listing.activity}
+              feedback={listing.feedback}
+              canApprove={listing.status === "open_for_testing"}
+              canResendInvitation={listing.canResendInvitation}
+              platformLabel={platformLabel[listing.platform] ?? listing.platform}
+            />
+          </div>
+        </details>
       ) : null}
     </li>
   );

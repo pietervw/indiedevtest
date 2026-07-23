@@ -174,9 +174,13 @@ function Lightbox({
 export function ListingScreenshotGallery({
   images,
   className,
+  title = "Screenshots",
+  hideTitle = false,
 }: {
   images: GalleryImage[];
   className?: string;
+  title?: string;
+  hideTitle?: boolean;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -193,11 +197,14 @@ export function ListingScreenshotGallery({
   if (images.length === 0) return null;
 
   return (
-    <section className={cn("mt-10", className)} aria-label="App screenshots">
-      <h2 className="font-display text-xl font-extrabold text-ink">
-        Screenshots
-      </h2>
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+    <section
+      className={cn(hideTitle ? undefined : "mt-10", className)}
+      aria-label={title}
+    >
+      {hideTitle ? null : (
+        <h2 className="font-display text-xl font-extrabold text-ink">{title}</h2>
+      )}
+      <div className={cn("flex gap-3 overflow-x-auto pb-2", hideTitle ? undefined : "mt-4")}>
         {images.map((image, index) => (
           <Thumbnail
             key={image.id}

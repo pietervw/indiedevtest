@@ -14,9 +14,8 @@ export type ListingSessionPayload = {
     testerInstructions: string | null;
     developerContactEmail: string | null;
   } | null;
-  /** Confirmed tester may write a review (joined + listing open/closed + none yet). */
-  canWriteReview: boolean;
-  hasWrittenReview: boolean;
+  /** Joined tester may submit/edit test evidence while listing is open/closed. */
+  canSubmitEvidence: boolean;
   /** Owner may accept pending testers only while the listing is open for testing. */
   canApproveTesters: boolean;
   pendingRequests: {
@@ -24,7 +23,7 @@ export type ListingSessionPayload = {
     testerEmail: string;
     tester: {
       displayName: string;
-        profileSlug: string;
+      profileSlug: string;
       imageUrl: string | null;
     };
   }[];
@@ -33,7 +32,7 @@ export type ListingSessionPayload = {
     testerEmail: string;
     tester: {
       displayName: string;
-        profileSlug: string;
+      profileSlug: string;
       imageUrl: string | null;
     };
   }[];
@@ -43,9 +42,10 @@ export type ListingSessionPayload = {
     platform: "android" | "ios";
     joinedAt: string;
     completedAt: string | null;
+    hasCompleteEvidence: boolean;
     tester: {
       displayName: string;
-        profileSlug: string;
+      profileSlug: string;
       imageUrl: string | null;
     };
   }[];

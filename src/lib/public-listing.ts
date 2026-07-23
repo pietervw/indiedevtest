@@ -9,6 +9,7 @@ import {
   COUNTED_ASSIGNMENT_STATUSES,
   PUBLIC_LISTING_STATUSES,
 } from "@/lib/listing-status";
+import { isCompleteEvidence } from "@/lib/test-evidence";
 
 /** Public listing payload — 10 min memory cache per id. */
 export const PUBLIC_LISTING_TTL_MS = 10 * 60 * 1000;
@@ -16,15 +17,26 @@ export const PUBLIC_LISTING_TTL_MS = 10 * 60 * 1000;
  *  distinct ids (e.g. a crawler hitting many /apps/<id> URLs). */
 const PUBLIC_LISTING_CACHE_MAX = 1000;
 
-export type PublicListingReview = {
+export type PublicListingFeedbackScreenshot = {
   id: string;
-  content: string;
+  publicUrl: string;
+  sortOrder: number;
+  width: number;
+  height: number;
+};
+
+export type PublicListingFeedback = {
+  id: string;
+  improvementSuggestion: string;
   createdAt: string;
+  updatedAt: string;
   tester: {
+    id: string;
     displayName: string;
     imageUrl: string | null;
     profileSlug: string;
   };
+  screenshots: PublicListingFeedbackScreenshot[];
 };
 
 export type PublicListingScreenshot = {
@@ -45,6 +57,7 @@ export type PublicListing = {
   platform: Platform;
   status: AppListingStatus;
   storeLink: string | null;
+  showTesterFeedback: boolean;
   testers: number;
   testerCapacity: number | null;
   acceptedTesters: number;
@@ -55,7 +68,8 @@ export type PublicListing = {
     imageUrl: string | null;
     profileSlug: string;
   };
-  reviews: PublicListingReview[];
+  /** Complete evidence rows (may still be hidden publicly via showTesterFeedback). */
+  feedback: PublicListingFeedback[];
   screenshots: PublicListingScreenshot[];
 };
 
@@ -89,9 +103,20 @@ const listingInclude = {
     include: {
       tester: {
         select: {
+          id: true,
           displayName: true,
           imageUrl: true,
           profileSlug: true,
+        },
+      },
+      screenshots: {
+        orderBy: { sortOrder: "asc" as const },
+        select: {
+          id: true,
+          publicUrl: true,
+          sortOrder: true,
+          width: true,
+          height: true,
         },
       },
     },
@@ -121,6 +146,25 @@ export function invalidatePublicListingCache(listingId?: string) {
 function toPublicListing(
   row: NonNullable<Awaited<ReturnType<typeof fetchPublicListingRow>>>
 ): PublicListing {
+  const feedback = row.reviews
+    .map((review) => {
+      const screenshotCount = review.screenshots.length;
+      const isComplete = isCompleteEvidence({
+        improvementSuggestion: review.improvementSuggestion,
+        screenshotCount,
+      });
+      if (!isComplete) return null;
+      return {
+        id: review.id,
+        improvementSuggestion: review.improvementSuggestion,
+        createdAt: review.createdAt.toISOString(),
+        updatedAt: review.updatedAt.toISOString(),
+        tester: review.tester,
+        screenshots: review.screenshots,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item != null);
+
   return {
     id: row.id,
     userId: row.userId,
@@ -131,17 +175,13 @@ function toPublicListing(
     platform: row.platform,
     status: row.status,
     storeLink: row.storeLink,
+    showTesterFeedback: row.showTesterFeedback,
     testers: row._count.testAssignments,
     testerCapacity: row.testerCapacity,
     acceptedTesters: row._count.testerRequests,
     updatedAt: row.updatedAt.toISOString(),
     user: row.user,
-    reviews: row.reviews.map((review) => ({
-      id: review.id,
-      content: review.content,
-      createdAt: review.createdAt.toISOString(),
-      tester: review.tester,
-    })),
+    feedback,
     screenshots: row.screenshots.map((shot) => ({
       id: shot.id,
       publicUrl: shot.publicUrl,

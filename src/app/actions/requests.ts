@@ -24,6 +24,7 @@ import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath, TESTING_PERIOD_MS } from "@/lib/mock-data";
 import { takeRateLimit, checkRateLimit, releaseRateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site";
+import { isCompleteEvidence } from "@/lib/test-evidence";
 import { getVerifiedClerkEmails } from "@/lib/verified-clerk-emails";
 import { sendTesterRequestNotification } from "@/lib/pushover";
 
@@ -744,11 +745,13 @@ export async function confirmTesterJoined(requestId: string): Promise<void> {
 }
 
 /** Dev marks an active test complete — grants a Completed credit and emails the tester. */
-export async function markTestComplete(assignmentId: string): Promise<void> {
+export async function markTestComplete(
+  assignmentId: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
   const user = await requireDbUser();
   const assignment = await fetchOwnedAssignment(assignmentId, user.id);
   if (!assignment) {
-    return;
+    return { ok: false, message: "Assignment not found." };
   }
   // Play closed-testing requires 14 complete days. iOS/TestFlight has no
   // equivalent — only enforce the delay for Android assignments.
@@ -756,18 +759,51 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
     assignment.platform === "android" &&
     Date.now() - assignment.joinedAt.getTime() < TESTING_PERIOD_MS
   ) {
-    return;
+    return {
+      ok: false,
+      message: "Android tests need 14 days before they can be marked complete.",
+    };
   }
 
-  // CAS + score/badges in one transaction so a mid-flight failure cannot leave
-  // status flipped without the matching credit/badge effects.
-  const awarded = await prisma.$transaction(async (tx) => {
+  // CAS + evidence re-check + score/badges in one transaction so a concurrent
+  // evidence delete cannot race past the gate, and mid-flight failure cannot
+  // leave status flipped without matching credit/badge effects.
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT id FROM test_assignments WHERE id = ${assignmentId} FOR UPDATE`;
+    await tx.$executeRaw`
+      SELECT id FROM reviews
+      WHERE app_listing_id = ${assignment.appListingId}
+        AND tester_user_id = ${assignment.testerUserId}
+      FOR UPDATE`;
+
+    const evidence = await tx.review.findUnique({
+      where: {
+        appListingId_testerUserId: {
+          appListingId: assignment.appListingId,
+          testerUserId: assignment.testerUserId,
+        },
+      },
+      select: {
+        improvementSuggestion: true,
+        _count: { select: { screenshots: true } },
+      },
+    });
+    if (
+      !evidence ||
+      !isCompleteEvidence({
+        improvementSuggestion: evidence.improvementSuggestion,
+        screenshotCount: evidence._count.screenshots,
+      })
+    ) {
+      return "missing_evidence" as const;
+    }
+
     const { count } = await tx.testAssignment.updateMany({
       where: { id: assignmentId, status: "active" },
       data: { status: "completed", completedAt: new Date() },
     });
     if (count !== 1) {
-      return false;
+      return "cas_failed" as const;
     }
 
     const tester = await tx.user.update({
@@ -782,10 +818,18 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
       testerCompletedCount: tester.profileScoreCompleted,
       assignmentId,
     });
-    return true;
+    return "ok" as const;
   });
-  if (!awarded) {
-    return;
+
+  if (result === "missing_evidence") {
+    return {
+      ok: false,
+      message:
+        "This tester must submit test evidence (4+ screenshots and an improvement suggestion) before you can mark them complete.",
+    };
+  }
+  if (result !== "ok") {
+    return { ok: false, message: "Could not mark this test complete." };
   }
 
   if (assignment.testerRequest?.id) {
@@ -818,6 +862,8 @@ export async function markTestComplete(assignmentId: string): Promise<void> {
       console.error("[requests] completed email failed", err);
     });
   }
+
+  return { ok: true };
 }
 
 /** Dev marks a test incomplete — revokes the Completed credit if one was earned. */

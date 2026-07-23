@@ -9,6 +9,7 @@ import {
   isReviewableListingStatus,
 } from "@/lib/listing-status";
 import type { ListingSessionPayload } from "@/lib/listing-session";
+import { isCompleteEvidence } from "@/lib/test-evidence";
 import { isHttpUrl } from "@/lib/validation";
 
 type Props = { params: Promise<{ id: string }> };
@@ -21,17 +22,16 @@ const emptySession: ListingSessionPayload = {
   viewerRequestStatus: null,
   viewerHasJoined: false,
   viewerInvitation: null,
-  canWriteReview: false,
-  hasWrittenReview: false,
+  canSubmitEvidence: false,
   canApproveTesters: false,
   pendingRequests: [],
   acceptedRequests: [],
   assignments: [],
 };
 
-  const testerSelect = {
-    displayName: true,
-    profileSlug: true,
+const testerSelect = {
+  displayName: true,
+  profileSlug: true,
   imageUrl: true,
 } as const;
 
@@ -46,7 +46,6 @@ export async function GET(_request: Request, { params }: Props) {
     return NextResponse.json(emptySession);
   }
 
-  // Anonymous visitors need no DB work — public shell already has listing data.
   const viewer = await getOptionalDbUser();
   if (!viewer) {
     return NextResponse.json(emptySession);
@@ -70,8 +69,6 @@ export async function GET(_request: Request, { params }: Props) {
   }
 
   const isOwner = viewer.id === listing.userId;
-  // Match /apps/[id]: non-owners must not learn that a draft (or other
-  // non-public) listing id exists.
   if (
     !isOwner &&
     (!isPublicListingStatus(listing.status) || listing.moderationStatus !== "visible")
@@ -79,8 +76,6 @@ export async function GET(_request: Request, { params }: Props) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Write actions validate this field, but keep the private-session boundary
-  // defensive in case an older/manual database value is malformed.
   const testingAccessUrl =
     listing.testingAccessUrl && isHttpUrl(listing.testingAccessUrl)
       ? listing.testingAccessUrl
@@ -91,7 +86,7 @@ export async function GET(_request: Request, { params }: Props) {
   const reviewListingOpen = isReviewableListingStatus(listing.status);
   const now = new Date();
 
-  const [viewerRequest, assignment, existingReview, ownerRequests, assignments] =
+  const [viewerRequest, assignment, ownerRequests, assignments] =
     await Promise.all([
       !isOwner
         ? prisma.testerRequest.findUnique({
@@ -115,17 +110,6 @@ export async function GET(_request: Request, { params }: Props) {
             select: { status: true },
           })
         : null,
-      !isOwner && reviewListingOpen
-        ? prisma.review.findUnique({
-            where: {
-              appListingId_testerUserId: {
-                appListingId: listing.id,
-                testerUserId: viewer.id,
-              },
-            },
-            select: { id: true },
-          })
-        : null,
       isOwner
         ? prisma.testerRequest.findMany({
             where: {
@@ -142,17 +126,42 @@ export async function GET(_request: Request, { params }: Props) {
               appListingId: listing.id,
               status: { in: [...COUNTED_ASSIGNMENT_STATUSES] },
             },
-            include: { tester: { select: testerSelect } },
+            include: {
+              tester: { select: testerSelect },
+            },
             orderBy: { joinedAt: "desc" },
           })
         : Promise.resolve([]),
     ]);
 
-  const hasWrittenReview = Boolean(existingReview);
-  const canWriteReview =
+  const ownerEvidenceByTester =
+    isOwner && assignments.length > 0
+      ? await prisma.review.findMany({
+          where: {
+            appListingId: listing.id,
+            testerUserId: { in: assignments.map((row) => row.testerUserId) },
+          },
+          select: {
+            testerUserId: true,
+            improvementSuggestion: true,
+            _count: { select: { screenshots: true } },
+          },
+        })
+      : [];
+
+  const evidenceCompleteByTester = new Map(
+    ownerEvidenceByTester.map((row) => [
+      row.testerUserId,
+      isCompleteEvidence({
+        improvementSuggestion: row.improvementSuggestion,
+        screenshotCount: row._count.screenshots,
+      }),
+    ])
+  );
+
+  const canSubmitEvidence =
     !isOwner &&
     reviewListingOpen &&
-    !hasWrittenReview &&
     Boolean(assignment && isCountedAssignmentStatus(assignment.status));
 
   const pendingRequests = ownerRequests.filter((req) => req.status === "pending");
@@ -181,8 +190,7 @@ export async function GET(_request: Request, { params }: Props) {
             developerContactEmail: listing.user.contactEmail,
           }
         : null,
-    canWriteReview,
-    hasWrittenReview,
+    canSubmitEvidence,
     canApproveTesters: listing.status === "open_for_testing",
     pendingRequests: pendingRequests.map((req) => ({
       id: req.id,
@@ -200,6 +208,7 @@ export async function GET(_request: Request, { params }: Props) {
       platform: row.platform,
       joinedAt: row.joinedAt.toISOString(),
       completedAt: row.completedAt?.toISOString() ?? null,
+      hasCompleteEvidence: evidenceCompleteByTester.get(row.testerUserId) ?? false,
       tester: row.tester,
     })),
   };

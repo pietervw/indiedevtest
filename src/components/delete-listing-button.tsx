@@ -41,7 +41,7 @@ export function DeleteListingButton({ listingId }: { listingId: string }) {
               Remove testers&apos; Completed credit (they keep Joined credit)
             </li>
             <li>Expire all pending tester requests</li>
-            <li>Remove reviews on this listing</li>
+            <li>Remove tester feedback and evidence screenshots on this listing</li>
           </ul>
           <p className="text-sm font-semibold text-ink">
             This action cannot be undone.

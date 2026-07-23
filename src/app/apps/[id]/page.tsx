@@ -16,6 +16,7 @@ import { Container } from "@/components/ui/section";
 import { ProgressBar } from "@/components/ui/progress";
 import { ShareListing } from "@/components/share-listing";
 import { ListingReportForm } from "@/components/listing-report-form";
+import { TesterFeedbackList } from "@/components/tester-feedback-list";
 import { getOptionalDbUser } from "@/lib/auth-guards";
 import {
   appPath,
@@ -87,7 +88,14 @@ export default async function AppListingPage({ params }: Props) {
     notFound();
   }
 
-  const showReviews = isReviewableListingStatus(listing.status);
+  const showFeedbackSection = isReviewableListingStatus(listing.status);
+  const isOwner = viewer?.id === listing.userId;
+  const visibleFeedback =
+    !showFeedbackSection
+      ? []
+      : listing.showTesterFeedback || isOwner
+        ? listing.feedback
+        : listing.feedback.filter((item) => item.tester.id === viewer?.id);
   const profileHref = profilePath(listing.user.profileSlug);
   const galleryImages = listing.screenshots.map((shot, index) => ({
     id: shot.id,
@@ -234,27 +242,24 @@ export default async function AppListingPage({ params }: Props) {
             <ListingReportForm listingId={listing.id} />
           ) : null}
 
-          {showReviews ? (
+          {showFeedbackSection ? (
             <section className="mt-14 max-w-2xl">
               <h2 className="font-display text-xl font-extrabold text-ink">
-                Reviews
+                Tester feedback
               </h2>
-              {listing.reviews.length > 0 ? (
-                <ul className="mt-6 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-ink bg-paper">
-                  {listing.reviews.map((review) => (
-                    <li key={review.id} className="px-5 py-4">
-                      <Link
-                        href={profilePath(review.tester.profileSlug)}
-                        className="inline-flex items-center gap-2 font-semibold text-ink hover:underline"
-                      >
-                        {review.tester.displayName}
-                      </Link>
-                      <p className="mt-2 text-ink-muted">{review.content}</p>
-                    </li>
-                  ))}
-                </ul>
+              {!listing.showTesterFeedback && isOwner ? (
+                <p className="mt-2 text-sm text-ink-muted">
+                  Feedback is hidden from the public listing. You and each
+                  tester can still see their own submission. Toggle visibility
+                  when editing the listing.
+                </p>
+              ) : null}
+              {!listing.showTesterFeedback && !isOwner && visibleFeedback.length === 0 ? (
+                <p className="mt-3 text-ink-muted">
+                  The developer has hidden tester feedback on this listing.
+                </p>
               ) : (
-                <p className="mt-3 text-ink-muted">No reviews yet.</p>
+                <TesterFeedbackList feedback={visibleFeedback} />
               )}
             </section>
           ) : null}

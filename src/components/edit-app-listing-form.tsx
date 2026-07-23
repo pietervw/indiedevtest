@@ -30,6 +30,7 @@ export type EditListingDefaults = {
   testerCapacity: number | null;
   status: AppListingStatus;
   storeLink: string;
+  showTesterFeedback: boolean;
 };
 
 export function EditAppListingForm({
@@ -292,6 +293,26 @@ export function EditAppListingForm({
             {state.fieldErrors.storeLink}
           </p>
         ) : null}
+      </div>
+
+      <div className="rounded-xl border-2 border-line bg-paper-muted/40 px-4 py-4">
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            name="showTesterFeedback"
+            defaultChecked={defaults.showTesterFeedback}
+            className="mt-1 size-4 rounded border-2 border-ink"
+          />
+          <span>
+            <span className="block font-display text-sm font-bold text-ink">
+              Show tester feedback on listing
+            </span>
+            <span className="mt-1 block text-sm text-ink-muted">
+              When off, feedback stays visible to you and each tester, but is
+              hidden from everyone else.
+            </span>
+          </span>
+        </label>
       </div>
 
       <SubmitButton size="lg" pendingLabel="Saving…" className="w-full sm:w-auto" {...umamiEvent("app_listing_update_click", { status })}>
