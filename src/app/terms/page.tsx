@@ -109,7 +109,8 @@ export default function TermsPage() {
           <p>
             Sign-in, email delivery, optional analytics, optional admin alerts,
             and database hosting rely on third parties (including Clerk/GitHub,
-            SendGrid, Umami when enabled, Pushover when enabled, and Neon).
+            SendGrid, Umami when enabled, Sentry when enabled, Pushover when
+            enabled, and Neon).
             Their own terms and privacy practices also apply to what they
             process.
           </p>

@@ -139,6 +139,16 @@ export default function PrivacyPage() {
           </p>
         </LegalSection>
 
+        <LegalSection title="Error monitoring (Sentry)">
+          <p>
+            Error monitoring is optional. If Sentry is configured for the
+            deployment, it receives error reports and limited performance
+            telemetry from the browser, server, and edge runtime so we can find
+            and fix reliability issues. If the Sentry settings are empty, this
+            monitoring is not enabled.
+          </p>
+        </LegalSection>
+
         <LegalSection title="Database hosting (Neon / Postgres)">
           <p>
             App data — profiles, listings, tester requests, assignments, reviews,
