@@ -25,7 +25,7 @@ import {
   profilePath,
   statusLabel,
 } from "@/lib/mock-data";
-import { getOwnerListing, getPublicListing } from "@/lib/public-listing";
+import { getOwnerListing, getPublicListing, getViewerCompleteFeedback } from "@/lib/public-listing";
 import { isReviewableListingStatus } from "@/lib/listing-status";
 import { absoluteUrl, canonicalMetadata, siteConfig } from "@/lib/site";
 import type { Metadata } from "next";
@@ -90,12 +90,27 @@ export default async function AppListingPage({ params }: Props) {
 
   const showFeedbackSection = isReviewableListingStatus(listing.status);
   const isOwner = viewer?.id === listing.userId;
-  const visibleFeedback =
+  let visibleFeedback =
     !showFeedbackSection
       ? []
       : listing.showTesterFeedback || isOwner
         ? listing.feedback
         : listing.feedback.filter((item) => item.tester.id === viewer?.id);
+
+  // Authors always see their own complete evidence, even when the public cap
+  // or showTesterFeedback=false would otherwise hide it.
+  if (showFeedbackSection && viewer && !isOwner) {
+    const hasOwn = visibleFeedback.some((item) => item.tester.id === viewer.id);
+    if (!hasOwn) {
+      const own = await getViewerCompleteFeedback(listing.id, viewer.id);
+      if (own) {
+        visibleFeedback = listing.showTesterFeedback
+          ? [own, ...visibleFeedback]
+          : [own];
+      }
+    }
+  }
+
   const profileHref = profilePath(listing.user.profileSlug);
   const galleryImages = listing.screenshots.map((shot, index) => ({
     id: shot.id,

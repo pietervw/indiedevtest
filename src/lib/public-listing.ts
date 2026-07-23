@@ -171,6 +171,56 @@ async function fetchCompleteFeedback(listingId: string) {
   );
 }
 
+function toPublicFeedback(
+  review: Awaited<ReturnType<typeof fetchCompleteFeedback>>[number]
+): PublicListingFeedback | null {
+  if (
+    !isCompleteEvidence({
+      improvementSuggestion: review.improvementSuggestion,
+      screenshotCount: review.screenshots.length,
+    })
+  ) {
+    return null;
+  }
+  return {
+    id: review.id,
+    improvementSuggestion: review.improvementSuggestion,
+    createdAt: review.createdAt.toISOString(),
+    updatedAt: review.updatedAt.toISOString(),
+    tester: review.tester,
+    screenshots: review.screenshots,
+  };
+}
+
+/** One tester's complete evidence — bypasses the public feedback cap. */
+export async function getViewerCompleteFeedback(
+  listingId: string,
+  testerUserId: string
+): Promise<PublicListingFeedback | null> {
+  if (!process.env.DATABASE_URL) {
+    return null;
+  }
+
+  try {
+    const review = await prisma.review.findUnique({
+      where: {
+        appListingId_testerUserId: {
+          appListingId: listingId,
+          testerUserId,
+        },
+      },
+      include: completeFeedbackInclude,
+    });
+    if (!review) {
+      return null;
+    }
+    return toPublicFeedback(review);
+  } catch (err) {
+    console.error("[public-listing] viewer feedback query failed", err);
+    return null;
+  }
+}
+
 export function invalidatePublicListingCache(listingId?: string) {
   if (listingId) {
     memoryCache.delete(listingId);
@@ -183,25 +233,7 @@ function toPublicListing(
   row: NonNullable<Awaited<ReturnType<typeof fetchPublicListingRow>>>
 ): PublicListing {
   const feedback = row.reviews
-    .map((review) => {
-      // SQL already constrained to complete rows; keep the helper as a guard.
-      if (
-        !isCompleteEvidence({
-          improvementSuggestion: review.improvementSuggestion,
-          screenshotCount: review.screenshots.length,
-        })
-      ) {
-        return null;
-      }
-      return {
-        id: review.id,
-        improvementSuggestion: review.improvementSuggestion,
-        createdAt: review.createdAt.toISOString(),
-        updatedAt: review.updatedAt.toISOString(),
-        tester: review.tester,
-        screenshots: review.screenshots,
-      };
-    })
+    .map((review) => toPublicFeedback(review))
     .filter((item): item is NonNullable<typeof item> => item != null);
 
   return {
