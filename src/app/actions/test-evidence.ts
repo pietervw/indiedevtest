@@ -869,14 +869,16 @@ export async function deleteEvidenceScreenshot(
       );
 
       // Evidence is required to stay complete — revoke Completed credit if
-      // the owner already marked this assignment done.
+      // the owner already marked this assignment done. Revert to `active`
+      // (not `incomplete`) so the owner can mark complete again after repair
+      // and the assignment stays in the owner session list.
       const { count } = await tx.testAssignment.updateMany({
         where: {
           appListingId: listingId,
           testerUserId: eligible.user.id,
           status: "completed",
         },
-        data: { status: "incomplete", completedAt: null },
+        data: { status: "active", completedAt: null },
       });
       if (count === 1) {
         const tester = await tx.user.update({
