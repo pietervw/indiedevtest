@@ -91,14 +91,19 @@ export async function deleteAccount(
                 }),
                 tx.appListingScreenshotUpload.findMany({
                   where: { appListingId: { in: ownedListingIds } },
-                  select: { objectKey: true },
+                  select: { objectKey: true, expiresAt: true },
                 }),
               ])
             : [[], []];
-        const screenshotObjectKeys = [
-          ...screenshots.map((row) => row.objectKey),
-          ...screenshotUploads.map((row) => row.objectKey),
+        const deletionJobs = [
+          ...screenshots.map((row) => ({ objectKey: row.objectKey })),
+          ...screenshotUploads.map((row) => ({
+            objectKey: row.objectKey,
+            // Pending PUT URLs stay valid ~10m; row expiresAt is 15m after mint.
+            notBefore: row.expiresAt,
+          })),
         ];
+        const screenshotObjectKeys = deletionJobs.map((job) => job.objectKey);
 
         const [ownedCompleted, ownedReviews, testerCompleted] = await Promise.all([
           ownedListingIds.length > 0
@@ -196,7 +201,7 @@ export async function deleteAccount(
           ...new Set(testerCompleted.map((row) => row.appListing.userId)),
         ];
 
-        await enqueueObjectDeletions(tx, screenshotObjectKeys);
+        await enqueueObjectDeletions(tx, deletionJobs);
         await tx.user.delete({ where: { id: user.id } });
 
         for (const developerId of developersToSync) {

@@ -239,7 +239,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
           }),
           tx.appListingScreenshotUpload.findMany({
             where: { appListingId: listingId },
-            select: { objectKey: true },
+            select: { objectKey: true, expiresAt: true },
           }),
           tx.testAssignment.findMany({
             where: { appListingId: listingId, status: "completed" },
@@ -251,10 +251,15 @@ export async function deleteAppListing(listingId: string): Promise<void> {
           }),
         ]);
 
-      const screenshotKeys = [
-        ...screenshots.map((s) => s.objectKey),
-        ...screenshotUploads.map((s) => s.objectKey),
+      const deletionJobs = [
+        ...screenshots.map((s) => ({ objectKey: s.objectKey })),
+        ...screenshotUploads.map((s) => ({
+          objectKey: s.objectKey,
+          // Pending PUT URLs stay valid ~10m; row expiresAt is 15m after mint.
+          notBefore: s.expiresAt,
+        })),
       ];
+      const screenshotKeys = deletionJobs.map((job) => job.objectKey);
 
       // One update (+ badge sync) per affected user — Prisma serializes
       // interactive-tx queries, so Promise.all wouldn't parallelize anyway.
@@ -313,7 +318,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
         }
       }
 
-      await enqueueObjectDeletions(tx, screenshotKeys);
+      await enqueueObjectDeletions(tx, deletionJobs);
       await tx.appListing.delete({ where: { id: listingId } });
       if (completedAssignments.length > 0) {
         await syncFirst12Badge(tx, listing.userId);

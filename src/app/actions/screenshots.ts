@@ -10,6 +10,10 @@ import {
   headObject,
 } from "@/lib/storage";
 import {
+  enqueueObjectDeletions,
+  settleObjectDeletions,
+} from "@/lib/storage/deletion-outbox";
+import {
   IMAGE_LIMITS,
   isAllowedImageContentType,
   validateImageByteSize,
@@ -635,10 +639,11 @@ export async function deleteListingScreenshot(
     return { ok: false, message: "Screenshot not found." };
   }
 
-  await prisma.appListingScreenshot.delete({ where: { id: shot.id } });
-  await deleteObject(shot.objectKey).catch((err) => {
-    console.error("[storage] failed to delete object", shot.objectKey, err);
+  await prisma.$transaction(async (tx) => {
+    await enqueueObjectDeletions(tx, [shot.objectKey]);
+    await tx.appListingScreenshot.delete({ where: { id: shot.id } });
   });
+  await settleObjectDeletions([shot.objectKey]);
 
   revalidateListingScreenshots(listingId, owned.listing.user.profileSlug);
   return { ok: true };
