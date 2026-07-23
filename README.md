@@ -57,9 +57,22 @@ See `.env.example`. Required in production:
 | `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT` | (optional) Sentry source-map upload credentials; builds skip upload unless all three are set |
 | `PUSHOVER_API_TOKEN`                                  | (optional) Pushover app token — both Pushover vars required to enable                        |
 | `PUSHOVER_USER_KEY`                                   | (optional) Pushover user/group key (waitlist + contact alerts)                               |
-| `CRON_SECRET`                                         | Bearer token for `/api/cron/*` scheduler routes (listing 14-day reminders)                   |
+| `CRON_SECRET`                                         | Bearer token for `/api/cron/*` scheduler routes (reminders + R2 deletion outbox)             |
+| `R2_ACCOUNT_ID`                                       | Cloudflare account id for R2 S3 API                                                          |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`           | R2 S3 API token (Object Read & Write)                                                        |
+| `R2_BUCKET`                                           | `indiedevtest`                                                                               |
+| `R2_PUBLIC_BASE_URL`                                  | Public CDN base URL (custom domain or `*.r2.dev`), no trailing slash                         |
 
 `NEXT_PUBLIC_*` values are inlined at **build** time. Set them as Coolify build args / build-time env as well as runtime env.
+
+Container start runs `node scripts/check-storage-env.mjs` and **exits** if any `R2_*` var is missing. `ALLOW_MISSING_R2=1` is only for Docker image builds without runtime secrets and is rejected when `NODE_ENV=production` (do not set it in Coolify).
+
+### Cloudflare R2 setup
+
+1. Create bucket `indiedevtest` and an S3 API token with read/write on that bucket.
+2. Enable public access via a custom domain (recommended) or `r2.dev` URL; set `R2_PUBLIC_BASE_URL` to that origin.
+3. Apply CORS from [`r2-cors.json`](./r2-cors.json) (Dashboard → R2 → bucket → Settings → CORS, or S3 `PutBucketCors`) so browsers can `PUT` uploads and `GET` images from `indiedevtest.com` / localhost.
+4. Object keys use prefixes `listings/` (app screenshots) and `test-feedback/` (tester evidence).
 
 ### Scheduled jobs (Coolify)
 
@@ -68,6 +81,10 @@ Set `CRON_SECRET` in the service env, then add a Coolify scheduled task that cal
 ```bash
 curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
   "$NEXT_PUBLIC_SITE_URL/api/cron/listing-14-day-reminders"
+
+# Retry failed R2 object deletions (every few minutes):
+curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  "$NEXT_PUBLIC_SITE_URL/api/cron/storage-object-deletions"
 ```
 
 Unauthenticated callers receive `401` with no job details. A successful run returns a small JSON summary (`checked`, `sent`, `skipped`, `failed`).

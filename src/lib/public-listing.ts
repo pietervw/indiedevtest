@@ -27,6 +27,14 @@ export type PublicListingReview = {
   };
 };
 
+export type PublicListingScreenshot = {
+  id: string;
+  publicUrl: string;
+  sortOrder: number;
+  width: number;
+  height: number;
+};
+
 export type PublicListing = {
   id: string;
   userId: string;
@@ -48,6 +56,7 @@ export type PublicListing = {
     profileSlug: string;
   };
   reviews: PublicListingReview[];
+  screenshots: PublicListingScreenshot[];
 };
 
 type CacheEntry = {
@@ -64,6 +73,16 @@ const listingInclude = {
       displayName: true,
       imageUrl: true,
       profileSlug: true,
+    },
+  },
+  screenshots: {
+    orderBy: { sortOrder: "asc" as const },
+    select: {
+      id: true,
+      publicUrl: true,
+      sortOrder: true,
+      width: true,
+      height: true,
     },
   },
   reviews: {
@@ -122,6 +141,13 @@ function toPublicListing(
       content: review.content,
       createdAt: review.createdAt.toISOString(),
       tester: review.tester,
+    })),
+    screenshots: row.screenshots.map((shot) => ({
+      id: shot.id,
+      publicUrl: shot.publicUrl,
+      sortOrder: shot.sortOrder,
+      width: shot.width,
+      height: shot.height,
     })),
   };
 }

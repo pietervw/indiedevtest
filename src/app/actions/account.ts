@@ -8,6 +8,10 @@ import { revokeBadgeBelowThreshold, syncFirst12Badge } from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath } from "@/lib/mock-data";
+import {
+  enqueueObjectDeletions,
+  settleObjectDeletions,
+} from "@/lib/storage/deletion-outbox";
 import { field } from "@/lib/validation";
 
 export type DeleteAccountState = { ok: boolean; message: string };
@@ -55,11 +59,14 @@ export async function deleteAccount(
   } as const;
 
   try {
-    const { listingIds, affectedProfileSlugs } = await prisma.$transaction(
+    const { listingIds, affectedProfileSlugs, screenshotObjectKeys } =
+      await prisma.$transaction(
       async (tx) => {
-        // Lock the user and related score-bearing rows so concurrent
-        // completes/reviews can't be cascade-deleted without a matching decrement.
+        // Lock the user, owned listings, and related score-bearing rows so
+        // concurrent completes/reviews/uploads can't race cascade cleanup.
         await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${user.id} FOR UPDATE`;
+        await tx.$executeRaw`
+          SELECT id FROM app_listings WHERE user_id = ${user.id} FOR UPDATE`;
         await tx.$executeRaw`
           SELECT id FROM test_assignments
           WHERE tester_user_id = ${user.id}
@@ -76,6 +83,29 @@ export async function deleteAccount(
           select: { id: true },
         });
         const ownedListingIds = listingIds.map((listing) => listing.id);
+
+        const [screenshots, screenshotUploads] =
+          ownedListingIds.length > 0
+            ? await Promise.all([
+                tx.appListingScreenshot.findMany({
+                  where: { appListingId: { in: ownedListingIds } },
+                  select: { objectKey: true },
+                }),
+                tx.appListingScreenshotUpload.findMany({
+                  where: { appListingId: { in: ownedListingIds } },
+                  select: { objectKey: true, expiresAt: true },
+                }),
+              ])
+            : [[], []];
+        const deletionJobs = [
+          ...screenshots.map((row) => ({ objectKey: row.objectKey })),
+          ...screenshotUploads.map((row) => ({
+            objectKey: row.objectKey,
+            // Pending PUT URLs stay valid ~10m; row expiresAt is 15m after mint.
+            notBefore: row.expiresAt,
+          })),
+        ];
+        const screenshotObjectKeys = deletionJobs.map((job) => job.objectKey);
 
         const [ownedCompleted, ownedReviews, testerCompleted] = await Promise.all([
           ownedListingIds.length > 0
@@ -173,6 +203,7 @@ export async function deleteAccount(
           ...new Set(testerCompleted.map((row) => row.appListing.userId)),
         ];
 
+        await enqueueObjectDeletions(tx, deletionJobs);
         await tx.user.delete({ where: { id: user.id } });
 
         for (const developerId of developersToSync) {
@@ -181,6 +212,7 @@ export async function deleteAccount(
 
         return {
           listingIds,
+          screenshotObjectKeys,
           affectedProfileSlugs: [
             ...new Set([
               ...ownedCompleted.map((row) => row.tester.profileSlug),
@@ -194,6 +226,16 @@ export async function deleteAccount(
       // that score/badge cleanup finishes after Clerk is already removed.
       { timeout: 20_000 }
     );
+
+    try {
+      await settleObjectDeletions(screenshotObjectKeys);
+    } catch (error) {
+      // Account rows are already gone; cron retries via the outbox.
+      console.error(
+        "[account] screenshot object settlement failed; deferring to cron",
+        error
+      );
+    }
 
     invalidatePublicCaches({
       profileSlugs: [user.profileSlug, ...affectedProfileSlugs],

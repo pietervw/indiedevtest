@@ -5,6 +5,7 @@ import { AppCategory, Platform } from "@/generated/prisma";
 import { requireDbUser, requireOnboardingPending } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
+import { screenshotsPath } from "@/lib/mock-data";
 import { field, isHttpUrl } from "@/lib/validation";
 
 export type AppListingFormState = {
@@ -120,7 +121,6 @@ export async function createAppListing(
 
   const listing = parsed.data;
   const needsProfile = !user.profileCompletedAt;
-  let claimedFirstListing = false;
 
   const created = await prisma.$transaction(async (tx) => {
     if (!user.onboardingCompletedAt) {
@@ -132,7 +132,6 @@ export async function createAppListing(
         // Concurrent first submit already completed onboarding — avoid duplicate listing
         return null;
       }
-      claimedFirstListing = true;
     }
 
     return tx.appListing.create({
@@ -160,9 +159,8 @@ export async function createAppListing(
     profileSlugs: user.profileSlug,
   });
 
-  redirect(
-    claimedFirstListing || needsProfile ? "/onboarding/profile" : "/browse"
-  );
+  // Step 2: optional screenshots, then profile or listing.
+  redirect(`${screenshotsPath(created.id)}?new=1`);
 }
 
 /** @deprecated alias — prefer createAppListing */

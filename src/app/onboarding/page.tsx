@@ -18,15 +18,15 @@ export default async function OnboardingPage() {
       <div className="pointer-events-none absolute -left-20 top-10 size-64 rounded-full bg-brand/25" />
       <Container className="relative py-14 md:py-20">
         <p className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
-          Step 1 of 2
+          List your app
         </p>
         <h1 className="mt-2 max-w-xl font-display text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
           Welcome. List your first app?
         </h1>
         <p className="mt-4 max-w-lg text-lg text-ink-muted">
           Get it in front of fellow indie testers — or skip and help someone else
-          clear their Play Store wall first. Next you&apos;ll set up your
-          profile.
+          clear their Play Store wall first. After details you can add screenshots,
+          then set up your profile.
         </p>
         <div className="mt-10">
           <OnboardingForm />

@@ -152,10 +152,62 @@ model AppListing {
   reports         ListingReport[]
   testerActivities TesterActivity[]
   testerFeedback   TesterFeedback[]
+  screenshots     AppListingScreenshot[]
+  screenshotUploads AppListingScreenshotUpload[]
 
   @@index([status])
   @@index([userId])
   @@map("app_listings")
+}
+
+model AppListingScreenshot {
+  id           String   @id @default(cuid())
+  appListingId String   @map("app_listing_id")
+  objectKey    String   @unique @map("object_key")
+  publicUrl    String   @map("public_url")
+  sortOrder    Int      @default(0) @map("sort_order")
+  width        Int
+  height       Int
+  byteSize     Int      @map("byte_size")
+  contentType  String   @map("content_type")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  appListing AppListing @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+
+  @@index([appListingId, sortOrder])
+  @@map("app_listing_screenshots")
+}
+
+/// Presigned upload slots not yet confirmed. Counted toward the per-listing
+/// screenshot cap until expiry; expired rows are purged (and R2 keys deleted)
+/// lazily on the next mint for that listing.
+model AppListingScreenshotUpload {
+  id           String   @id @default(cuid())
+  appListingId String   @map("app_listing_id")
+  objectKey    String   @unique @map("object_key")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  appListing AppListing @relation(fields: [appListingId], references: [id], onDelete: Cascade)
+
+  @@index([appListingId, expiresAt])
+  @@map("app_listing_screenshot_uploads")
+}
+
+/// Durable outbox of R2 keys that must be deleted. Enqueued in the same
+/// transaction as cascade-deleting screenshot rows so a transient R2 error
+/// (or crash mid-delete) cannot permanently orphan public objects.
+model StorageObjectDeletion {
+  id            String    @id @default(cuid())
+  objectKey     String    @unique @map("object_key")
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error") @db.VarChar(500)
+  lastAttemptAt DateTime? @map("last_attempt_at")
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([nextAttemptAt])
+  @@map("storage_object_deletions")
 }
 
 model ListingReport {

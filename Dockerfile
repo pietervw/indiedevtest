@@ -45,12 +45,15 @@ ENV SENTRY_PROJECT=$SENTRY_PROJECT
 
 # prisma generate needs DIRECT_URL via prisma.config.ts. Clear DATABASE_URL before
 # `next build` so prerender does not attempt to query the unreachable placeholder.
+# R2 secrets are runtime-only; ALLOW_MISSING_R2 lets the image build, then
+# docker-entrypoint fails closed if Coolify omitted R2_* at start.
 RUN --mount=type=secret,id=sentry_auth_token,required=false \
     export SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" && \
     DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require" \
     DIRECT_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require" \
+    ALLOW_MISSING_R2=1 \
     npx prisma generate \
- && DATABASE_URL= DIRECT_URL= npx next build
+ && DATABASE_URL= DIRECT_URL= ALLOW_MISSING_R2=1 npx next build
 
 FROM base AS runner
 WORKDIR /app
@@ -69,6 +72,8 @@ RUN apk add --no-cache su-exec \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+RUN mkdir -p ./scripts
+COPY --from=builder /app/scripts/check-storage-env.mjs ./scripts/check-storage-env.mjs
 COPY --chmod=755 docker-entrypoint.sh ./docker-entrypoint.sh
 
 EXPOSE 3000

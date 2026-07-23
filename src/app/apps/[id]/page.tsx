@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { AppLogo } from "@/components/app-logo";
+import { JsonLd } from "@/components/json-ld";
+import { ListingScreenshotGallery } from "@/components/listing-screenshot-gallery";
 import {
   ListingPageHeader,
   ListingSessionPanels,
@@ -38,10 +40,35 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "App not found" };
   }
 
+  const ogImages =
+    listing.screenshots.length > 0
+      ? listing.screenshots.slice(0, 4).map((shot) => ({
+          url: shot.publicUrl,
+          width: shot.width,
+          height: shot.height,
+          alt: `${listing.name} screenshot`,
+        }))
+      : listing.logoUrl
+        ? [{ url: listing.logoUrl, alt: listing.name }]
+        : undefined;
+
   return {
     ...canonicalMetadata(appPath(id)),
     title: listing.name,
     description: listing.description.slice(0, 160),
+    openGraph: {
+      ...canonicalMetadata(appPath(id)).openGraph,
+      title: listing.name,
+      description: listing.description.slice(0, 160),
+      type: "website",
+      images: ogImages,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: listing.name,
+      description: listing.description.slice(0, 160),
+      images: ogImages?.map((img) => img.url),
+    },
   };
 }
 
@@ -62,15 +89,53 @@ export default async function AppListingPage({ params }: Props) {
 
   const showReviews = isReviewableListingStatus(listing.status);
   const profileHref = profilePath(listing.user.profileSlug);
+  const galleryImages = listing.screenshots.map((shot, index) => ({
+    id: shot.id,
+    publicUrl: shot.publicUrl,
+    width: shot.width,
+    height: shot.height,
+    alt: `${listing.name} screenshot ${index + 1}`,
+  }));
+
+  const softwareJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: listing.name,
+    description: listing.description,
+    applicationCategory:
+      listing.category === "game" ? "GameApplication" : "UtilitiesApplication",
+    operatingSystem: listing.platform === "ios" ? "iOS" : "Android",
+    url: absoluteUrl(appPath(listing.id)),
+    image:
+      galleryImages.length > 0
+        ? galleryImages.map((img) => img.publicUrl)
+        : listing.logoUrl || undefined,
+    author: {
+      "@type": "Person",
+      name: listing.user.displayName,
+      url: absoluteUrl(profileHref),
+    },
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+  };
 
   return (
     <div className="flex-1 border-b-2 border-ink bg-grid">
+      <JsonLd data={softwareJsonLd} />
       <Container className="py-14 md:py-20">
         <ListingSessionProvider listingId={listing.id}>
           <ListingPageHeader listingId={listing.id} />
 
           <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-start">
-            <AppLogo name={listing.name} logoUrl={listing.logoUrl} platform={listing.platform} size="lg" />
+            <AppLogo
+              name={listing.name}
+              logoUrl={listing.logoUrl}
+              platform={listing.platform}
+              size="lg"
+            />
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -124,11 +189,16 @@ export default async function AppListingPage({ params }: Props) {
                   </span>
                 </div>
                 {listing.testerCapacity !== null ? (
-                  <ProgressBar value={listing.acceptedTesters} max={listing.testerCapacity} />
+                  <ProgressBar
+                    value={listing.acceptedTesters}
+                    max={listing.testerCapacity}
+                  />
                 ) : null}
               </div>
             </div>
           </div>
+
+          <ListingScreenshotGallery images={galleryImages} />
 
           <div className="mt-10 max-w-2xl">
             <h2 className="font-display text-xl font-extrabold text-ink">

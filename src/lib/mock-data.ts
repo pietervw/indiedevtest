@@ -73,6 +73,10 @@ export function editPath(id: string) {
   return `/apps/${id}/edit`;
 }
 
+export function screenshotsPath(id: string) {
+  return `/apps/${id}/screenshots`;
+}
+
 /**
  * Map a listing row (raw-SQL or Prisma) into the public {@link App} board
  * shape. Single source of truth for the label/trim/href transform used by
