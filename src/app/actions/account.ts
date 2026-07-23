@@ -8,6 +8,7 @@ import { revokeBadgeBelowThreshold, syncFirst12Badge } from "@/lib/badges";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
 import { appPath, profilePath } from "@/lib/mock-data";
+import { deleteObject } from "@/lib/storage";
 import { field } from "@/lib/validation";
 
 export type DeleteAccountState = { ok: boolean; message: string };
@@ -55,7 +56,8 @@ export async function deleteAccount(
   } as const;
 
   try {
-    const { listingIds, affectedProfileSlugs } = await prisma.$transaction(
+    const { listingIds, affectedProfileSlugs, screenshotObjectKeys } =
+      await prisma.$transaction(
       async (tx) => {
         // Lock the user and related score-bearing rows so concurrent
         // completes/reviews can't be cascade-deleted without a matching decrement.
@@ -76,6 +78,24 @@ export async function deleteAccount(
           select: { id: true },
         });
         const ownedListingIds = listingIds.map((listing) => listing.id);
+
+        const [screenshots, screenshotUploads] =
+          ownedListingIds.length > 0
+            ? await Promise.all([
+                tx.appListingScreenshot.findMany({
+                  where: { appListingId: { in: ownedListingIds } },
+                  select: { objectKey: true },
+                }),
+                tx.appListingScreenshotUpload.findMany({
+                  where: { appListingId: { in: ownedListingIds } },
+                  select: { objectKey: true },
+                }),
+              ])
+            : [[], []];
+        const screenshotObjectKeys = [
+          ...screenshots.map((row) => row.objectKey),
+          ...screenshotUploads.map((row) => row.objectKey),
+        ];
 
         const [ownedCompleted, ownedReviews, testerCompleted] = await Promise.all([
           ownedListingIds.length > 0
@@ -181,6 +201,7 @@ export async function deleteAccount(
 
         return {
           listingIds,
+          screenshotObjectKeys,
           affectedProfileSlugs: [
             ...new Set([
               ...ownedCompleted.map((row) => row.tester.profileSlug),
@@ -193,6 +214,14 @@ export async function deleteAccount(
       // Account deletion can touch many testers/devs; keep locks long enough
       // that score/badge cleanup finishes after Clerk is already removed.
       { timeout: 20_000 }
+    );
+
+    await Promise.all(
+      screenshotObjectKeys.map((key) =>
+        deleteObject(key).catch((err) => {
+          console.error("[account] failed to delete R2 object", key, err);
+        })
+      )
     );
 
     invalidatePublicCaches({
