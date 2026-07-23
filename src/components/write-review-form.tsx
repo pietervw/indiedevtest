@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createReview, type ReviewState } from "@/app/actions/reviews";
 import { SubmitButton } from "@/components/submit-button";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: ReviewState = { ok: false, message: "" };
@@ -61,7 +62,7 @@ export function WriteReviewForm({ listingId }: { listingId: string }) {
             {state.fieldErrors.content}
           </p>
         ) : null}
-        <SubmitButton size="md" pendingLabel="Publishing…" className="w-full sm:w-auto">
+        <SubmitButton size="md" pendingLabel="Publishing…" className="w-full sm:w-auto" {...umamiEvent("review_publish_click")}>
           Publish review
         </SubmitButton>
         {state.message && !state.ok ? (

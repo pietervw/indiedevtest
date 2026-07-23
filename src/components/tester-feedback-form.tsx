@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { submitTesterFeedback, type FeedbackState } from "@/app/actions/feedback";
 import { SubmitButton } from "@/components/submit-button";
+import { umamiEvent } from "@/lib/umami";
 
 const initialState: FeedbackState = { ok: false, message: "" };
 
@@ -22,7 +23,7 @@ export function TesterFeedbackForm({ listingId }: { listingId: string }) {
       </div>
       <textarea name="details" required minLength={10} maxLength={4000} rows={4} placeholder="What happened?" className="w-full rounded-lg border-2 border-ink bg-paper p-3 text-sm" />
       <textarea name="steps" maxLength={4000} rows={3} placeholder="Steps to reproduce (optional)" className="w-full rounded-lg border-2 border-ink bg-paper p-3 text-sm" />
-      <SubmitButton size="sm" pendingLabel="Sending…">Send private feedback</SubmitButton>
+      <SubmitButton size="sm" pendingLabel="Sending…" {...umamiEvent("tester_feedback_send_click")}>Send private feedback</SubmitButton>
       {state.message ? <p className={state.ok ? "text-sm font-semibold text-ink" : "text-sm font-semibold text-red-600"} role={state.ok ? "status" : "alert"}>{state.message}</p> : null}
     </form>
   </section>;

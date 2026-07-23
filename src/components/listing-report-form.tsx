@@ -7,6 +7,7 @@ import {
 } from "@/app/actions/listing-reports";
 import { SubmitButton } from "@/components/submit-button";
 import { listingReportReasonLabels } from "@/lib/listing-reports";
+import { umamiEvent } from "@/lib/umami";
 
 const initialState: ListingReportState = { ok: false, message: "" };
 
@@ -47,7 +48,7 @@ export function ListingReportForm({ listingId }: { listingId: string }) {
           className="rounded-lg border-2 border-ink bg-paper p-3 text-sm"
           placeholder="What should we know?"
         />
-        <div><SubmitButton size="sm" variant="secondary" pendingLabel="Sending…">Send report</SubmitButton></div>
+        <div><SubmitButton size="sm" variant="secondary" pendingLabel="Sending…" {...umamiEvent("listing_report_send_click")}>Send report</SubmitButton></div>
         {state.message ? (
           <p className={state.ok ? "text-sm font-semibold text-ink" : "text-sm font-semibold text-red-600"} role={state.ok ? "status" : "alert"}>
             {state.message}
