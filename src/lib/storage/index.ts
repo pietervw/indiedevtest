@@ -39,6 +39,12 @@ export async function createPresignedPutUrl(options: {
 
   const uploadUrl = await getSignedUrl(client, command, {
     expiresIn: PRESIGN_EXPIRES_SECONDS,
+    // Non-x-amz headers are only enforced when listed here (SDK v3).
+    signableHeaders: new Set([
+      "content-length",
+      "content-type",
+      "cache-control",
+    ]),
   });
 
   return {
