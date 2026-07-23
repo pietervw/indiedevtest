@@ -5,10 +5,11 @@
  * Requires the same R2_* env vars as the app. This does not run in Docker start —
  * apply once after changing r2-cors.json (or from the Cloudflare dashboard).
  *
- * Usage: node --env-file=.env.local scripts/apply-r2-cors.mjs
- *    or: npm run apply:r2-cors
+ * Loads `.env.local` / `.env` when present; already-exported env vars win.
+ * Usage: npm run apply:r2-cors
  */
 
+import { config } from "dotenv";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,10 @@ import {
   PutBucketCorsCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+config({ path: join(root, ".env.local") });
+config({ path: join(root, ".env") });
 
 const REQUIRED = [
   "R2_ACCOUNT_ID",
@@ -32,7 +37,6 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const corsPath = join(root, "r2-cors.json");
 /** @type {Array<{AllowedOrigins: string[], AllowedMethods: string[], AllowedHeaders: string[], ExposeHeaders?: string[], MaxAgeSeconds?: number}>} */
 const corsRules = JSON.parse(readFileSync(corsPath, "utf8"));

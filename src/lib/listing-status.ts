@@ -59,11 +59,10 @@ export const REVIEWABLE_LISTING_STATUSES = [
 /** Assignments that count toward tester slots / review eligibility. */
 export const COUNTED_ASSIGNMENT_STATUSES = ["active", "completed"] as const;
 
-/** Assignments that may upload or edit evidence (includes repair after incomplete). */
+/** Assignments that may upload or edit evidence. */
 export const EVIDENCE_ELIGIBLE_ASSIGNMENT_STATUSES = [
   "active",
   "completed",
-  "incomplete",
 ] as const;
 
 export function isPublicListingStatus(status: AppListingStatus): boolean {
