@@ -507,7 +507,20 @@ export async function confirmListingScreenshots(
     });
   } catch (err) {
     await discardPendingUploads(listingId, objectKeys);
-    await deleteObjectsBestEffort(promotedFinalKeys);
+    // Do not delete final keys that another concurrent confirm may have committed.
+    if (promotedFinalKeys.length > 0) {
+      const kept = await prisma.appListingScreenshot.findMany({
+        where: {
+          appListingId: listingId,
+          objectKey: { in: promotedFinalKeys },
+        },
+        select: { objectKey: true },
+      });
+      const keptSet = new Set(kept.map((row) => row.objectKey));
+      await deleteObjectsBestEffort(
+        promotedFinalKeys.filter((key) => !keptSet.has(key))
+      );
+    }
     if (err instanceof ScreenshotLimitError) {
       return {
         ok: false,

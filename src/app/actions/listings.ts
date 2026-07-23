@@ -206,22 +206,12 @@ export async function deleteAppListing(listingId: string): Promise<void> {
 
   const listing = await prisma.appListing.findUnique({
     where: { id: listingId },
-    select: {
-      id: true,
-      userId: true,
-      screenshots: { select: { objectKey: true } },
-      screenshotUploads: { select: { objectKey: true } },
-    },
+    select: { id: true, userId: true },
   });
 
   if (!listing || listing.userId !== user.id) {
     redirect("/browse");
   }
-
-  const screenshotKeys = [
-    ...listing.screenshots.map((s) => s.objectKey),
-    ...listing.screenshotUploads.map((s) => s.objectKey),
-  ];
 
   const testerSelect = {
     testerUserId: true,
@@ -230,23 +220,38 @@ export async function deleteAppListing(listingId: string): Promise<void> {
 
   // Read counters inside the transaction so concurrent completes/reviews
   // can't be cascade-deleted without a matching decrement.
-  const { completedAssignments, reviews } = await prisma.$transaction(
-    async (tx) => {
+  const { completedAssignments, reviews, screenshotKeys } =
+    await prisma.$transaction(async (tx) => {
       // Lock listing + all assignment rows so markComplete/Incomplete can't race.
       await tx.$executeRaw`SELECT 1 FROM app_listings WHERE id = ${listingId} FOR UPDATE`;
       await tx.$executeRaw`SELECT id FROM test_assignments WHERE app_listing_id = ${listingId} FOR UPDATE`;
       await tx.$executeRaw`SELECT id FROM reviews WHERE app_listing_id = ${listingId} FOR UPDATE`;
 
-      const [completedAssignments, reviews] = await Promise.all([
-        tx.testAssignment.findMany({
-          where: { appListingId: listingId, status: "completed" },
-          select: testerSelect,
-        }),
-        tx.review.findMany({
-          where: { appListingId: listingId },
-          select: testerSelect,
-        }),
-      ]);
+      // Collect R2 keys under the lock so concurrent uploads can't orphan objects.
+      const [screenshots, screenshotUploads, completedAssignments, reviews] =
+        await Promise.all([
+          tx.appListingScreenshot.findMany({
+            where: { appListingId: listingId },
+            select: { objectKey: true },
+          }),
+          tx.appListingScreenshotUpload.findMany({
+            where: { appListingId: listingId },
+            select: { objectKey: true },
+          }),
+          tx.testAssignment.findMany({
+            where: { appListingId: listingId, status: "completed" },
+            select: testerSelect,
+          }),
+          tx.review.findMany({
+            where: { appListingId: listingId },
+            select: testerSelect,
+          }),
+        ]);
+
+      const screenshotKeys = [
+        ...screenshots.map((s) => s.objectKey),
+        ...screenshotUploads.map((s) => s.objectKey),
+      ];
 
       // One update (+ badge sync) per affected user — Prisma serializes
       // interactive-tx queries, so Promise.all wouldn't parallelize anyway.
@@ -309,7 +314,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
       if (completedAssignments.length > 0) {
         await syncFirst12Badge(tx, listing.userId);
       }
-      return { completedAssignments, reviews };
+      return { completedAssignments, reviews, screenshotKeys };
     }
   );
 
