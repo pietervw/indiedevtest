@@ -90,7 +90,8 @@ This app uses Next.js `output: "standalone"` and ships a production `Dockerfile`
    - `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/onboarding`
    - `NEXT_PUBLIC_UMAMI_SRC=…` / `NEXT_PUBLIC_UMAMI_WEBSITE_ID=…` (optional)
    - `NEXT_PUBLIC_SENTRY_DSN=…` (optional, enables browser Sentry events)
-   - `SENTRY_AUTH_TOKEN=…` / `SENTRY_ORG=…` / `SENTRY_PROJECT=…` (optional, uploads Sentry source maps only when all three are present)
+    - `SENTRY_ORG=…` / `SENTRY_PROJECT=…` (optional, identifies the Sentry project for source-map upload)
+    - Provide `SENTRY_AUTH_TOKEN` only as a BuildKit secret named `sentry_auth_token` (for example, `docker build --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN …`). Source maps upload only when the secret, org, and project are all present.
 6. Run `npx prisma migrate deploy` against production `DIRECT_URL` before or on first deploy.
 7. Persist waitlist data: mount a volume at `/app/data`.
 8. Exposed port: `3000`.

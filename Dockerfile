@@ -36,17 +36,18 @@ ENV NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_F
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Optional Sentry source-map upload settings. Empty defaults keep CI/CD builds working.
-ARG SENTRY_AUTH_TOKEN=
+# Optional Sentry source-map upload settings. The auth token is provided as a
+# BuildKit secret, so it is never stored in an image layer or build argument.
 ARG SENTRY_ORG=
 ARG SENTRY_PROJECT=
-ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
 ENV SENTRY_ORG=$SENTRY_ORG
 ENV SENTRY_PROJECT=$SENTRY_PROJECT
 
 # prisma generate needs DIRECT_URL via prisma.config.ts. Clear DATABASE_URL before
 # `next build` so prerender does not attempt to query the unreachable placeholder.
-RUN DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require" \
+RUN --mount=type=secret,id=sentry_auth_token,required=false \
+    export SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" && \
+    DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require" \
     DIRECT_URL="postgresql://build:build@127.0.0.1:5432/build?sslmode=require" \
     npx prisma generate \
  && DATABASE_URL= DIRECT_URL= npx next build

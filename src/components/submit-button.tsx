@@ -20,7 +20,7 @@ export function SubmitButton({
   variant?: ButtonProps["variant"];
 } & Omit<
   React.ButtonHTMLAttributes<HTMLButtonElement>,
-  "className" | "disabled"
+  "className" | "disabled" | "type"
 >) {
   const { pending } = useFormStatus();
 

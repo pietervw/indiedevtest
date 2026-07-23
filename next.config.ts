@@ -40,8 +40,7 @@ export default withSentryConfig(nextConfig, {
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !hasSentryUploadConfig,
-  disable: !hasSentryUploadConfig,
+  sourcemaps: { disable: !hasSentryUploadConfig },
   widenClientFileUpload: true,
-  hideSourceMaps: true,
   telemetry: false,
 });
