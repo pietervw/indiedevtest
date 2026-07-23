@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { sendContactMessage, type ContactState } from "@/app/actions/contact";
 import { SubmitButton } from "@/components/submit-button";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: ContactState = { ok: false, message: "" };
@@ -109,6 +110,7 @@ export function ContactForm({ className }: { className?: string }) {
           size="lg"
           pendingLabel="Sending…"
           className="w-full sm:w-auto"
+          {...umamiEvent("contact_message_send_click")}
         >
           Send message
         </SubmitButton>

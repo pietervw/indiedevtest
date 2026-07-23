@@ -6,6 +6,7 @@ import {
   type ProfileSetupState,
 } from "@/app/actions/profile";
 import { SubmitButton } from "@/components/submit-button";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: ProfileSetupState = { ok: false, message: "" };
@@ -130,6 +131,7 @@ export function ProfileSetupForm({
           pendingLabel="Saving…"
           disabled={verifiedContactEmails.length === 0}
           className="w-full sm:w-auto"
+          {...umamiEvent("profile_setup_save_click")}
         >
           Save profile
         </SubmitButton>

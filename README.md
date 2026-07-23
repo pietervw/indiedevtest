@@ -34,27 +34,30 @@ Open [http://localhost:3000](http://localhost:3000) and use Clerk’s **Sign in*
 
 See `.env.example`. Required in production:
 
-| Variable | Purpose |
-|---|---|
-| `NEXT_PUBLIC_SITE_URL` | `https://indiedevtest.com` (canonical / SEO / sitemap / llms.txt) |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile public key (contact + waitlist) |
-| `TURNSTILE_SECRET_KEY` | Turnstile server verify secret |
-| `SENDGRID_API_KEY` | SendGrid API key |
-| `SENDGRID_FROM_EMAIL` | `admin@indiedevtest.com` |
-| `CONTACT_TO_EMAIL` | Inbox for contact + waitlist alerts (not shown on the site) |
-| `DATABASE_URL` | Neon pooled Postgres URL (app / Prisma Client) |
-| `DIRECT_URL` | Neon direct (non-pooler) URL for Prisma migrate |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
-| `CLERK_SECRET_KEY` | Clerk secret key |
-| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | `/sign-in` (Clerk hosted component route) |
-| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | `/sign-up` (Clerk hosted component route) |
-| `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | After sign-in → `/onboarding` |
-| `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | After sign-up → `/onboarding` |
-| `NEXT_PUBLIC_UMAMI_SRC` | (optional) Umami script URL — both Umami vars required to enable |
-| `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | (optional) Umami website id |
-| `PUSHOVER_API_TOKEN` | (optional) Pushover app token — both Pushover vars required to enable |
-| `PUSHOVER_USER_KEY` | (optional) Pushover user/group key (waitlist + contact alerts) |
-| `CRON_SECRET` | Bearer token for `/api/cron/*` scheduler routes (listing 14-day reminders) |
+| Variable                                              | Purpose                                                                                      |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`                                | `https://indiedevtest.com` (canonical / SEO / sitemap / llms.txt)                            |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`                      | Cloudflare Turnstile public key (contact + waitlist)                                         |
+| `TURNSTILE_SECRET_KEY`                                | Turnstile server verify secret                                                               |
+| `SENDGRID_API_KEY`                                    | SendGrid API key                                                                             |
+| `SENDGRID_FROM_EMAIL`                                 | `admin@indiedevtest.com`                                                                     |
+| `CONTACT_TO_EMAIL`                                    | Inbox for contact + waitlist alerts (not shown on the site)                                  |
+| `DATABASE_URL`                                        | Neon pooled Postgres URL (app / Prisma Client)                                               |
+| `DIRECT_URL`                                          | Neon direct (non-pooler) URL for Prisma migrate                                              |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`                   | Clerk publishable key                                                                        |
+| `CLERK_SECRET_KEY`                                    | Clerk secret key                                                                             |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL`                       | `/sign-in` (Clerk hosted component route)                                                    |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL`                       | `/sign-up` (Clerk hosted component route)                                                    |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`     | After sign-in → `/onboarding`                                                                |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL`     | After sign-up → `/onboarding`                                                                |
+| `NEXT_PUBLIC_UMAMI_SRC`                               | (optional) Umami script URL — both Umami vars required to enable                             |
+| `NEXT_PUBLIC_UMAMI_WEBSITE_ID`                        | (optional) Umami website id                                                                  |
+| `NEXT_PUBLIC_SENTRY_DSN`                              | (optional) Sentry browser DSN; inlined at build time                                         |
+| `SENTRY_DSN`                                          | (optional) Sentry server/edge DSN; falls back to `NEXT_PUBLIC_SENTRY_DSN`                    |
+| `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT` | (optional) Sentry source-map upload credentials; builds skip upload unless all three are set |
+| `PUSHOVER_API_TOKEN`                                  | (optional) Pushover app token — both Pushover vars required to enable                        |
+| `PUSHOVER_USER_KEY`                                   | (optional) Pushover user/group key (waitlist + contact alerts)                               |
+| `CRON_SECRET`                                         | Bearer token for `/api/cron/*` scheduler routes (listing 14-day reminders)                   |
 
 `NEXT_PUBLIC_*` values are inlined at **build** time. Set them as Coolify build args / build-time env as well as runtime env.
 
@@ -86,6 +89,8 @@ This app uses Next.js `output: "standalone"` and ships a production `Dockerfile`
    - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/onboarding`
    - `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/onboarding`
    - `NEXT_PUBLIC_UMAMI_SRC=…` / `NEXT_PUBLIC_UMAMI_WEBSITE_ID=…` (optional)
+   - `NEXT_PUBLIC_SENTRY_DSN=…` (optional, enables browser Sentry events)
+   - `SENTRY_AUTH_TOKEN=…` / `SENTRY_ORG=…` / `SENTRY_PROJECT=…` (optional, uploads Sentry source maps only when all three are present)
 6. Run `npx prisma migrate deploy` against production `DIRECT_URL` before or on first deploy.
 7. Persist waitlist data: mount a volume at `/app/data`.
 8. Exposed port: `3000`.

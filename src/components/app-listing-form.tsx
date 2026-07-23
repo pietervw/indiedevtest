@@ -7,6 +7,7 @@ import {
   type AppListingFormState,
 } from "@/app/actions/onboarding";
 import { SubmitButton } from "@/components/submit-button";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 
 const initialState: AppListingFormState = { ok: false, message: "" };
@@ -216,7 +217,7 @@ export function AppListingForm({
           </div>
         </fieldset>
 
-        <SubmitButton size="lg" pendingLabel="Listing…" className="w-full sm:w-auto">
+        <SubmitButton size="lg" pendingLabel="Listing…" className="w-full sm:w-auto" {...umamiEvent("app_listing_submit_click", { source: showSkip ? "onboarding" : "new_app" })}>
           {submitLabel}
         </SubmitButton>
 
@@ -235,6 +236,7 @@ export function AppListingForm({
           <button
             type="submit"
             className="mt-3 cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-ink-muted transition-colors hover:text-ink"
+            {...umamiEvent("onboarding_skip_click")}
           >
             Skip — browse apps that need testers
           </button>

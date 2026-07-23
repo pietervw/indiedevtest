@@ -8,6 +8,7 @@ import {
 import { DeleteListingButton } from "@/components/delete-listing-button";
 import { SubmitButton } from "@/components/submit-button";
 import { statusOptionsFor } from "@/lib/listing-status";
+import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
 import type { AppListingStatus } from "@/generated/prisma";
 
@@ -293,7 +294,7 @@ export function EditAppListingForm({
         ) : null}
       </div>
 
-      <SubmitButton size="lg" pendingLabel="Saving…" className="w-full sm:w-auto">
+      <SubmitButton size="lg" pendingLabel="Saving…" className="w-full sm:w-auto" {...umamiEvent("app_listing_update_click", { status })}>
         Save changes
       </SubmitButton>
 
