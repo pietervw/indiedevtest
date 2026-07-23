@@ -20,17 +20,20 @@ const PRESIGN_EXPIRES_SECONDS = 10 * 60;
 export async function createPresignedPutUrl(options: {
   objectKey: string;
   contentType: AllowedImageContentType;
+  /** Exact byte length; signed so oversized PUTs are rejected by R2. */
+  contentLength: number;
 }): Promise<{ uploadUrl: string; objectKey: string }> {
   const client = getR2Client();
   const bucket = getR2Bucket();
 
-  // Do not sign ContentLength — browsers omit/alter it and break the signature.
-  // Size is enforced client-side and re-checked via HeadObject on confirm.
-  // CacheControl is signed — client PUT must send the same Cache-Control header.
+  // Sign ContentLength so a slot minted for a small file cannot accept a large PUT.
+  // fetch(File) sets Content-Length automatically; CORS allows the header.
+  // CacheControl is also signed — client PUT must send the same Cache-Control.
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: options.objectKey,
     ContentType: options.contentType,
+    ContentLength: options.contentLength,
     CacheControl: OBJECT_CACHE_CONTROL,
   });
 

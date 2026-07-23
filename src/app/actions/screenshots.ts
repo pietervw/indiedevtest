@@ -323,6 +323,7 @@ export async function createListingScreenshotUploadSlots(
         createPresignedPutUrl({
           objectKey: row.objectKey,
           contentType: row.contentType,
+          contentLength: row.slot.byteSize,
         })
       )
     );

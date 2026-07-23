@@ -62,9 +62,11 @@ export async function deleteAccount(
     const { listingIds, affectedProfileSlugs, screenshotObjectKeys } =
       await prisma.$transaction(
       async (tx) => {
-        // Lock the user and related score-bearing rows so concurrent
-        // completes/reviews can't be cascade-deleted without a matching decrement.
+        // Lock the user, owned listings, and related score-bearing rows so
+        // concurrent completes/reviews/uploads can't race cascade cleanup.
         await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${user.id} FOR UPDATE`;
+        await tx.$executeRaw`
+          SELECT id FROM app_listings WHERE user_id = ${user.id} FOR UPDATE`;
         await tx.$executeRaw`
           SELECT id FROM test_assignments
           WHERE tester_user_id = ${user.id}
