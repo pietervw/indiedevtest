@@ -481,9 +481,11 @@ export async function reorderListingScreenshots(
     select: { id: true },
   });
   const existingIds = new Set(existing.map((row) => row.id));
+  const uniqueOrderedIds = new Set(orderedIds);
 
   if (
     orderedIds.length !== existingIds.size ||
+    uniqueOrderedIds.size !== orderedIds.length ||
     orderedIds.some((id) => !existingIds.has(id))
   ) {
     return { ok: false, message: "Invalid screenshot order." };

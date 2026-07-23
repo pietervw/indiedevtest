@@ -210,6 +210,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
       id: true,
       userId: true,
       screenshots: { select: { objectKey: true } },
+      screenshotUploads: { select: { objectKey: true } },
     },
   });
 
@@ -217,7 +218,10 @@ export async function deleteAppListing(listingId: string): Promise<void> {
     redirect("/browse");
   }
 
-  const screenshotKeys = listing.screenshots.map((s) => s.objectKey);
+  const screenshotKeys = [
+    ...listing.screenshots.map((s) => s.objectKey),
+    ...listing.screenshotUploads.map((s) => s.objectKey),
+  ];
 
   const testerSelect = {
     testerUserId: true,
