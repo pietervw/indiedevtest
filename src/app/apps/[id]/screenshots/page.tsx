@@ -4,7 +4,7 @@ import { ScreenshotManager } from "@/components/screenshot-manager";
 import { Container } from "@/components/ui/section";
 import { requireDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
-import { appPath, editPath } from "@/lib/mock-data";
+import { appPath, editPath, screenshotsPath } from "@/lib/mock-data";
 import { canonicalMetadata } from "@/lib/site";
 import type { Metadata } from "next";
 
@@ -16,7 +16,7 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   return {
-    ...canonicalMetadata(`/apps/${id}/screenshots`),
+    ...canonicalMetadata(screenshotsPath(id)),
     title: "Screenshots",
     robots: { index: false, follow: false },
   };

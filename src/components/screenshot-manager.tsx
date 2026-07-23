@@ -311,7 +311,7 @@ export function ScreenshotManager({
               {/* eslint-disable-next-line @next/next/no-img-element -- R2 CDN URLs; avoid Next image proxy load */}
               <img
                 src={shot.publicUrl}
-                alt=""
+                alt={`Screenshot ${index + 1}`}
                 width={shot.width}
                 height={shot.height}
                 className="size-full object-cover"

@@ -5,6 +5,7 @@ import { AppCategory, Platform } from "@/generated/prisma";
 import { requireDbUser, requireOnboardingPending } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
+import { screenshotsPath } from "@/lib/mock-data";
 import { field, isHttpUrl } from "@/lib/validation";
 
 export type AppListingFormState = {
@@ -159,7 +160,7 @@ export async function createAppListing(
   });
 
   // Step 2: optional screenshots, then profile or listing.
-  redirect(`/apps/${created.id}/screenshots?new=1`);
+  redirect(`${screenshotsPath(created.id)}?new=1`);
 }
 
 /** @deprecated alias — prefer createAppListing */

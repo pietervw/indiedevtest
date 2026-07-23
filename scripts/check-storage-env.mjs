@@ -3,8 +3,8 @@
  * Fail closed when Cloudflare R2 env vars are missing.
  * Used by Docker entrypoint and `npm run check:storage-env`.
  *
- * Local/Docker image builds without runtime secrets can set ALLOW_MISSING_R2=1
- * to skip (Coolify runtime must NOT set this).
+ * Docker image builds may set ALLOW_MISSING_R2=1 with NODE_ENV unset/development.
+ * Production / Coolify runtime must NOT set ALLOW_MISSING_R2.
  */
 
 const REQUIRED = [
@@ -16,6 +16,12 @@ const REQUIRED = [
 ];
 
 if (process.env.ALLOW_MISSING_R2 === "1") {
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "[check-storage-env] ALLOW_MISSING_R2=1 is not allowed when NODE_ENV=production."
+    );
+    process.exit(1);
+  }
   console.warn(
     "[check-storage-env] ALLOW_MISSING_R2=1 — skipping R2 env validation."
   );

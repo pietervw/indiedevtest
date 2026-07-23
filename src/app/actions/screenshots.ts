@@ -22,7 +22,7 @@ import { publicUrlForObjectKey } from "@/lib/storage/client";
 import { requireDbUser } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import { invalidatePublicCaches } from "@/lib/invalidate-public-caches";
-import { appPath } from "@/lib/mock-data";
+import { appPath, editPath, screenshotsPath } from "@/lib/mock-data";
 import {
   releaseRateLimit,
   takeRateLimit,
@@ -88,11 +88,19 @@ async function deleteObjectsBestEffort(objectKeys: string[]) {
   );
 }
 
-async function discardPendingUploads(objectKeys: string[]) {
-  if (objectKeys.length === 0) return;
-  await deleteObjectsBestEffort(objectKeys);
+async function discardPendingUploads(listingId: string, objectKeys: string[]) {
+  // Never delete caller-supplied keys that aren't under this listing's prefix.
+  const scopedKeys = [
+    ...new Set(
+      objectKeys.filter((key) => assertListingScreenshotKey(listingId, key))
+    ),
+  ];
+  if (scopedKeys.length === 0) return;
+  await deleteObjectsBestEffort(scopedKeys);
   await prisma.appListingScreenshotUpload
-    .deleteMany({ where: { objectKey: { in: objectKeys } } })
+    .deleteMany({
+      where: { appListingId: listingId, objectKey: { in: scopedKeys } },
+    })
     .catch(() => undefined);
 }
 
@@ -123,7 +131,10 @@ export async function cancelListingScreenshotUploads(
     where: { appListingId: listingId, objectKey: { in: scopedKeys } },
     select: { objectKey: true },
   });
-  await discardPendingUploads(pending.map((row) => row.objectKey));
+  await discardPendingUploads(
+    listingId,
+    pending.map((row) => row.objectKey)
+  );
   return { ok: true };
 }
 
@@ -133,8 +144,8 @@ function revalidateListingScreenshots(
 ) {
   invalidatePublicCaches({ listingId, profileSlugs: profileSlug });
   revalidatePath(appPath(listingId));
-  revalidatePath(`/apps/${listingId}/edit`);
-  revalidatePath(`/apps/${listingId}/screenshots`);
+  revalidatePath(editPath(listingId));
+  revalidatePath(screenshotsPath(listingId));
 }
 
 async function requireOwnedListing(listingId: string) {
@@ -302,7 +313,7 @@ export async function createListingScreenshotUploadSlots(
     for (const reservation of reserved.reservations) {
       releaseRateLimit(reservation);
     }
-    await discardPendingUploads(mintedKeys);
+    await discardPendingUploads(listingId, mintedKeys);
     console.error("[screenshots] create upload slots failed", err);
     return { ok: false, message: "Could not start upload. Please try again." };
   }
@@ -337,11 +348,11 @@ export async function confirmListingScreenshots(
   for (const item of items) {
     const error = validateSlotRequest(item);
     if (error) {
-      await discardPendingUploads(objectKeys);
+      await discardPendingUploads(listingId, objectKeys);
       return { ok: false, message: error };
     }
     if (!assertListingScreenshotKey(listingId, item.objectKey)) {
-      await discardPendingUploads(objectKeys);
+      await discardPendingUploads(listingId, objectKeys);
       return { ok: false, message: "Invalid upload key." };
     }
   }
@@ -355,7 +366,7 @@ export async function confirmListingScreenshots(
     const item = items[i]!;
     const head = heads[i];
     if (!head) {
-      await discardPendingUploads(objectKeys);
+      await discardPendingUploads(listingId, objectKeys);
       return {
         ok: false,
         message: "Upload not found in storage. Please try again.",
@@ -366,7 +377,7 @@ export async function confirmListingScreenshots(
       head.contentLength !== item.byteSize ||
       head.contentLength > IMAGE_LIMITS.maxBytes
     ) {
-      await discardPendingUploads(objectKeys);
+      await discardPendingUploads(listingId, objectKeys);
       return { ok: false, message: "Uploaded file size mismatch." };
     }
     const expectedType = item.contentType.split(";")[0]!;
@@ -374,7 +385,7 @@ export async function confirmListingScreenshots(
       head.contentType &&
       !head.contentType.toLowerCase().startsWith(expectedType.toLowerCase())
     ) {
-      await discardPendingUploads(objectKeys);
+      await discardPendingUploads(listingId, objectKeys);
       return { ok: false, message: "Uploaded file type mismatch." };
     }
     verified.push({
@@ -445,7 +456,7 @@ export async function confirmListingScreenshots(
       return rows;
     });
   } catch (err) {
-    await discardPendingUploads(objectKeys);
+    await discardPendingUploads(listingId, objectKeys);
     if (err instanceof ScreenshotLimitError) {
       return {
         ok: false,
