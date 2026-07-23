@@ -1,6 +1,5 @@
-/** Long-lived CDN cache for immutable screenshot objects. */
-export const OBJECT_CACHE_CONTROL =
-  "public, max-age=31536000, immutable";
+/** CDN cache for listing screenshots (deletable — avoid long immutable TTLs). */
+export const OBJECT_CACHE_CONTROL = "public, max-age=3600";
 
 export const IMAGE_LIMITS = {
   maxFiles: 5,

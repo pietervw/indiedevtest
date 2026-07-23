@@ -108,17 +108,32 @@ async function discardPendingUploads(listingId: string, objectKeys: string[]) {
 
   const pending = await prisma.appListingScreenshotUpload.findMany({
     where: { appListingId: listingId, objectKey: { in: scopedKeys } },
-    select: { objectKey: true },
+    select: { objectKey: true, expiresAt: true },
   });
-  const pendingKeys = pending.map((row) => row.objectKey);
-  if (pendingKeys.length === 0) return;
+  if (pending.length === 0) return;
 
-  await deleteObjectsBestEffort(pendingKeys);
-  await prisma.appListingScreenshotUpload
-    .deleteMany({
+  const jobs = pending.map((row) => ({
+    objectKey: row.objectKey,
+    // Defer until the pending PUT URL can no longer succeed.
+    notBefore: row.expiresAt,
+  }));
+  const pendingKeys = jobs.map((job) => job.objectKey);
+
+  await prisma.$transaction(async (tx) => {
+    await enqueueObjectDeletions(tx, jobs);
+    await tx.appListingScreenshotUpload.deleteMany({
       where: { appListingId: listingId, objectKey: { in: pendingKeys } },
-    })
-    .catch(() => undefined);
+    });
+  });
+
+  try {
+    await settleObjectDeletions(pendingKeys);
+  } catch (error) {
+    console.error(
+      "[screenshots] pending upload settlement failed; deferring to cron",
+      error
+    );
+  }
 }
 
 /** Drop minted-but-unconfirmed slots (e.g. after a failed client PUT). */
@@ -144,14 +159,7 @@ export async function cancelListingScreenshotUploads(
     return { ok: true };
   }
 
-  const pending = await prisma.appListingScreenshotUpload.findMany({
-    where: { appListingId: listingId, objectKey: { in: scopedKeys } },
-    select: { objectKey: true },
-  });
-  await discardPendingUploads(
-    listingId,
-    pending.map((row) => row.objectKey)
-  );
+  await discardPendingUploads(listingId, scopedKeys);
   return { ok: true };
 }
 
@@ -193,18 +201,17 @@ function validateSlotRequest(slot: UploadSlotRequest): string | null {
   return validateImageDimensions(slot.width, slot.height);
 }
 
-/** Drop expired pending rows and best-effort delete their R2 objects. */
+/** Drop expired pending rows and enqueue their R2 objects for deletion. */
 async function purgeExpiredPendingUploads(listingId: string) {
   const expired = await prisma.appListingScreenshotUpload.findMany({
     where: { appListingId: listingId, expiresAt: { lte: new Date() } },
-    select: { id: true, objectKey: true },
+    select: { objectKey: true },
   });
   if (expired.length === 0) return;
-
-  await prisma.appListingScreenshotUpload.deleteMany({
-    where: { id: { in: expired.map((row) => row.id) } },
-  });
-  await deleteObjectsBestEffort(expired.map((row) => row.objectKey));
+  await discardPendingUploads(
+    listingId,
+    expired.map((row) => row.objectKey)
+  );
 }
 
 function reservePresignSlots(userId: string, count: number): {
@@ -592,7 +599,7 @@ export async function confirmListingScreenshots(
     return { ok: false, message: "Could not save screenshots. Please try again." };
   }
 
-  // Drop temporary objects; final keys are immutable and no longer have a valid PUT URL.
+  // Drop temporary upload objects; final keys no longer have a valid PUT URL.
   await deleteObjectsBestEffort(objectKeys);
 
   revalidateListingScreenshots(listingId, owned.listing.user.profileSlug);
