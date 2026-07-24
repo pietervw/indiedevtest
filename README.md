@@ -59,7 +59,7 @@ See `.env.example`. Required in production:
 | `PUSHOVER_USER_KEY`                                   | (optional) Pushover user/group key (waitlist + contact alerts)                               |
 | `CRON_SECRET`                                         | Bearer token for `/api/cron/*` scheduler routes (reminders + R2 deletion outbox)             |
 | `R2_ACCOUNT_ID`                                       | Cloudflare account id for R2 S3 API                                                          |
-| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`           | R2 S3 API token (Object Read & Write)                                                        |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`           | R2 S3 API token (Object Read & Write); Access Key ID must be 32 chars (not a `cfut_…` token) |
 | `R2_BUCKET`                                           | `indiedevtest`                                                                               |
 | `R2_PUBLIC_BASE_URL`                                  | Public CDN base URL (custom domain or `*.r2.dev`), no trailing slash                         |
 
