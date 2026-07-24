@@ -59,7 +59,7 @@ See `.env.example`. Required in production:
 | `PUSHOVER_USER_KEY`                                   | (optional) Pushover user/group key (waitlist + contact alerts)                               |
 | `CRON_SECRET`                                         | Bearer token for `/api/cron/*` scheduler routes (reminders + R2 deletion outbox)             |
 | `R2_ACCOUNT_ID`                                       | Cloudflare account id for R2 S3 API                                                          |
-| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`           | R2 S3 API token (Object Read & Write)                                                        |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`           | R2 S3 API token (Object Read & Write); Access Key ID must be 32 chars (not a `cfut_…` token) |
 | `R2_BUCKET`                                           | `indiedevtest`                                                                               |
 | `R2_PUBLIC_BASE_URL`                                  | Public CDN base URL (custom domain or `*.r2.dev`), no trailing slash                         |
 
@@ -69,7 +69,7 @@ Container start runs `node scripts/check-storage-env.mjs` and **exits** if any `
 
 ### Cloudflare R2 setup
 
-1. Create bucket `indiedevtest` and an S3 API token with read/write on that bucket.
+1. Create bucket `indiedevtest`. Under R2 → **Manage R2 API Tokens**, create a token with Object Read & Write and set `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` from that screen (Access Key ID is exactly 32 chars — not a Cloudflare `cfut_…` API token).
 2. Enable public access via a custom domain (recommended) or `r2.dev` URL; set `R2_PUBLIC_BASE_URL` to that origin.
 3. Apply CORS from [`r2-cors.json`](./r2-cors.json) so browsers can `PUT` uploads and `GET` images from `indiedevtest.com` / localhost. Re-apply after changing that file — the JSON in the repo does not update the live bucket by itself:
    - `npm run apply:r2-cors` (loads `.env.local`/`.env` when present; exported `R2_*` vars also work), or
