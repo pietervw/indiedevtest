@@ -47,8 +47,6 @@ const PRESIGN_SLOT_LIMIT = 15;
 const PRESIGN_SLOT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type ListingScreenshotDto = UploadedImageDto;
-export type ConfirmScreenshotInput = ConfirmImageInput;
-export type { UploadSlotRequest, UploadSlot };
 
 class ScreenshotLimitError extends Error {
   constructor() {
@@ -341,7 +339,7 @@ export async function createListingScreenshotUploadSlots(
 /** After client PUT succeeds, verify objects in R2 and persist DB rows. */
 export async function confirmListingScreenshots(
   listingId: string,
-  items: ConfirmScreenshotInput[]
+  items: ConfirmImageInput[]
 ): Promise<
   | { ok: true; screenshots: ListingScreenshotDto[] }
   | { ok: false; message: string }
