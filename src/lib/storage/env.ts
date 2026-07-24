@@ -40,11 +40,20 @@ export function requireR2Config(
   }
 
   const accountId = env.R2_ACCOUNT_ID!.trim();
+  const accessKeyId = env.R2_ACCESS_KEY_ID!.trim();
   const publicBaseUrl = env.R2_PUBLIC_BASE_URL!.trim().replace(/\/$/, "");
+
+  // R2 rejects non-32-char access keys with 400 (often misread as CORS in browsers).
+  if (accessKeyId.length !== 32) {
+    throw new Error(
+      `R2_ACCESS_KEY_ID length is ${accessKeyId.length}, expected 32. ` +
+        `Create an R2 S3 API token (Dashboard → R2 → Manage R2 API Tokens) and use its Access Key ID — not a Cloudflare API token.`
+    );
+  }
 
   return {
     accountId,
-    accessKeyId: env.R2_ACCESS_KEY_ID!.trim(),
+    accessKeyId,
     secretAccessKey: env.R2_SECRET_ACCESS_KEY!.trim(),
     bucket: env.R2_BUCKET!.trim(),
     publicBaseUrl,

@@ -39,4 +39,18 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+// R2 S3 Access Key IDs are 32 chars. Cloudflare API tokens (e.g. cfut_…) are
+// rejected by R2 with 400 "Credential access key has length N, should be 32",
+// which browsers surface as a CORS failure on the presigned PUT.
+const accessKeyId = process.env.R2_ACCESS_KEY_ID.trim();
+if (accessKeyId.length !== 32) {
+  console.error(
+    `[check-storage-env] R2_ACCESS_KEY_ID length is ${accessKeyId.length}, expected 32.`
+  );
+  console.error(
+    "Use an R2 S3 API token Access Key ID from Cloudflare Dashboard → R2 → Manage R2 API Tokens — not a Cloudflare API token."
+  );
+  process.exit(1);
+}
+
 console.log("[check-storage-env] R2 storage environment OK.");

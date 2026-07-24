@@ -69,7 +69,7 @@ Container start runs `node scripts/check-storage-env.mjs` and **exits** if any `
 
 ### Cloudflare R2 setup
 
-1. Create bucket `indiedevtest` and an S3 API token with read/write on that bucket.
+1. Create bucket `indiedevtest` and an **R2 S3 API token** (Dashboard → R2 → **Manage R2 API Tokens**) with Object Read & Write on that bucket. Set `R2_ACCESS_KEY_ID` to the token’s **Access Key ID** (exactly 32 characters) and `R2_SECRET_ACCESS_KEY` to its **Secret Access Key**. A Cloudflare API token (`cfut_…`, Account API token value, etc.) will make browser uploads fail with a 400 that looks like a CORS error.
 2. Enable public access via a custom domain (recommended) or `r2.dev` URL; set `R2_PUBLIC_BASE_URL` to that origin.
 3. Apply CORS from [`r2-cors.json`](./r2-cors.json) so browsers can `PUT` uploads and `GET` images from `indiedevtest.com` / localhost. Re-apply after changing that file — the JSON in the repo does not update the live bucket by itself:
    - `npm run apply:r2-cors` (loads `.env.local`/`.env` when present; exported `R2_*` vars also work), or
