@@ -12,10 +12,10 @@ export type GalleryImage = {
 };
 
 /**
- * Reveal after load. Cached/SSR images often finish before React attaches
- * onLoad, so also check `complete` via ref — otherwise thumbnails stay grey.
+ * Fade image in once it finishes (or fails). Cached/SSR images often complete
+ * before React attaches onLoad — check `complete` via ref or thumbs stay grey.
  */
-function useRevealOnImageLoad() {
+function useRevealWhenImageSettles() {
   const [loaded, setLoaded] = useState(false);
   const reveal = useCallback(() => setLoaded(true), []);
   const imgRef = useCallback((node: HTMLImageElement | null) => {
@@ -35,7 +35,7 @@ function Thumbnail({
   index: number;
   onOpen: (index: number) => void;
 }) {
-  const { loaded, imgRef, reveal } = useRevealOnImageLoad();
+  const { loaded, imgRef, reveal } = useRevealWhenImageSettles();
 
   return (
     <button
@@ -72,7 +72,7 @@ function Thumbnail({
 }
 
 function LightboxImage({ image }: { image: GalleryImage }) {
-  const { loaded, imgRef, reveal } = useRevealOnImageLoad();
+  const { loaded, imgRef, reveal } = useRevealWhenImageSettles();
 
   return (
     <div className="relative max-h-[80vh] overflow-hidden rounded-2xl border-2 border-paper bg-paper-muted shadow-brutal-lg">
