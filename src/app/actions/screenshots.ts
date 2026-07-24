@@ -48,7 +48,9 @@ const PRESIGN_SLOT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type ListingScreenshotDto = UploadedImageDto;
 export type ConfirmScreenshotInput = ConfirmImageInput;
-export type { UploadSlotRequest, UploadSlot };
+// Avoid `export type { … }` re-exports here: Next.js 16.1+ registers them as
+// server actions and throws ReferenceError at runtime (vercel/next.js#92461).
+
 
 class ScreenshotLimitError extends Error {
   constructor() {
