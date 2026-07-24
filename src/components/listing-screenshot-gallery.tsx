@@ -11,6 +11,21 @@ export type GalleryImage = {
   alt: string;
 };
 
+/**
+ * Reveal after load. Cached/SSR images often finish before React attaches
+ * onLoad, so also check `complete` via ref — otherwise thumbnails stay grey.
+ */
+function useRevealOnImageLoad() {
+  const [loaded, setLoaded] = useState(false);
+  const reveal = useCallback(() => setLoaded(true), []);
+  const imgRef = useCallback((node: HTMLImageElement | null) => {
+    if (node?.complete && node.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, []);
+  return { loaded, imgRef, reveal };
+}
+
 function Thumbnail({
   image,
   index,
@@ -20,7 +35,7 @@ function Thumbnail({
   index: number;
   onOpen: (index: number) => void;
 }) {
-  const [loaded, setLoaded] = useState(false);
+  const { loaded, imgRef, reveal } = useRevealOnImageLoad();
 
   return (
     <button
@@ -38,6 +53,7 @@ function Thumbnail({
       />
       {/* eslint-disable-next-line @next/next/no-img-element -- public R2 CDN; skip Next optimizer to avoid origin load */}
       <img
+        ref={imgRef}
         src={image.publicUrl}
         alt={image.alt}
         width={image.width}
@@ -48,14 +64,15 @@ function Thumbnail({
           "relative size-full object-cover transition-opacity duration-300",
           loaded ? "opacity-100" : "opacity-0"
         )}
-        onLoad={() => setLoaded(true)}
+        onLoad={reveal}
+        onError={reveal}
       />
     </button>
   );
 }
 
 function LightboxImage({ image }: { image: GalleryImage }) {
-  const [loaded, setLoaded] = useState(false);
+  const { loaded, imgRef, reveal } = useRevealOnImageLoad();
 
   return (
     <div className="relative max-h-[80vh] overflow-hidden rounded-2xl border-2 border-paper bg-paper-muted shadow-brutal-lg">
@@ -68,6 +85,7 @@ function LightboxImage({ image }: { image: GalleryImage }) {
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imgRef}
         src={image.publicUrl}
         alt={image.alt}
         width={image.width}
@@ -76,7 +94,8 @@ function LightboxImage({ image }: { image: GalleryImage }) {
           "max-h-[80vh] w-auto max-w-full object-contain transition-opacity duration-300",
           loaded ? "opacity-100" : "opacity-0"
         )}
-        onLoad={() => setLoaded(true)}
+        onLoad={reveal}
+        onError={reveal}
       />
     </div>
   );
