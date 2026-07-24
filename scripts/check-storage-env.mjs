@@ -15,6 +15,9 @@ const REQUIRED = [
   "R2_PUBLIC_BASE_URL",
 ];
 
+/** R2 S3 Access Key ID length. Wrong keys (e.g. cfut_…) fail PUTs with a CORS-looking 400. */
+const R2_ACCESS_KEY_ID_LENGTH = 32;
+
 if (process.env.ALLOW_MISSING_R2 === "1") {
   if (process.env.NODE_ENV === "production") {
     console.error(
@@ -39,16 +42,13 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-// R2 S3 Access Key IDs are 32 chars. Cloudflare API tokens (e.g. cfut_…) are
-// rejected by R2 with 400 "Credential access key has length N, should be 32",
-// which browsers surface as a CORS failure on the presigned PUT.
 const accessKeyId = process.env.R2_ACCESS_KEY_ID.trim();
-if (accessKeyId.length !== 32) {
+if (accessKeyId.length !== R2_ACCESS_KEY_ID_LENGTH) {
   console.error(
-    `[check-storage-env] R2_ACCESS_KEY_ID length is ${accessKeyId.length}, expected 32.`
+    `[check-storage-env] R2_ACCESS_KEY_ID length is ${accessKeyId.length}, expected ${R2_ACCESS_KEY_ID_LENGTH}.`
   );
   console.error(
-    "Use an R2 S3 API token Access Key ID from Cloudflare Dashboard → R2 → Manage R2 API Tokens — not a Cloudflare API token."
+    "Use an R2 S3 API token Access Key ID (Dashboard → R2 → Manage R2 API Tokens), not a Cloudflare API token."
   );
   process.exit(1);
 }

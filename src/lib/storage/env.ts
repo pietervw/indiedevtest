@@ -21,13 +21,16 @@ const REQUIRED_KEYS = [
   "R2_PUBLIC_BASE_URL",
 ] as const;
 
+/** R2 S3 Access Key ID length. Wrong keys (e.g. cfut_…) fail PUTs with a CORS-looking 400. */
+const R2_ACCESS_KEY_ID_LENGTH = 32;
+
 export function getMissingR2EnvKeys(
   env: NodeJS.ProcessEnv = process.env
 ): string[] {
   return REQUIRED_KEYS.filter((key) => !env[key]?.trim());
 }
 
-/** Throws if any required R2 env var is missing. */
+/** Throws if any required R2 env var is missing or malformed. */
 export function requireR2Config(
   env: NodeJS.ProcessEnv = process.env
 ): R2Config {
@@ -43,11 +46,10 @@ export function requireR2Config(
   const accessKeyId = env.R2_ACCESS_KEY_ID!.trim();
   const publicBaseUrl = env.R2_PUBLIC_BASE_URL!.trim().replace(/\/$/, "");
 
-  // R2 rejects non-32-char access keys with 400 (often misread as CORS in browsers).
-  if (accessKeyId.length !== 32) {
+  if (accessKeyId.length !== R2_ACCESS_KEY_ID_LENGTH) {
     throw new Error(
-      `R2_ACCESS_KEY_ID length is ${accessKeyId.length}, expected 32. ` +
-        `Create an R2 S3 API token (Dashboard → R2 → Manage R2 API Tokens) and use its Access Key ID — not a Cloudflare API token.`
+      `R2_ACCESS_KEY_ID length is ${accessKeyId.length}, expected ${R2_ACCESS_KEY_ID_LENGTH}. ` +
+        `Use an R2 S3 API token Access Key ID (Dashboard → R2 → Manage R2 API Tokens), not a Cloudflare API token.`
     );
   }
 

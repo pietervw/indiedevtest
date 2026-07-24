@@ -29,10 +29,24 @@ const REQUIRED = [
   "R2_BUCKET",
 ];
 
+/** R2 S3 Access Key ID length. Wrong keys (e.g. cfut_…) fail S3 API auth. */
+const R2_ACCESS_KEY_ID_LENGTH = 32;
+
 const missing = REQUIRED.filter((key) => !process.env[key]?.trim());
 if (missing.length > 0) {
   console.error(
     `[apply-r2-cors] Missing required env:\n  - ${missing.join("\n  - ")}`
+  );
+  process.exit(1);
+}
+
+const accessKeyId = process.env.R2_ACCESS_KEY_ID.trim();
+if (accessKeyId.length !== R2_ACCESS_KEY_ID_LENGTH) {
+  console.error(
+    `[apply-r2-cors] R2_ACCESS_KEY_ID length is ${accessKeyId.length}, expected ${R2_ACCESS_KEY_ID_LENGTH}.`
+  );
+  console.error(
+    "Use an R2 S3 API token Access Key ID (Dashboard → R2 → Manage R2 API Tokens), not a Cloudflare API token."
   );
   process.exit(1);
 }
@@ -48,7 +62,7 @@ const client = new S3Client({
   region: "auto",
   endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID.trim(),
+    accessKeyId,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY.trim(),
   },
   requestChecksumCalculation: "WHEN_REQUIRED",
