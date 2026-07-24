@@ -55,7 +55,6 @@ const PRESIGN_SLOT_LIMIT = 30;
 const PRESIGN_SLOT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type EvidenceScreenshotDto = UploadedImageDto;
-export type ConfirmScreenshotInput = ConfirmImageInput;
 
 export type EvidenceState = {
   ok: boolean;
@@ -519,7 +518,7 @@ export async function createEvidenceScreenshotUploadSlots(
 
 export async function confirmEvidenceScreenshots(
   listingId: string,
-  items: ConfirmScreenshotInput[]
+  items: ConfirmImageInput[]
 ): Promise<
   | { ok: true; screenshots: EvidenceScreenshotDto[] }
   | { ok: false; message: string }
