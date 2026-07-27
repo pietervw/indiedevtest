@@ -41,7 +41,7 @@ export default function TermsPage() {
         <LegalSection title="Using IndieDevTest">
           <p>
             {siteConfig.name} is a free reciprocal testing community for indie
-            Android and iOS developers. You post apps that need testers, help
+            Android developers preparing for Google Play. You post apps that need testers, help
             test other people’s apps, and coordinate installs through the tools
             on this site.
           </p>
@@ -62,7 +62,7 @@ export default function TermsPage() {
         <LegalSection title="What you post is public">
           <p>
             Profiles and listings you publish are public by design. Only share
-            store or TestFlight links and details you are comfortable showing to
+            Google Play links and details you are comfortable showing to
             other indie developers and to anyone who can open the page.
           </p>
         </LegalSection>

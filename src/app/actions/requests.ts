@@ -77,6 +77,7 @@ export async function createTesterRequest(
       status: true,
       moderationStatus: true,
       testerCapacity: true,
+      platform: true,
       userId: true,
       user: { select: { clerkId: true, displayName: true, profileSlug: true } },
     },
@@ -242,6 +243,7 @@ export async function createTesterRequest(
     testerName: user.displayName,
     testerEmail: email,
     listingUrl: `${siteConfig.url}${appPath(listing.id)}`,
+    platform: listing.platform,
   }).catch((err) => {
     console.error("[requests] new-request email failed", err);
   });

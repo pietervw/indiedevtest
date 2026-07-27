@@ -16,7 +16,6 @@ export type AppListingFormState = {
       | "name"
       | "description"
       | "category"
-      | "platform"
       | "logoUrl"
       | "testingAccessUrl"
       | "testerInstructions"
@@ -27,7 +26,6 @@ export type AppListingFormState = {
 };
 
 const CATEGORIES = new Set<string>(Object.values(AppCategory));
-const PLATFORMS = new Set<string>(Object.values(Platform));
 
 function validateListing(formData: FormData): {
   data?: {
@@ -46,7 +44,6 @@ function validateListing(formData: FormData): {
   const name = field(formData, "name");
   const description = field(formData, "description");
   const category = field(formData, "category");
-  const platform = field(formData, "platform");
   const logoUrl = field(formData, "logoUrl");
   const testingAccessUrl = field(formData, "testingAccessUrl");
   const testerInstructions = field(formData, "testerInstructions");
@@ -62,9 +59,6 @@ function validateListing(formData: FormData): {
   }
   if (!CATEGORIES.has(category)) {
     fieldErrors.category = "Pick a category.";
-  }
-  if (!PLATFORMS.has(platform)) {
-    fieldErrors.platform = "Pick a platform.";
   }
   if (logoUrl && !isHttpUrl(logoUrl)) {
     fieldErrors.logoUrl = "Logo must be an http(s) URL.";
@@ -95,7 +89,7 @@ function validateListing(formData: FormData): {
       name,
       description,
       category: category as AppCategory,
-      platform: platform as Platform,
+      platform: Platform.android,
       logoUrl: logoUrl || "",
       testingAccessUrl,
       testerInstructions,

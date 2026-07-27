@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import {
   AppCategory,
   AppListingStatus,
-  Platform,
 } from "@/generated/prisma";
 import { requireDbUser } from "@/lib/auth-guards";
 import { revokeBadgeBelowThreshold, syncFirst12Badge } from "@/lib/badges";
@@ -28,7 +27,6 @@ export type UpdateListingState = {
       | "name"
       | "description"
       | "category"
-      | "platform"
       | "logoUrl"
       | "testingAccessUrl"
       | "testerInstructions"
@@ -41,7 +39,6 @@ export type UpdateListingState = {
 };
 
 const CATEGORIES = new Set<string>(Object.values(AppCategory));
-const PLATFORMS = new Set<string>(Object.values(Platform));
 const STATUSES = new Set<string>(Object.values(AppListingStatus));
 
 export async function updateAppListing(
@@ -62,7 +59,6 @@ export async function updateAppListing(
   const name = field(formData, "name");
   const description = field(formData, "description");
   const category = field(formData, "category");
-  const platform = field(formData, "platform");
   const logoUrl = field(formData, "logoUrl");
   const testingAccessUrl = field(formData, "testingAccessUrl");
   const testerInstructions = field(formData, "testerInstructions");
@@ -81,9 +77,6 @@ export async function updateAppListing(
   }
   if (!CATEGORIES.has(category)) {
     fieldErrors.category = "Pick a category.";
-  }
-  if (!PLATFORMS.has(platform)) {
-    fieldErrors.platform = "Pick a platform.";
   }
   if (logoUrl && !isHttpUrl(logoUrl)) {
     fieldErrors.logoUrl = "Logo must be an http(s) URL.";
@@ -164,7 +157,6 @@ export async function updateAppListing(
         name,
         description,
         category: category as AppCategory,
-        platform: platform as Platform,
         logoUrl: logoUrl || "",
         testingAccessUrl: testingAccessUrl || null,
         testerInstructions: testerInstructions || null,

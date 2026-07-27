@@ -243,6 +243,7 @@ export default async function AppListingPage({ params }: Props) {
           <ListingSessionPanels
             listingId={listing.id}
             listingStatus={listing.status}
+            platform={listing.platform}
           />
 
           {(listing.status === "open_for_testing" ||

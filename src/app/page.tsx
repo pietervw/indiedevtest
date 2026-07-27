@@ -76,7 +76,7 @@ const jsonLd = [
     url: siteConfig.url,
     description: siteConfig.description,
     applicationCategory: "DeveloperApplication",
-    operatingSystem: "Android, iOS, Web",
+    operatingSystem: "Android",
     offers: {
       "@type": "Offer",
       price: "0",
@@ -182,18 +182,23 @@ export default async function Home() {
         <Container>
           <SectionHeading
             title="How it works"
-            description="Three steps. Zero drama. Reciprocal by design."
+            description="From listing to production access, reciprocal by design."
           />
-          <ol className="grid gap-8 md:grid-cols-3 md:gap-6">
+          <ol className="relative mx-auto max-w-4xl before:absolute before:bottom-6 before:left-[1.45rem] before:top-6 before:w-0.5 before:bg-ink md:grid md:max-w-none md:grid-cols-4 md:gap-6 md:before:bottom-auto md:before:left-[12.5%] md:before:right-[12.5%] md:before:top-7 md:before:h-0.5 md:before:w-auto">
             {howItWorksSteps.map((step) => (
-              <li key={step.n} className="text-center md:text-left">
-                <span className="font-display text-5xl font-extrabold text-brand [text-shadow:3px_3px_0_var(--ink)]">
+              <li
+                key={step.n}
+                className="relative grid grid-cols-[3rem_1fr] gap-4 pb-9 last:pb-0 md:block md:pb-0 md:text-center"
+              >
+                <span className="relative z-10 flex size-12 items-center justify-center rounded-full border-2 border-ink bg-brand font-display text-sm font-extrabold text-brand-ink shadow-[3px_3px_0_var(--ink)] md:mx-auto">
                   {step.n}
                 </span>
-                <h3 className="mt-3 font-display text-xl font-bold text-ink">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-ink-muted">{step.body}</p>
+                <div>
+                  <h3 className="font-display text-xl font-bold text-ink md:mt-5">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-ink-muted">{step.body}</p>
+                </div>
               </li>
             ))}
           </ol>
@@ -203,26 +208,17 @@ export default async function Home() {
       <Section className="border-b-2 border-ink bg-paper-muted">
         <Container>
           <SectionHeading
-            title="Android and iOS testing, explained"
-            description="IndieDevTest helps you find people to test. Your store’s testing track handles the install and enrollment."
+            title="Google Play closed testing, explained"
+            description="IndieDevTest helps you find genuine testers. Google Play handles installation and closed-track enrollment."
           />
-          <div className="grid gap-5 md:grid-cols-2">
-            <article className="rounded-2xl border-2 border-ink bg-paper p-6 shadow-brutal">
+          <div className="mx-auto max-w-3xl">
+            <article className="rounded-2xl border-2 border-ink bg-paper p-6 shadow-brutal md:p-8">
               <h3 className="font-display text-xl font-extrabold text-ink">Google Play closed testing</h3>
               <p className="mt-3 text-ink-muted">
                 For newly created personal Play developer accounts, Google requires a closed test with at least 12 opted-in testers for 14 continuous days before you can apply for production access. Create a closed-testing track in Play Console, then share its opt-in link with accepted testers.
               </p>
               <a href="https://support.google.com/googleplay/android-developer/answer/14151465" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex font-semibold text-ink underline">
                 Read Google&apos;s requirements ↗
-              </a>
-            </article>
-            <article className="rounded-2xl border-2 border-ink bg-paper p-6 shadow-brutal">
-              <h3 className="font-display text-xl font-extrabold text-ink">Apple TestFlight</h3>
-              <p className="mt-3 text-ink-muted">
-                Upload a beta build in App Store Connect, create an external tester group, and invite accepted testers by email or a public link. Your first external build needs TestFlight beta review approval before external testers can use it.
-              </p>
-              <a href="https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex font-semibold text-ink underline">
-                Read Apple&apos;s TestFlight guide ↗
               </a>
             </article>
           </div>

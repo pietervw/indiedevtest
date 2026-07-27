@@ -57,7 +57,7 @@ export default function NotFound() {
           This page skipped closed testing
         </h1>
         <p className="mt-3 max-w-sm text-lg text-ink-muted">
-          We looked everywhere — under the Play Console, behind TestFlight —
+          We looked everywhere — under the Play Console, behind the closed test —
           and still couldn&apos;t find it. Cute, but gone.
         </p>
 

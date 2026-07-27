@@ -6,6 +6,7 @@ import { createTesterRequest, type RequestState } from "@/app/actions/requests";
 import { SubmitButton } from "@/components/submit-button";
 import { umamiEvent } from "@/lib/umami";
 import { cn } from "@/lib/utils";
+import { testingTrackPhrase } from "@/lib/mock-data";
 import type { TesterRequestStatus } from "@/generated/prisma";
 
 const initialState: RequestState = { ok: false, message: "" };
@@ -16,6 +17,7 @@ const initialState: RequestState = { ok: false, message: "" };
  */
 export function RequestToTestForm({
   listingId,
+  platform,
   existing,
   hasJoined = false,
   invitation = null,
@@ -23,6 +25,7 @@ export function RequestToTestForm({
   onRequestSuccess,
 }: {
   listingId: string;
+  platform: string;
   existing: TesterRequestStatus | null;
   /** Owner already confirmed join — withdraw is no longer allowed. */
   hasJoined?: boolean;
@@ -142,7 +145,7 @@ export function RequestToTestForm({
       </h2>
       <p className="mt-2 text-sm text-ink-muted">
         Your saved testing contact email will be shared with this developer so
-        they can add you to their Play Store / TestFlight track.
+        they can add you to their {testingTrackPhrase(platform)}.
       </p>
       <form action={formAction} className="mt-4 flex flex-col gap-3">
         <SubmitButton size="lg" pendingLabel="Sending…" className="w-full sm:w-auto" {...umamiEvent("tester_request_create_click")}>

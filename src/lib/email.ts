@@ -12,6 +12,7 @@ import {
   renderBrandedEmail,
 } from "@/lib/email-templates";
 import { siteConfig } from "@/lib/site";
+import { testingTrackPhrase } from "@/lib/mock-data";
 
 // Set the key once on module load when available. Re-applied in sendMail
 // so a key added after server start (e.g. via .env.local reload) still works.
@@ -194,6 +195,7 @@ export async function sendNewTesterRequestEmail(options: {
   testerName: string;
   testerEmail: string;
   listingUrl: string;
+  platform: string;
 }): Promise<void> {
   const devEmail = await primaryEmailForClerkUser(options.devClerkId);
   if (!devEmail) {
@@ -206,6 +208,9 @@ export async function sendNewTesterRequestEmail(options: {
 
   const product = siteConfig.name;
   const subject = `New tester request for ${options.appName}`;
+  const trackPhrase = testingTrackPhrase(options.platform);
+  const addToTrack =
+    `Reply to the tester directly to add them to your ${trackPhrase}.`;
 
   await sendMail({
     to: devEmail,
@@ -217,7 +222,7 @@ export async function sendNewTesterRequestEmail(options: {
       `Tester email: ${options.testerEmail}`,
       `Listing: ${options.listingUrl}`,
       "",
-      "Reply to the tester directly to add them to your Play Store / TestFlight track.",
+      addToTrack,
       "",
       `— Sent from ${product}`,
     ].join("\n"),
@@ -239,9 +244,7 @@ export async function sendNewTesterRequestEmail(options: {
           },
         ]),
         emailCtaButton(options.listingUrl, "View listing"),
-        emailParagraph(
-          "Reply to the tester directly to add them to your Play Store / TestFlight track."
-        ),
+        emailParagraph(addToTrack),
         emailMutedNote(`Sent from ${product}`),
       ].join(""),
     }),
