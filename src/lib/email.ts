@@ -476,7 +476,7 @@ export async function sendListing14DayReminderEmail(options: {
   devName: string;
   appName: string;
   listingUrl: string;
-  fourteenthJoinedAt: Date;
+  milestoneJoinedAt: Date;
 }): Promise<void> {
   const devEmail = await primaryEmailForClerkUser(options.devClerkId);
   if (!devEmail) {
@@ -490,7 +490,7 @@ export async function sendListing14DayReminderEmail(options: {
 
   const product = siteConfig.name;
   const subject = `${options.appName} is ready for its testing check-in`;
-  const joinedDate = options.fourteenthJoinedAt.toLocaleDateString("en-US", {
+  const joinedDate = options.milestoneJoinedAt.toLocaleDateString("en-US", {
     timeZone: "UTC",
     year: "numeric",
     month: "long",

@@ -38,28 +38,23 @@ export async function creditReviewOnEvidenceComplete(
 }
 
 /**
- * Reclaim an unspent point when evidence becomes incomplete.
- * If already spent, leave pointAwardedAt set so this review cannot mint again.
+ * Best-effort reclaim when evidence becomes incomplete.
+ * Keep pointAwardedAt so this review never remints (points are fungible;
+ * clearing the stamp when another review's credit remains would allow a
+ * second mint after a spent award).
  */
 export async function reclaimUnspentReviewPoint(
   db: Db,
   options: {
     userId: string;
-    reviewId: string;
     pointAwardedAt: Date | null;
   }
 ): Promise<void> {
   if (options.pointAwardedAt === null) {
     return;
   }
-  const { count } = await db.user.updateMany({
+  await db.user.updateMany({
     where: { id: options.userId, reviewPoints: { gt: 0 } },
     data: { reviewPoints: { decrement: 1 } },
   });
-  if (count === 1) {
-    await db.review.update({
-      where: { id: options.reviewId },
-      data: { pointAwardedAt: null },
-    });
-  }
 }

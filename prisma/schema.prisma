@@ -144,7 +144,7 @@ model AppListing {
   /// a place whether or not the developer has subsequently marked them joined.
   testerCapacity        Int?                    @map("tester_capacity")
   autoClosedForCapacity Boolean                 @default(false) @map("auto_closed_for_capacity")
-  maxTestersPerPlatform Int                     @default(14) @map("max_testers_per_platform")
+  maxTestersPerPlatform Int                     @default(12) @map("max_testers_per_platform")
   /// When false, tester evidence is hidden from the public listing (owner + authors still see it).
   showTesterFeedback    Boolean                 @default(true) @map("show_tester_feedback")
   reminderSentAt        DateTime?               @map("reminder_sent_at")
@@ -333,8 +333,8 @@ model Review {
   appListingId          String    @map("app_listing_id")
   testerUserId          String    @map("tester_user_id")
   improvementSuggestion String    @map("improvement_suggestion")
-  /// Set when this review mints a point. Cleared if incomplete evidence
-  /// reclaims an unspent point; kept if already spent (no second mint).
+  /// Set when this review mints a point. Kept for the review lifetime so
+  /// incomplete→complete cannot mint a second time.
   pointAwardedAt        DateTime? @map("point_awarded_at")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")

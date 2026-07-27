@@ -137,7 +137,7 @@ export function AppListingForm({
             aria-invalid={Boolean(state.fieldErrors?.testerCapacity)}
           />
           <p className="mt-1 text-sm text-ink-muted">
-            Include only the testers you still need. Leave blank for no fixed limit.
+            Set the total number of testers you want to accept. Leave blank for no fixed limit.
             Each acceptance costs one review point.
           </p>
           {state.fieldErrors?.testerCapacity ? (

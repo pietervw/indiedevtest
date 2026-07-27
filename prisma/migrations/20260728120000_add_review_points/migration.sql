@@ -59,4 +59,9 @@ SET "review_points" = GREATEST(
 
 ALTER TABLE "users"
 ADD CONSTRAINT "users_review_points_nonnegative"
-CHECK ("review_points" >= 0);
+CHECK ("review_points" >= 0) NOT VALID;
+-- Existing rows were clamped above; NOT VALID avoids a long write lock.
+-- New writes are still enforced immediately.
+
+ALTER TABLE "app_listings"
+ALTER COLUMN "max_testers_per_platform" SET DEFAULT 12;

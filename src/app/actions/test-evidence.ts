@@ -862,7 +862,6 @@ export async function deleteEvidenceScreenshot(
       });
       await reclaimUnspentReviewPoint(tx, {
         userId: eligible.user.id,
-        reviewId: review.id,
         pointAwardedAt: locked.pointAwardedAt,
       });
       await revokeBadgeBelowThreshold(
