@@ -77,7 +77,7 @@ export const siteFaqs = [
   {
     question: "How long is the testing phase?",
     answer:
-      "Google requires at least 12 testers to remain opted in to your closed test for 14 continuous days before you can apply for production access.",
+      "For newly created personal Play developer accounts, Google requires at least 12 testers to remain opted in to your closed test for 14 continuous days before you can apply for production access.",
   },
   {
     question: "Can’t I just use friends and family for testing?",

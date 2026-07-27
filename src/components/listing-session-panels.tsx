@@ -33,6 +33,7 @@ import {
   profilePath,
   TESTING_PERIOD_MS,
   testingPeriodProgress,
+  testingTrackPhrase,
 } from "@/lib/mock-data";
 
 type SessionState = {
@@ -283,9 +284,11 @@ export function ListingPageHeader({ listingId }: { listingId: string }) {
 export function ListingSessionPanels({
   listingId,
   listingStatus,
+  platform,
 }: {
   listingId: string;
   listingStatus: string;
+  platform: string;
 }) {
   const router = useRouter();
   const { session, failed, refresh } = useListingSession();
@@ -319,6 +322,7 @@ export function ListingSessionPanels({
                 // Remount when session status changes so useActionState can't keep a stale ok after withdraw.
                 key={`${session?.viewerRequestStatus ?? "none"}:${session?.viewerHasJoined ? "joined" : "open"}`}
                 listingId={listingId}
+                platform={platform}
                 existing={session?.viewerRequestStatus ?? null}
                 hasJoined={session?.viewerHasJoined ?? false}
                 invitation={session?.viewerInvitation ?? null}
@@ -416,8 +420,8 @@ export function ListingSessionPanels({
             </span>
           </h2>
           <p className="mt-2 text-sm text-ink-muted">
-            Accepted testers — once you&apos;ve added them to your Play Store /
-            Google Play closed-testing track, confirm they joined.
+            Accepted testers — once you&apos;ve added them to your{" "}
+            {testingTrackPhrase(platform)}, confirm they joined.
           </p>
           <ul className="mt-6 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-ink bg-paper">
             {session.acceptedRequests.map((req) => (

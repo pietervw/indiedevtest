@@ -61,6 +61,13 @@ export const platformLabel: Record<string, string> = {
   ios: "iOS",
 };
 
+/** Enrollment destination shown to testers/devs for a listing platform. */
+export function testingTrackPhrase(platform: string): string {
+  return platform === "ios"
+    ? "TestFlight track"
+    : "Google Play closed-testing track";
+}
+
 export function profilePath(profileSlug: string) {
   return `/dev/${encodeURIComponent(profileSlug)}`;
 }
