@@ -67,7 +67,7 @@ export default function PrivacyPage() {
             Developer profiles and app listings you publish are meant to be
             public. That typically includes your display name, profile handle,
             photo, bio, social handle if you added one, and the app details you
-            post (name, description, logo, store or TestFlight link, platform,
+            post (name, description, logo, Google Play link, category,
             and status).
           </p>
           <p>

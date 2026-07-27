@@ -20,14 +20,13 @@ export const siteConfig = {
   legalName: "IndieDevTest",
   tagline: "Find 12 testers. Launch your app.",
   description:
-    "Indie devs help each other launch. Reciprocal testing for Android and iOS — no more begging friends or family.",
+    "Indie devs help each other meet Google Play's 12-tester requirement and launch — no more begging friends or family.",
   url: resolveSiteUrl(),
   locale: "en_US",
   keywords: [
     "indie app testers",
     "Google Play 12 testers",
     "Android closed testing",
-    "TestFlight testers",
     "reciprocal app testing",
     "indie developer community",
     "mobile app launch",
@@ -49,41 +48,46 @@ export const socialLinks = [
 export const howItWorksSteps = [
   {
     n: "01",
-    title: "Post your app",
-    body: "Drop your Play Store or TestFlight link in under 2 minutes.",
+    title: "List your app",
+    body: "List your app with the basic details testers need.",
   },
   {
     n: "02",
-    title: "Test other apps",
-    body: "Help fellow indie builders — real installs, real feedback.",
+    title: "Test apps for other devs",
+    body: "Sign up to test other apps and unlock testing slots for your own app.",
   },
   {
     n: "03",
-    title: "Get to 12/14",
-    body: "Reciprocity fills your tester slots so you can ship.",
+    title: "12+ users join your test track",
+    body: "Testers join your closed-testing track for the required 14 days and provide useful feedback.",
+  },
+  {
+    n: "04",
+    title: "Production access",
+    body: "After 14 days of continuous testing, you can apply for Google Play production access.",
   },
 ] as const;
 
 export const siteFaqs = [
   {
-    question: "What is IndieDevTest?",
+    question: "What’s the quickest way to get my app into production?",
     answer:
-      "IndieDevTest is a free reciprocal testing community where indie developers help each other reach Google Play's 12-tester / 14-day requirement and TestFlight coverage.",
+      "Use a community of fellow developers to test your app and provide valuable feedback before you apply for production access.",
   },
   {
-    question: "How does reciprocal testing work?",
+    question: "How long is the testing phase?",
     answer:
-      "You post your app, test other indie apps, and the community tests yours. The more you help, the faster you reach your tester slots.",
+      "Google requires at least 12 testers to remain opted in to your closed test for 14 continuous days before you can apply for production access.",
   },
   {
-    question: "Is IndieDevTest free?",
+    question: "Can’t I just use friends and family for testing?",
     answer:
-      "Yes. IndieDevTest is free forever — no credit card, no premium tiers, and no bait-and-switch.",
+      "Friends and family can be testers, but getting 12 people to opt in, use your app, and provide valuable feedback can be difficult. Fellow developers are better placed to find bugs and help you avoid launch delays.",
   },
   {
-    question: "Why not just post on Reddit or Twitter?",
+    question: "What if testers uninstall my app during the 14-day period?",
     answer:
-      "Reddit can take weeks and Twitter is hit-or-miss. IndieDevTest is built only for indie developers who need real, reciprocal testing.",
+      "Google counts testers who remain opted in to the closed test. Encourage testers to keep the app installed and actively test it throughout the 14 days so your test demonstrates genuine engagement.",
   },
 ] as const;
 
@@ -93,7 +97,7 @@ export const siteRoutes = [
     path: "/",
     title: "Home",
     description:
-      "Reciprocal testing community for indie Android and iOS developers.",
+      "Reciprocal Google Play closed-testing community for indie Android developers.",
     changeFrequency: "weekly" as const,
     priority: 1,
   },
@@ -101,7 +105,7 @@ export const siteRoutes = [
     path: "/browse",
     title: "Browse",
     description:
-      "Browse open testing listings from fellow indie Android and iOS developers.",
+      "Browse open Google Play testing listings from fellow indie Android developers.",
     changeFrequency: "hourly" as const,
     priority: 0.9,
   },

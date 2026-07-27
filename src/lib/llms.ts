@@ -30,12 +30,12 @@ export function buildLlmsTxt(): string {
     `# ${siteConfig.name}`,
     `> ${siteConfig.description}`,
     "",
-    `${siteConfig.name} helps indie mobile developers find reciprocal testers so they can meet Google Play's 12-tester / 14-day requirement and ship on TestFlight without begging friends or family.`,
+    `${siteConfig.name} helps indie Android developers find reciprocal testers so they can meet Google Play's 12-tester / 14-day requirement without begging friends or family.`,
     "",
     "Important notes:",
     "- The product is free forever — no credit card and no premium tiers.",
     "- Testers are other indie developers building their own apps (not paid farms).",
-    "- Primary audience: solo/indie Android and iOS builders preparing a store launch.",
+    "- Primary audience: solo and indie Android builders preparing a Google Play launch.",
     "",
     "## Pages",
     pagesMarkdown(),
@@ -43,7 +43,7 @@ export function buildLlmsTxt(): string {
     "## Key facts",
     `- Official site: ${siteConfig.url}`,
     `- Product: reciprocal indie app testing community`,
-    `- Platforms: Android (Google Play closed testing), iOS (TestFlight)`,
+    `- Platform: Android (Google Play closed testing)`,
     `- Contact: ${absoluteUrl("/contact")}`,
     "",
     "## Optional",
@@ -70,7 +70,7 @@ export function buildLlmsFullTxt(): string {
 
 ## What it is
 
-${siteConfig.name} is a free reciprocal testing community for indie mobile developers. Builders post their apps, test each other's apps, and fill Google Play / TestFlight tester requirements without relying on friends, family, or unreliable social posts.
+${siteConfig.name} is a free reciprocal testing community for indie Android developers. Builders post their apps, test each other's apps, and meet Google Play closed-testing requirements without relying on friends, family, or unreliable social posts.
 
 Tagline: ${siteConfig.tagline}
 

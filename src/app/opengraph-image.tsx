@@ -72,7 +72,7 @@ export default function OpenGraphImage() {
               maxWidth: 780,
             }}
           >
-            Reciprocal testing for indie Android & iOS builders.
+            Reciprocal Google Play testing for indie Android builders.
           </div>
         </div>
 

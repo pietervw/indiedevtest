@@ -142,7 +142,7 @@ export function RequestToTestForm({
       </h2>
       <p className="mt-2 text-sm text-ink-muted">
         Your saved testing contact email will be shared with this developer so
-        they can add you to their Play Store / TestFlight track.
+        they can add you to their Google Play closed-testing track.
       </p>
       <form action={formAction} className="mt-4 flex flex-col gap-3">
         <SubmitButton size="lg" pendingLabel="Sending…" className="w-full sm:w-auto" {...umamiEvent("tester_request_create_click")}>

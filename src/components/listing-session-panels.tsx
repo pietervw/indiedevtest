@@ -417,7 +417,7 @@ export function ListingSessionPanels({
           </h2>
           <p className="mt-2 text-sm text-ink-muted">
             Accepted testers — once you&apos;ve added them to your Play Store /
-            TestFlight track, confirm they joined.
+            Google Play closed-testing track, confirm they joined.
           </p>
           <ul className="mt-6 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-ink bg-paper">
             {session.acceptedRequests.map((req) => (

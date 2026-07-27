@@ -217,7 +217,7 @@ export async function sendNewTesterRequestEmail(options: {
       `Tester email: ${options.testerEmail}`,
       `Listing: ${options.listingUrl}`,
       "",
-      "Reply to the tester directly to add them to your Play Store / TestFlight track.",
+      "Reply to the tester directly to add them to your Google Play closed-testing track.",
       "",
       `— Sent from ${product}`,
     ].join("\n"),
@@ -240,7 +240,7 @@ export async function sendNewTesterRequestEmail(options: {
         ]),
         emailCtaButton(options.listingUrl, "View listing"),
         emailParagraph(
-          "Reply to the tester directly to add them to your Play Store / TestFlight track."
+          "Reply to the tester directly to add them to your Google Play closed-testing track."
         ),
         emailMutedNote(`Sent from ${product}`),
       ].join(""),

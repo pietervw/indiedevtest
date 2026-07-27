@@ -23,7 +23,6 @@ export type EditListingDefaults = {
   name: string;
   description: string;
   category: string;
-  platform: string;
   logoUrl: string;
   testingAccessUrl: string;
   testerInstructions: string;
@@ -94,51 +93,27 @@ export function EditAppListingForm({
         ) : null}
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div>
-          <label htmlFor="edit-app-category" className={labelClassName}>
-            Category
-          </label>
-          <select
-            id="edit-app-category"
-            name="category"
-            required
-            defaultValue={defaults.category}
-            className={cn(fieldClassName, "h-12")}
-            aria-invalid={Boolean(state.fieldErrors?.category)}
-          >
-            <option value="game">Game</option>
-            <option value="utility">Utility</option>
-            <option value="productivity">Productivity</option>
-          </select>
-          {state.fieldErrors?.category ? (
-            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
-              {state.fieldErrors.category}
-            </p>
-          ) : null}
-        </div>
-
-        <div>
-          <label htmlFor="edit-app-platform" className={labelClassName}>
-            Platform
-          </label>
-          <select
-            id="edit-app-platform"
-            name="platform"
-            required
-            defaultValue={defaults.platform}
-            className={cn(fieldClassName, "h-12")}
-            aria-invalid={Boolean(state.fieldErrors?.platform)}
-          >
-            <option value="android">Android</option>
-            <option value="ios">iOS</option>
-          </select>
-          {state.fieldErrors?.platform ? (
-            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
-              {state.fieldErrors.platform}
-            </p>
-          ) : null}
-        </div>
+      <div>
+        <label htmlFor="edit-app-category" className={labelClassName}>
+          Category
+        </label>
+        <select
+          id="edit-app-category"
+          name="category"
+          required
+          defaultValue={defaults.category}
+          className={cn(fieldClassName, "h-12")}
+          aria-invalid={Boolean(state.fieldErrors?.category)}
+        >
+          <option value="game">Game</option>
+          <option value="utility">Utility</option>
+          <option value="productivity">Productivity</option>
+        </select>
+        {state.fieldErrors?.category ? (
+          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+            {state.fieldErrors.category}
+          </p>
+        ) : null}
       </div>
 
       <div>
