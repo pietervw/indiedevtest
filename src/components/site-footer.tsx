@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
 import { Container } from "@/components/ui/section";
-import { siteConfig, socialLinks } from "@/lib/site";
+import { siteConfig } from "@/lib/site";
 
 const links = [
-  ...socialLinks,
   { label: "Contact", href: "/contact" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
-  { label: "llms.txt", href: "/llms.txt" },
 ];
 
 export function SiteFooter() {

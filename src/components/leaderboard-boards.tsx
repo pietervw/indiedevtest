@@ -6,10 +6,21 @@ const BOARDS: {
   key: keyof Leaderboards;
   title: string;
   unit: string;
+  hideWhenEmpty?: boolean;
 }[] = [
   { key: "mostTested", title: "Most apps tested", unit: "done" },
-  { key: "mostLaunched", title: "Most apps launched", unit: "live" },
-  { key: "mostReviews", title: "Most tester feedback", unit: "feedback" },
+  {
+    key: "mostLaunched",
+    title: "Most apps launched",
+    unit: "live",
+    hideWhenEmpty: true,
+  },
+  {
+    key: "mostReviews",
+    title: "Most tester feedback",
+    unit: "feedback",
+    hideWhenEmpty: true,
+  },
 ];
 
 function Board({
@@ -72,9 +83,15 @@ function Board({
 }
 
 export function LeaderboardBoards({ boards }: { boards: Leaderboards }) {
+  const visible = BOARDS.filter(
+    (board) => !(board.hideWhenEmpty && boards[board.key].length === 0),
+  );
+
+  if (visible.length === 0) return null;
+
   return (
     <div className="grid gap-10 md:grid-cols-3 md:gap-6">
-      {BOARDS.map((board) => (
+      {visible.map((board) => (
         <Board
           key={board.key}
           title={board.title}

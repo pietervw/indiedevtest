@@ -205,6 +205,21 @@ export default async function Home() {
         </Container>
       </Section>
 
+      <Section className="border-b-2 border-ink bg-brand">
+        <Container className="max-w-3xl text-center">
+          <Badge variant="dark" size="md" className="mb-6">
+            From the community
+          </Badge>
+          <blockquote className="font-display text-2xl font-extrabold leading-snug text-brand-ink md:text-4xl">
+            &ldquo;I was stuck at 3 testers for weeks. IndieDevTest got me to 14
+            in 2 days.&rdquo;
+          </blockquote>
+          <footer className="mt-6 font-semibold text-brand-ink/80">
+            — Sarah, TaskMaster Pro
+          </footer>
+        </Container>
+      </Section>
+
       <Section className="border-b-2 border-ink bg-paper-muted">
         <Container>
           <SectionHeading
@@ -222,21 +237,6 @@ export default async function Home() {
               </a>
             </article>
           </div>
-        </Container>
-      </Section>
-
-      <Section className="border-b-2 border-ink bg-brand">
-        <Container className="max-w-3xl text-center">
-          <Badge variant="dark" size="md" className="mb-6">
-            From the community
-          </Badge>
-          <blockquote className="font-display text-2xl font-extrabold leading-snug text-brand-ink md:text-4xl">
-            &ldquo;I was stuck at 3 testers for weeks. IndieDevTest got me to 14
-            in 2 days.&rdquo;
-          </blockquote>
-          <footer className="mt-6 font-semibold text-brand-ink/80">
-            — Sarah, TaskMaster Pro
-          </footer>
         </Container>
       </Section>
 
