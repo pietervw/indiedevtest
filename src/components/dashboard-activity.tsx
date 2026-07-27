@@ -1,7 +1,5 @@
 import Link from "next/link";
-import {
-  acceptTesterRequest,
-} from "@/app/actions/requests";
+import { AcceptTesterButton } from "@/components/accept-tester-button";
 import { DeclineTesterButton } from "@/components/decline-tester-button";
 import { AppLogo } from "@/components/app-logo";
 import { DashboardTesterTable } from "@/components/dashboard-tester-table";
@@ -14,7 +12,6 @@ import type {
   DashboardListing,
   DashboardTesterInvitation,
 } from "@/lib/dashboard";
-import { SubmitButton } from "@/components/submit-button";
 import type { Platform } from "@/generated/prisma";
 import {
   appPath,
@@ -75,6 +72,26 @@ export function DashboardActivity({
           </div>
         </div>
 
+        <section className="mb-10 rounded-2xl border-2 border-ink bg-paper p-5 shadow-brutal">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-display text-sm font-bold uppercase tracking-wide text-ink-muted">
+                Review points
+              </p>
+              <p className="mt-1 font-display text-3xl font-extrabold text-ink">
+                {data.reviewPoints}
+              </p>
+              <p className="mt-1 text-sm text-ink-muted">
+                Complete a review to earn 1 point. Approve a tester to spend 1.
+                Set each app&apos;s tester target to however many you still need.
+              </p>
+            </div>
+            <Button href="/browse" size="sm" variant="secondary">
+              Review another app
+            </Button>
+          </div>
+        </section>
+
         <section aria-labelledby="your-apps-heading">
           <div className="mb-4 flex items-baseline justify-between gap-3">
             <h2
@@ -94,7 +111,11 @@ export function DashboardActivity({
           {hasListings ? (
             <ul className="divide-y-2 divide-ink overflow-hidden rounded-2xl border-2 border-ink bg-paper shadow-brutal">
               {data.listings.map((listing) => (
-                <ListingRow key={listing.id} listing={listing} />
+                <ListingRow
+                  key={listing.id}
+                  listing={listing}
+                  reviewPoints={data.reviewPoints}
+                />
               ))}
             </ul>
           ) : (
@@ -125,7 +146,11 @@ export function DashboardActivity({
             </div>
             <ul className="divide-y-2 divide-ink overflow-hidden rounded-2xl border-2 border-ink bg-paper shadow-brutal">
               {data.incomingRequests.map((request) => (
-                <IncomingRequestRow key={request.id} request={request} />
+                <IncomingRequestRow
+                  key={request.id}
+                  request={request}
+                  reviewPoints={data.reviewPoints}
+                />
               ))}
             </ul>
           </section>
@@ -257,9 +282,15 @@ export function DashboardActivity({
   );
 }
 
-function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) {
-  const approve = acceptTesterRequest.bind(null, request.id);
+function IncomingRequestRow({
+  request,
+  reviewPoints,
+}: {
+  request: DashboardIncomingRequest;
+  reviewPoints: number;
+}) {
   const canApprove = request.listing.status === "open_for_testing";
+  const hasPoint = !request.requiresReviewPoint || reviewPoints > 0;
 
   return (
     <li className="p-4 sm:px-5">
@@ -292,15 +323,18 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
             <p className="mt-2 text-sm text-ink-muted">
               Reopen this listing for testing to approve new testers.
             </p>
+          ) : !hasPoint ? (
+            <p className="mt-2 text-sm font-semibold text-red-600">
+              Complete a review of another app to earn a point first.
+            </p>
           ) : null}
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
-        <form action={approve}>
-          <SubmitButton size="sm" pendingLabel="Approving…" disabled={!canApprove}>
-            Approve tester
-          </SubmitButton>
-        </form>
+        <AcceptTesterButton
+          requestId={request.id}
+          disabled={!canApprove || !hasPoint}
+        />
         <DeclineTesterButton requestId={request.id} />
       </div>
       </div>
@@ -308,7 +342,13 @@ function IncomingRequestRow({ request }: { request: DashboardIncomingRequest }) 
   );
 }
 
-function ListingRow({ listing }: { listing: DashboardListing }) {
+function ListingRow({
+  listing,
+  reviewPoints,
+}: {
+  listing: DashboardListing;
+  reviewPoints: number;
+}) {
   const hasTesterDetails =
     listing.testerRequests.length > 0 ||
     listing.testerHistory.length > 0 ||
@@ -342,7 +382,7 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
             {listing.pendingRequestCount} pending · {listing.acceptedTesterCount} accepted
             {" · "}{listing.joinedTesterCount} joined · {listing.completedTesterCount} completed
             {listing.remainingTesterSpots === null
-              ? " · No tester limit"
+              ? " · No fixed tester limit"
               : ` · ${listing.remainingTesterSpots} spot${listing.remainingTesterSpots === 1 ? "" : "s"} remaining`}
           </p>
         </div>
@@ -376,6 +416,7 @@ function ListingRow({ listing }: { listing: DashboardListing }) {
               activity={listing.activity}
               feedback={listing.feedback}
               canApprove={listing.status === "open_for_testing"}
+              reviewPoints={reviewPoints}
               canResendInvitation={listing.canResendInvitation}
               platformLabel={platformLabel[listing.platform] ?? listing.platform}
             />

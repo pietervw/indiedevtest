@@ -14,7 +14,6 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  acceptTesterRequest,
   confirmTesterJoined,
   markTestComplete,
   markTestIncomplete,
@@ -23,6 +22,7 @@ import {
   withdrawTesterRequest,
 } from "@/app/actions/requests";
 import { RequestToTestForm } from "@/components/request-to-test-form";
+import { AcceptTesterButton } from "@/components/accept-tester-button";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { TestEvidenceForm } from "@/components/test-evidence-form";
@@ -381,15 +381,16 @@ export function ListingSessionPanels({
               >
                 <TesterRow tester={req.tester} sub={req.testerEmail} />
                 <div className="flex shrink-0 items-center gap-2">
-                  <form action={afterAction(() => acceptTesterRequest(req.id))}>
-                    <SubmitButton
-                      size="sm"
-                      pendingLabel="Accepting…"
-                      disabled={!session.canApproveTesters}
-                    >
-                      Accept
-                    </SubmitButton>
-                  </form>
+                  <AcceptTesterButton
+                    requestId={req.id}
+                    label="Accept"
+                    disabled={
+                      !session.canApproveTesters ||
+                      (req.requiresReviewPoint &&
+                        session.ownerReviewPoints < 1)
+                    }
+                    onSuccess={refresh}
+                  />
                   <form action={afterAction(() => rejectTesterRequest(req.id))}>
                     <SubmitButton
                       size="sm"
@@ -406,6 +407,11 @@ export function ListingSessionPanels({
           {!session.canApproveTesters ? (
             <p className="mt-3 text-sm text-ink-muted">
               Reopen this listing for testing to accept pending testers.
+            </p>
+          ) : session.ownerReviewPoints < 1 &&
+            session.pendingRequests.some((req) => req.requiresReviewPoint) ? (
+            <p className="mt-3 text-sm font-semibold text-red-600">
+              Complete a review of another app to earn a point before accepting a tester.
             </p>
           ) : null}
         </section>

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import {
-  acceptTesterRequest,
   confirmTesterJoined,
   resendTesterInvitation,
   undoTesterRequestDecline,
@@ -14,6 +13,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { DeclineTesterButton } from "@/components/decline-tester-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AcceptTesterButton } from "@/components/accept-tester-button";
 import type { DashboardOwnerTester, DashboardTesterActivity, DashboardTesterFeedback, DashboardTesterHistory } from "@/lib/dashboard";
 import { profilePath } from "@/lib/mock-data";
 
@@ -23,6 +23,7 @@ export function DashboardTesterTable({
   activity,
   feedback,
   canApprove,
+  reviewPoints,
   canResendInvitation,
   platformLabel,
 }: {
@@ -31,6 +32,7 @@ export function DashboardTesterTable({
   activity: DashboardTesterActivity[];
   feedback: DashboardTesterFeedback[];
   canApprove: boolean;
+  reviewPoints: number;
   canResendInvitation: boolean;
   platformLabel: string;
 }) {
@@ -89,7 +91,7 @@ export function DashboardTesterTable({
             {testers.map((tester) => {
               const isApproved = tester.status === "accepted";
               const hasJoined = tester.assignmentStatus !== null;
-              const approve = acceptTesterRequest.bind(null, tester.id);
+              const hasPoint = !tester.requiresReviewPoint || reviewPoints > 0;
 
               return (
                 <tr key={tester.id}>
@@ -112,15 +114,11 @@ export function DashboardTesterTable({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap justify-end gap-2">
-                      <form action={approve}>
-                        <SubmitButton
-                          size="sm"
-                          pendingLabel="Approving…"
-                          disabled={isApproved || !canApprove}
-                        >
-                          Approve
-                        </SubmitButton>
-                      </form>
+                      <AcceptTesterButton
+                        requestId={tester.id}
+                        label="Approve"
+                        disabled={isApproved || !canApprove || !hasPoint}
+                      />
                       {!isApproved ? (
                         <DeclineTesterButton requestId={tester.id} />
                       ) : null}
@@ -154,6 +152,15 @@ export function DashboardTesterTable({
       {!canApprove && testers.some((tester) => tester.status === "pending") ? (
         <p className="mt-2 text-sm text-ink-muted">
           Reopen this listing for testing to approve pending testers.
+        </p>
+      ) : null}
+      {canApprove &&
+      reviewPoints === 0 &&
+      testers.some(
+        (tester) => tester.status === "pending" && tester.requiresReviewPoint
+      ) ? (
+        <p className="mt-2 text-sm font-semibold text-red-600">
+          Complete a review of another app to earn a point before approving a tester.
         </p>
       ) : null}
       {resendMessage ? <p className="mt-2 text-sm text-ink-muted" role="status">{resendMessage}</p> : null}

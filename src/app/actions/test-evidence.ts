@@ -27,7 +27,6 @@ import type {
 import { verifyAndPromotePendingImages } from "@/lib/storage/verify-promote";
 import { requireDbUser } from "@/lib/auth-guards";
 import {
-  awardBadgesAfterReviewWritten,
   revokeBadgeBelowThreshold,
   syncFirst12Badge,
 } from "@/lib/badges";
@@ -43,6 +42,10 @@ import {
   takeRateLimit,
   type RateLimitReservation,
 } from "@/lib/rate-limit";
+import {
+  creditReviewOnEvidenceComplete,
+  reclaimUnspentReviewPoint,
+} from "@/lib/review-points";
 import {
   isCompleteEvidence,
   MIN_IMPROVEMENT_LENGTH,
@@ -590,6 +593,7 @@ export async function confirmEvidenceScreenshots(
         where: { id: review.id },
         select: {
           improvementSuggestion: true,
+          pointAwardedAt: true,
           _count: { select: { screenshots: true } },
         },
       });
@@ -666,14 +670,10 @@ export async function confirmEvidenceScreenshots(
         screenshotCount: existingCount + verified.length,
       });
       if (nowComplete && !wasComplete) {
-        const updated = await tx.user.update({
-          where: { id: testerUserId },
-          data: { reviewsWrittenCount: { increment: 1 } },
-          select: { reviewsWrittenCount: true },
-        });
-        await awardBadgesAfterReviewWritten(tx, {
+        await creditReviewOnEvidenceComplete(tx, {
           userId: testerUserId,
-          reviewsWrittenCount: updated.reviewsWrittenCount,
+          reviewId: review.id,
+          pointAwardedAt: lockedReview.pointAwardedAt,
         });
       }
 
@@ -819,6 +819,7 @@ export async function deleteEvidenceScreenshot(
         where: { id: review.id },
         select: {
           improvementSuggestion: true,
+          pointAwardedAt: true,
           _count: { select: { screenshots: true } },
         },
       });
@@ -858,6 +859,11 @@ export async function deleteEvidenceScreenshot(
         where: { id: eligible.user.id },
         data: { reviewsWrittenCount: { decrement: 1 } },
         select: { reviewsWrittenCount: true },
+      });
+      await reclaimUnspentReviewPoint(tx, {
+        userId: eligible.user.id,
+        reviewId: review.id,
+        pointAwardedAt: locked.pointAwardedAt,
       });
       await revokeBadgeBelowThreshold(
         tx,
@@ -944,6 +950,7 @@ export async function saveTestEvidence(
 
   let wasComplete = false;
   let nowComplete = false;
+  let pointEarned = false;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -956,6 +963,7 @@ export async function saveTestEvidence(
         where: { id: reviewId },
         select: {
           improvementSuggestion: true,
+          pointAwardedAt: true,
           _count: { select: { screenshots: true } },
         },
       });
@@ -983,15 +991,12 @@ export async function saveTestEvidence(
       });
 
       if (nowComplete && !wasComplete) {
-        const updated = await tx.user.update({
-          where: { id: eligible.user.id },
-          data: { reviewsWrittenCount: { increment: 1 } },
-          select: { reviewsWrittenCount: true },
-        });
-        await awardBadgesAfterReviewWritten(tx, {
+        const credited = await creditReviewOnEvidenceComplete(tx, {
           userId: eligible.user.id,
-          reviewsWrittenCount: updated.reviewsWrittenCount,
+          reviewId: reviewId,
+          pointAwardedAt: existing.pointAwardedAt,
         });
+        pointEarned = credited.pointEarned;
       }
     });
   } catch (err) {
@@ -1020,6 +1025,8 @@ export async function saveTestEvidence(
     ok: true,
     message: wasComplete
       ? "Test evidence updated."
-      : "Test evidence published — thanks for the feedback.",
+      : pointEarned
+        ? "Test evidence published — you earned 1 review point."
+        : "Test evidence published.",
   };
 }

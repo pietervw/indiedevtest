@@ -18,6 +18,7 @@ const emptySession: ListingSessionPayload = {
   viewerId: null,
   viewerHasContactEmail: false,
   isOwner: false,
+  ownerReviewPoints: 0,
   ownerHasPrivateInvitation: false,
   viewerRequestStatus: null,
   viewerHasJoined: false,
@@ -175,6 +176,7 @@ export async function GET(_request: Request, { params }: Props) {
     viewerId: viewer.id,
     viewerHasContactEmail: Boolean(viewer.contactEmail),
     isOwner,
+    ownerReviewPoints: isOwner ? viewer.reviewPoints : 0,
     ownerHasPrivateInvitation:
       isOwner &&
       Boolean(
@@ -196,6 +198,7 @@ export async function GET(_request: Request, { params }: Props) {
     canApproveTesters: listing.status === "open_for_testing",
     pendingRequests: pendingRequests.map((req) => ({
       id: req.id,
+      requiresReviewPoint: req.pointConsumedAt === null,
       testerEmail: req.testerEmail,
       tester: req.tester,
     })),

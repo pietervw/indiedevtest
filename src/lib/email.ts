@@ -467,7 +467,7 @@ export async function sendTestCompletedEmail(options: {
 }
 
 /**
- * Listing-level milestone reminder (spec §10): 14 days after the 14th tester
+ * Listing-level milestone reminder (spec §10): 14 days after the 12th tester
  * joined. The scheduler owns the once-only delivery guard; this function only
  * renders and sends the branded notification.
  */
@@ -503,7 +503,7 @@ export async function sendListing14DayReminderEmail(options: {
     text: [
       `Hi ${options.devName},`,
       "",
-      `Your 14th tester for ${options.appName} joined on ${joinedDate}. The 14-day testing period has now passed.`,
+      `Your 12th tester for ${options.appName} joined on ${joinedDate}. The 14-day testing period has now passed.`,
       "",
       "Check your listing, confirm any completed tests, and update its status when you're ready.",
       `Listing: ${options.listingUrl}`,
@@ -516,7 +516,7 @@ export async function sendListing14DayReminderEmail(options: {
       heading: "Your testing milestone is here",
       bodyHtml: [
         emailParagraphHtml(
-          `Hi ${emailStrong(options.devName)}, your 14th tester for ${emailStrong(options.appName)} joined on ${emailStrong(joinedDate)}.`
+          `Hi ${emailStrong(options.devName)}, your 12th tester for ${emailStrong(options.appName)} joined on ${emailStrong(joinedDate)}.`
         ),
         emailParagraph(
           "The 14-day testing period has now passed. Check your listing, confirm any completed tests, and update its status when you're ready."

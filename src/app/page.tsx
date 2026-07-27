@@ -211,7 +211,7 @@ export default async function Home() {
             From the community
           </Badge>
           <blockquote className="font-display text-2xl font-extrabold leading-snug text-brand-ink md:text-4xl">
-            &ldquo;I was stuck at 3 testers for weeks. IndieDevTest got me to 14
+            &ldquo;I was stuck at 3 testers for weeks. IndieDevTest got me to 12
             in 2 days.&rdquo;
           </blockquote>
           <footer className="mt-6 font-semibold text-brand-ink/80">

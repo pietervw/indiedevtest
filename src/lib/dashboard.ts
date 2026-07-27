@@ -38,6 +38,7 @@ export type DashboardListing = {
 export type DashboardOwnerTester = {
   id: string;
   status: "pending" | "accepted";
+  requiresReviewPoint: boolean;
   testerEmail: string;
   tester: {
     displayName: string;
@@ -47,7 +48,10 @@ export type DashboardOwnerTester = {
   assignmentStatus: "active" | "completed" | "incomplete" | "cancelled" | null;
 };
 
-export type DashboardTesterHistory = Omit<DashboardOwnerTester, "status" | "assignmentStatus"> & {
+export type DashboardTesterHistory = Omit<
+  DashboardOwnerTester,
+  "status" | "assignmentStatus" | "requiresReviewPoint"
+> & {
   status: "rejected" | "expired";
   withdrawnAt: string | null;
 };
@@ -108,6 +112,7 @@ export type DashboardAcceptedRequest = DashboardRequestItem & {
 /** A request received by one of the user's own listings. */
 export type DashboardIncomingRequest = {
   id: string;
+  requiresReviewPoint: boolean;
   listing: DashboardListingRef;
   testerEmail: string;
   tester: {
@@ -133,6 +138,7 @@ export type DashboardPastAssignment = {
 };
 
 export type DashboardData = {
+  reviewPoints: number;
   listings: DashboardListing[];
   incomingRequests: DashboardIncomingRequest[];
   pendingRequests: DashboardRequestItem[];
@@ -144,6 +150,7 @@ export type DashboardData = {
 };
 
 const EMPTY_DASHBOARD: DashboardData = {
+  reviewPoints: 0,
   listings: [],
   incomingRequests: [],
   pendingRequests: [],
@@ -207,7 +214,11 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
 
   const now = new Date();
 
-  const [listings, incomingRequests, testerRequests, assignments, submittedFeedback] = await Promise.all([
+  const [account, listings, incomingRequests, testerRequests, assignments, submittedFeedback] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { reviewPoints: true },
+    }),
     prisma.appListing.findMany({
       where: { userId },
       select: {
@@ -228,6 +239,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
             expiresAt: true,
             withdrawnAt: true,
             testerEmail: true,
+            pointConsumedAt: true,
             tester: { select: testerSelect },
             testAssignment: { select: { status: true } },
           },
@@ -277,6 +289,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
       select: {
         id: true,
         testerEmail: true,
+        pointConsumedAt: true,
         tester: { select: testerSelect },
         appListing: { select: listingSummarySelect },
       },
@@ -381,6 +394,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   }
 
   return {
+    reviewPoints: account?.reviewPoints ?? 0,
     listings: listings.map((listing) => {
       const pendingRequestCount = listing.testerRequests.filter(
         (request) => request.status === "pending" && request.expiresAt > now
@@ -419,6 +433,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
           .map((request) => ({
             id: request.id,
             status: request.status as "pending" | "accepted",
+            requiresReviewPoint: request.pointConsumedAt === null,
             testerEmail: request.testerEmail,
             tester: request.tester,
             assignmentStatus: request.testAssignment?.status ?? null,
@@ -451,6 +466,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     }),
     incomingRequests: incomingRequests.map((request) => ({
       id: request.id,
+      requiresReviewPoint: request.pointConsumedAt === null,
       testerEmail: request.testerEmail,
       tester: request.tester,
       listing: {
