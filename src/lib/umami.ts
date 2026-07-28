@@ -45,15 +45,45 @@ export function trackEvent(
   }
 }
 
+let activationInFlight = false;
+
 export function trackActivationOnce(source: string): void {
   const key = "umami:activation-completed";
   try {
     if (window.localStorage.getItem(key)) return;
-    window.localStorage.setItem(key, "1");
   } catch {
-    // Storage may be unavailable; the event can still be sent.
+    // Storage may be unavailable; continue with in-memory guard.
   }
-  trackEvent(AnalyticsEvents.ACTIVATION_COMPLETED, { source });
+  if (activationInFlight) return;
+  activationInFlight = true;
+
+  const tryTrack = (retries = 12): void => {
+    try {
+      if (window.localStorage.getItem(key)) {
+        activationInFlight = false;
+        return;
+      }
+    } catch {
+      // ignore
+    }
+    if (window.umami) {
+      window.umami.track(AnalyticsEvents.ACTIVATION_COMPLETED, { source });
+      try {
+        window.localStorage.setItem(key, "1");
+      } catch {
+        // Memory guard still prevents duplicate sends this session.
+      }
+      activationInFlight = false;
+      return;
+    }
+    if (retries > 0) {
+      window.setTimeout(() => tryTrack(retries - 1), 250);
+      return;
+    }
+    activationInFlight = false;
+  };
+
+  tryTrack();
 }
 
 export function umamiEvent(
