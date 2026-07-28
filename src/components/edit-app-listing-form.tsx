@@ -144,33 +144,6 @@ export function EditAppListingForm({
         ) : null}
       </div>
 
-      <div>
-        <label htmlFor="edit-app-tester-capacity" className={labelClassName}>
-          Testers needed <span className="font-medium text-ink-muted">(optional)</span>
-        </label>
-        <input
-          id="edit-app-tester-capacity"
-          name="testerCapacity"
-          type="number"
-          min={1}
-          max={10000}
-          inputMode="numeric"
-          defaultValue={defaults.testerCapacity ?? ""}
-          placeholder="For example: 10"
-          className={cn(fieldClassName, "h-12")}
-          aria-invalid={Boolean(state.fieldErrors?.testerCapacity)}
-        />
-        <p className="mt-1 text-sm text-ink-muted">
-          Set the total number of testers you want to accept. Leave blank for no fixed limit.
-          Accepted testers count toward this limit; each acceptance costs one review point.
-        </p>
-        {state.fieldErrors?.testerCapacity ? (
-          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
-            {state.fieldErrors.testerCapacity}
-          </p>
-        ) : null}
-      </div>
-
       <fieldset className="rounded-2xl border-2 border-ink bg-paper-muted p-5">
         <legend className="px-1 font-display text-lg font-extrabold text-ink">
           Private tester invitation
@@ -179,6 +152,32 @@ export function EditAppListingForm({
           Sent only when you accept a tester. It is never displayed on your
           public listing.
         </p>
+        <div className="mt-5">
+          <label htmlFor="edit-app-tester-capacity" className={labelClassName}>
+            Testers needed <span className="font-medium text-ink-muted">(optional)</span>
+          </label>
+          <input
+            id="edit-app-tester-capacity"
+            name="testerCapacity"
+            type="number"
+            min={1}
+            max={10000}
+            inputMode="numeric"
+            defaultValue={defaults.testerCapacity ?? ""}
+            placeholder="For example: 10"
+            className={cn(fieldClassName, "h-12")}
+            aria-invalid={Boolean(state.fieldErrors?.testerCapacity)}
+          />
+          <p className="mt-1 text-sm text-ink-muted">
+            Set the total number of testers you want to accept. Leave blank for
+            no fixed limit.
+          </p>
+          {state.fieldErrors?.testerCapacity ? (
+            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              {state.fieldErrors.testerCapacity}
+            </p>
+          ) : null}
+        </div>
         <div className="mt-5">
           <label htmlFor="edit-app-testing-link" className={labelClassName}>
             Testing access link{" "}
