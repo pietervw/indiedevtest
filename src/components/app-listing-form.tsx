@@ -132,12 +132,13 @@ export function AppListingForm({
             min={1}
             max={10000}
             inputMode="numeric"
-            placeholder="For example: 10"
+            placeholder="For example: 8"
             className={cn(fieldClassName, "h-12")}
             aria-invalid={Boolean(state.fieldErrors?.testerCapacity)}
           />
           <p className="mt-1 text-sm text-ink-muted">
-            Leave blank to keep accepting testers without a set limit.
+            Set the total number of testers you want to accept. Leave blank for no fixed limit.
+            Each acceptance costs one review point.
           </p>
           {state.fieldErrors?.testerCapacity ? (
             <p className="mt-1 text-sm font-semibold text-red-600" role="alert">

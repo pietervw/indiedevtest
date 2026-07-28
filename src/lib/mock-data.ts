@@ -1,4 +1,4 @@
-export const TESTER_SLOT_MAX = 14;
+export const TESTER_SLOT_MAX = 12;
 /** Google Play closed-testing duration (Android only; iOS/TestFlight has no equivalent). */
 export const TESTING_PERIOD_DAYS = 14;
 export const TESTING_PERIOD_MS = TESTING_PERIOD_DAYS * 24 * 60 * 60 * 1000;

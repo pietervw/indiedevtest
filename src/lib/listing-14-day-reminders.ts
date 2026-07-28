@@ -22,7 +22,7 @@ type ReminderCandidate = {
   name: string;
   clerkId: string;
   displayName: string;
-  fourteenthJoinedAt: Date;
+  milestoneJoinedAt: Date;
 };
 
 type RawQueryable = Pick<typeof prisma, "$queryRaw">;
@@ -58,7 +58,7 @@ async function queryReminderCandidates(
       al.name,
       u.clerk_id AS "clerkId",
       u.display_name AS "displayName",
-      fourteenth.joined_at AS "fourteenthJoinedAt"
+      milestone.joined_at AS "milestoneJoinedAt"
     FROM app_listings al
     INNER JOIN users u ON u.id = al.user_id
     INNER JOIN LATERAL (
@@ -69,10 +69,10 @@ async function queryReminderCandidates(
       ORDER BY ta.joined_at ASC, ta.id ASC
       OFFSET ${REMINDER_TESTER_OFFSET}
       LIMIT 1
-    ) fourteenth ON TRUE
+    ) milestone ON TRUE
     WHERE al.reminder_sent_at IS NULL
       AND al.status <> 'launched'::"AppListingStatus"
-      AND fourteenth.joined_at <= ${options.threshold}
+      AND milestone.joined_at <= ${options.threshold}
       ${listingFilter}
     ${lockClause}
   `;
@@ -140,7 +140,7 @@ async function processCandidate(
       devName: claimed.displayName,
       appName: claimed.name,
       listingUrl: `${siteConfig.url}${appPath(claimed.id)}`,
-      fourteenthJoinedAt: claimed.fourteenthJoinedAt,
+      milestoneJoinedAt: claimed.milestoneJoinedAt,
     });
     return "sent";
   } catch (err) {

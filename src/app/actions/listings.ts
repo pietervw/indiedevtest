@@ -17,6 +17,7 @@ import {
   settleObjectDeletions,
 } from "@/lib/storage/deletion-outbox";
 import { isCompleteEvidence } from "@/lib/test-evidence";
+import { reclaimUnspentReviewPoints } from "@/lib/review-points";
 import { field, isHttpUrl } from "@/lib/validation";
 
 export type UpdateListingState = {
@@ -259,6 +260,7 @@ export async function deleteAppListing(listingId: string): Promise<void> {
             select: {
               testerUserId: true,
               improvementSuggestion: true,
+              pointAwardedAt: true,
               tester: { select: { profileSlug: true } },
               _count: { select: { screenshots: true } },
             },
@@ -291,7 +293,14 @@ export async function deleteAppListing(listingId: string): Promise<void> {
       }
       // Only complete evidence ever incremented reviewsWrittenCount.
       const reviewsByUser = new Map<string, number>();
+      const pointsByUser = new Map<string, number>();
       for (const review of reviews) {
+        if (review.pointAwardedAt !== null) {
+          pointsByUser.set(
+            review.testerUserId,
+            (pointsByUser.get(review.testerUserId) ?? 0) + 1
+          );
+        }
         if (
           !isCompleteEvidence({
             improvementSuggestion: review.improvementSuggestion,
@@ -309,10 +318,21 @@ export async function deleteAppListing(listingId: string): Promise<void> {
       const affectedUserIds = new Set([
         ...completedByUser.keys(),
         ...reviewsByUser.keys(),
+        ...pointsByUser.keys(),
       ]);
       for (const userId of affectedUserIds) {
         const completedDec = completedByUser.get(userId) ?? 0;
         const reviewDec = reviewsByUser.get(userId) ?? 0;
+        const pointsDec = pointsByUser.get(userId) ?? 0;
+        if (pointsDec > 0) {
+          await reclaimUnspentReviewPoints(tx, {
+            userId,
+            count: pointsDec,
+          });
+        }
+        if (completedDec === 0 && reviewDec === 0) {
+          continue;
+        }
         const updated = await tx.user.update({
           where: { id: userId },
           data: {

@@ -266,8 +266,8 @@ export async function createTesterRequest(
 }
 
 /** Owner accepts a pending request. Notifies the tester. */
-export async function acceptTesterRequest(requestId: string): Promise<void> {
-  await resolveTesterRequest(requestId, "accepted");
+export async function acceptTesterRequest(requestId: string): Promise<RequestState> {
+  return resolveTesterRequest(requestId, "accepted");
 }
 
 /** Owner declines a pending request. Notifies the tester. */
@@ -433,7 +433,7 @@ async function recordTesterActivity(input: {
 async function resolveTesterRequest(
   requestId: string,
   outcome: "accepted" | "rejected"
-): Promise<void> {
+): Promise<RequestState> {
   const user = await requireDbUser();
 
   const request = await prisma.testerRequest.findUnique({
@@ -457,7 +457,7 @@ async function resolveTesterRequest(
   });
 
   if (!request || request.appListing.userId !== user.id) {
-    return;
+    return { ok: false, message: "Tester request not found." };
   }
 
   // Expire overdue pendings on this listing (status/cache hygiene).
@@ -465,6 +465,8 @@ async function resolveTesterRequest(
 
   let updated = false;
   let capacityClosed = false;
+  let failureMessage: string | null = null;
+  let pointSpent = false;
 
   if (outcome === "accepted") {
     // Serialize capacity checks against concurrent approvals for the same
@@ -477,18 +479,66 @@ async function resolveTesterRequest(
         select: { status: true, testerCapacity: true },
       });
       if (!listing || listing.status !== "open_for_testing") {
-        return { updated: false, capacityClosed: false };
+        return {
+          updated: false,
+          capacityClosed: false,
+          failureMessage: "Reopen this listing before approving testers.",
+          pointSpent: false,
+        };
       }
 
       const acceptedCount = await tx.testerRequest.count({
         where: { appListingId: request.appListingId, status: "accepted" },
       });
-      if (listing.testerCapacity !== null && acceptedCount >= listing.testerCapacity) {
+      if (
+        listing.testerCapacity !== null &&
+        acceptedCount >= listing.testerCapacity
+      ) {
         await tx.appListing.updateMany({
           where: { id: request.appListingId, status: "open_for_testing" },
           data: { status: "closed_for_testing", autoClosedForCapacity: true },
         });
-        return { updated: false, capacityClosed: true };
+        return {
+          updated: false,
+          capacityClosed: true,
+          failureMessage: "This app has filled all of its tester places.",
+          pointSpent: false,
+        };
+      }
+
+      const lockedRequest = await tx.testerRequest.findUnique({
+        where: { id: requestId },
+        select: { status: true, expiresAt: true, pointConsumedAt: true },
+      });
+      if (
+        !lockedRequest ||
+        lockedRequest.status !== "pending" ||
+        lockedRequest.expiresAt <= new Date()
+      ) {
+        return {
+          updated: false,
+          capacityClosed: false,
+          failureMessage: "This tester request is no longer pending.",
+          pointSpent: false,
+        };
+      }
+
+      const needsPoint = lockedRequest.pointConsumedAt === null;
+      if (needsPoint) {
+        await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${user.id} FOR UPDATE`;
+        const owner = await tx.user.findUnique({
+          where: { id: user.id },
+          select: { reviewPoints: true },
+        });
+        if (!owner || owner.reviewPoints < 1) {
+          return {
+            updated: false,
+            capacityClosed: false,
+            failureMessage:
+              "You need 1 review point to approve this tester. Complete a review of another app first.",
+            pointSpent: false,
+          };
+        }
       }
 
       const { count } = await tx.testerRequest.updateMany({
@@ -497,22 +547,47 @@ async function resolveTesterRequest(
           status: "pending",
           expiresAt: { gt: new Date() },
         },
-        data: { status: "accepted" },
+        data: {
+          status: "accepted",
+          ...(needsPoint ? { pointConsumedAt: new Date() } : {}),
+        },
       });
-      if (count !== 1) return { updated: false, capacityClosed: false };
+      if (count !== 1) {
+        return {
+          updated: false,
+          capacityClosed: false,
+          failureMessage: "This tester request is no longer pending.",
+          pointSpent: false,
+        };
+      }
+
+      if (needsPoint) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { reviewPoints: { decrement: 1 } },
+        });
+      }
 
       const capacityFilled =
-        listing.testerCapacity !== null && acceptedCount + 1 >= listing.testerCapacity;
+        listing.testerCapacity !== null &&
+        acceptedCount + 1 >= listing.testerCapacity;
       if (capacityFilled) {
         await tx.appListing.update({
           where: { id: request.appListingId },
           data: { status: "closed_for_testing", autoClosedForCapacity: true },
         });
       }
-      return { updated: true, capacityClosed: capacityFilled };
+      return {
+        updated: true,
+        capacityClosed: capacityFilled,
+        failureMessage: null,
+        pointSpent: needsPoint,
+      };
     });
     updated = result.updated;
     capacityClosed = result.capacityClosed;
+    failureMessage = result.failureMessage;
+    pointSpent = result.pointSpent;
   } else {
     const { count } = await prisma.testerRequest.updateMany({
       // Recheck expiresAt so reject cannot win a race with lazy expiry.
@@ -526,7 +601,10 @@ async function resolveTesterRequest(
     updated = count === 1;
   }
   if (!updated && !capacityClosed) {
-    return;
+    return {
+      ok: false,
+      message: failureMessage ?? "Could not update this tester request.",
+    };
   }
 
   revalidateListingActivity(request.appListingId);
@@ -538,7 +616,10 @@ async function resolveTesterRequest(
 
   // Capacity already full: listing closed, request still pending — no decline email.
   if (!updated) {
-    return;
+    return {
+      ok: false,
+      message: failureMessage ?? "This app has filled all of its tester places.",
+    };
   }
 
   await recordTesterActivity({
@@ -568,6 +649,16 @@ async function resolveTesterRequest(
   void notify.catch((err) => {
     console.error(`[requests] ${outcome} email failed`, err);
   });
+
+  return {
+    ok: true,
+    message:
+      outcome === "accepted"
+        ? pointSpent
+          ? "Tester approved. 1 review point was used."
+          : "Tester approved. This tester was already paid for."
+        : "Tester declined.",
+  };
 }
 
 /**

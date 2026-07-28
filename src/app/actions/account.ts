@@ -13,6 +13,7 @@ import {
   settleObjectDeletions,
 } from "@/lib/storage/deletion-outbox";
 import { isCompleteEvidence } from "@/lib/test-evidence";
+import { reclaimUnspentReviewPoints } from "@/lib/review-points";
 import { field } from "@/lib/validation";
 
 export type DeleteAccountState = { ok: boolean; message: string };
@@ -179,6 +180,7 @@ export async function deleteAccount(
                 select: {
                   testerUserId: true,
                   improvementSuggestion: true,
+                  pointAwardedAt: true,
                   tester: { select: { profileSlug: true } },
                   _count: { select: { screenshots: true } },
                 },
@@ -209,7 +211,14 @@ export async function deleteAccount(
           );
         }
         const reviewsByUser = new Map<string, number>();
+        const pointsByUser = new Map<string, number>();
         for (const review of ownedReviews) {
+          if (review.pointAwardedAt !== null) {
+            pointsByUser.set(
+              review.testerUserId,
+              (pointsByUser.get(review.testerUserId) ?? 0) + 1
+            );
+          }
           if (
             !isCompleteEvidence({
               improvementSuggestion: review.improvementSuggestion,
@@ -227,10 +236,21 @@ export async function deleteAccount(
         const affectedTesterIds = new Set([
           ...completedByUser.keys(),
           ...reviewsByUser.keys(),
+          ...pointsByUser.keys(),
         ]);
         for (const testerId of affectedTesterIds) {
           const completedDec = completedByUser.get(testerId) ?? 0;
           const reviewDec = reviewsByUser.get(testerId) ?? 0;
+          const pointsDec = pointsByUser.get(testerId) ?? 0;
+          if (pointsDec > 0) {
+            await reclaimUnspentReviewPoints(tx, {
+              userId: testerId,
+              count: pointsDec,
+            });
+          }
+          if (completedDec === 0 && reviewDec === 0) {
+            continue;
+          }
           const updated = await tx.user.update({
             where: { id: testerId },
             data: {

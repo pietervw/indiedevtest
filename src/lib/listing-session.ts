@@ -3,6 +3,8 @@ export type ListingSessionPayload = {
   /** Whether the signed-in viewer has a saved private testing contact email. */
   viewerHasContactEmail: boolean;
   isOwner: boolean;
+  /** Spendable review points, exposed only to the listing owner. */
+  ownerReviewPoints: number;
   /** Owner-only flag for whether an invitation can be resent. */
   ownerHasPrivateInvitation: boolean;
   viewerRequestStatus: "pending" | "accepted" | "rejected" | "expired" | null;
@@ -20,6 +22,7 @@ export type ListingSessionPayload = {
   canApproveTesters: boolean;
   pendingRequests: {
     id: string;
+    requiresReviewPoint: boolean;
     testerEmail: string;
     tester: {
       displayName: string;
