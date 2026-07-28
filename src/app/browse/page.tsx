@@ -24,7 +24,7 @@ export default async function BrowsePage({ searchParams }: Props) {
   const filters = parseBrowseFilters(params);
   const viewer = await getOptionalDbUser();
   const apps = await getBrowseApps(filters, viewer?.id);
-  const hasActiveFilters = Boolean(filters.category || filters.platform);
+  const hasActiveFilters = Boolean(filters.category);
 
   return (
     <div className="flex-1 bg-grid">

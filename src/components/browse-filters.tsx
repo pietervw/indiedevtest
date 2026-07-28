@@ -2,16 +2,14 @@ import Link from "next/link";
 import type {
   BrowseCategory,
   BrowseFilters as BrowseFilterState,
-  BrowsePlatform,
   BrowseSort,
 } from "@/lib/browse-apps";
-import { categoryLabel, platformLabel } from "@/lib/mock-data";
+import { categoryLabel } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 function browseHref(next: BrowseFilterState): string {
   const params = new URLSearchParams();
   if (next.category) params.set("category", next.category);
-  if (next.platform) params.set("platform", next.platform);
   if (next.sort !== "newest") params.set("sort", next.sort);
   const qs = params.toString();
   return qs ? `/browse?${qs}` : "/browse";
@@ -42,7 +40,6 @@ function Chip({
 }
 
 const CATEGORIES = Object.keys(categoryLabel) as BrowseCategory[];
-const PLATFORMS = Object.keys(platformLabel) as BrowsePlatform[];
 const SORTS: { value: BrowseSort; label: string }[] = [
   { value: "newest", label: "Newest" },
   { value: "requested", label: "Most requested" },
@@ -70,29 +67,6 @@ export function BrowseFilters({ filters }: { filters: BrowseFilterState }) {
               active={filters.category === key}
             >
               {categoryLabel[key]}
-            </Chip>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-muted">
-          Platform
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Chip
-            href={browseHref({ ...filters, platform: undefined })}
-            active={!filters.platform}
-          >
-            All
-          </Chip>
-          {PLATFORMS.map((key) => (
-            <Chip
-              key={key}
-              href={browseHref({ ...filters, platform: key })}
-              active={filters.platform === key}
-            >
-              {platformLabel[key]}
             </Chip>
           ))}
         </div>

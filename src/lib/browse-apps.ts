@@ -3,7 +3,6 @@ import { expirePendingTesterRequests } from "@/lib/expire-pending-tester-request
 import {
   categoryLabel,
   mapListingToApp,
-  platformLabel,
   profilePath,
   type App,
 } from "@/lib/mock-data";
@@ -12,12 +11,10 @@ import {
 export const BROWSE_APPS_TTL_MS = 15 * 60 * 1000;
 
 export type BrowseCategory = keyof typeof categoryLabel;
-export type BrowsePlatform = keyof typeof platformLabel;
 export type BrowseSort = "newest" | "requested" | "needed";
 
 export type BrowseFilters = {
   category?: BrowseCategory;
-  platform?: BrowsePlatform;
   sort: BrowseSort;
 };
 
@@ -37,7 +34,6 @@ type BrowseRow = {
 
 type CachedApp = App & {
   categoryKey: string;
-  platformKey: string;
   createdAt: number;
   requests: number;
 };
@@ -72,17 +68,12 @@ export function parseBrowseFilters(
   params: Record<string, string | string[] | undefined>
 ): BrowseFilters {
   const category = param(params, "category");
-  const platform = param(params, "platform");
   const sort = param(params, "sort");
 
   return {
     category:
       category && category in categoryLabel
         ? (category as BrowseCategory)
-        : undefined,
-    platform:
-      platform && platform in platformLabel
-        ? (platform as BrowsePlatform)
         : undefined,
     sort:
       sort === "requested" || sort === "needed" ? sort : "newest",
@@ -149,7 +140,6 @@ async function loadBrowseApps(): Promise<CachedApp[]> {
     const apps: CachedApp[] = rows.map((row) => ({
       ...mapListingToApp(row),
       categoryKey: row.category,
-      platformKey: row.platform,
       createdAt: new Date(row.createdAt).getTime(),
       requests: row.requests,
       developer: {
@@ -176,10 +166,6 @@ function applyBrowseFilters(
   if (filters.category) {
     filtered = filtered.filter((app) => app.categoryKey === filters.category);
   }
-  if (filters.platform) {
-    filtered = filtered.filter((app) => app.platformKey === filters.platform);
-  }
-
   const sorted = [...filtered];
   if (filters.sort === "requested") {
     sorted.sort((a, b) => b.requests - a.requests || b.createdAt - a.createdAt);
@@ -192,8 +178,7 @@ function applyBrowseFilters(
   }
 
   return sorted.map(
-    ({ categoryKey: _c, platformKey: _p, createdAt: _t, requests: _r, ...app }) =>
-      app
+    ({ categoryKey: _c, createdAt: _t, requests: _r, ...app }) => app
   );
 }
 
