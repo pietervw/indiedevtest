@@ -1,15 +1,30 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { submitTesterFeedback, type FeedbackState } from "@/app/actions/feedback";
 import { SubmitButton } from "@/components/submit-button";
-import { umamiEvent } from "@/lib/umami";
+import {
+  AnalyticsEvents,
+  trackActivationOnce,
+  trackEvent,
+  umamiEvent,
+} from "@/lib/umami";
 
 const initialState: FeedbackState = { ok: false, message: "" };
 
 export function TesterFeedbackForm({ listingId }: { listingId: string }) {
   const action = submitTesterFeedback.bind(null, listingId);
   const [state, formAction] = useActionState(action, initialState);
+  const trackedSuccess = useRef(false);
+
+  useEffect(() => {
+    if (!state.ok || trackedSuccess.current) return;
+    trackedSuccess.current = true;
+    trackActivationOnce("tester_feedback");
+    trackEvent(AnalyticsEvents.VALUE_DELIVERED, {
+      source: "tester_feedback",
+    });
+  }, [state.ok]);
 
   return <section className="mt-10 max-w-2xl rounded-2xl border-2 border-ink bg-paper p-5 shadow-brutal">
     <h2 className="font-display text-xl font-extrabold">Private tester feedback</h2>

@@ -3,6 +3,8 @@ import { randomUUID } from "crypto";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { sendFirstUserSignupNotification } from "@/lib/pushover";
+import { AnalyticsEvents } from "@/lib/umami";
+import { trackServerEvent } from "@/lib/umami-server";
 
 function githubAccount(
   accounts: {
@@ -88,6 +90,9 @@ export async function ensureDbUser() {
       void sendFirstUserSignupNotification({
         displayName: created.displayName,
         profileHandle: created.profileSlug,
+      });
+      void trackServerEvent(AnalyticsEvents.SIGNUP_COMPLETED, {
+        source: "first_local_profile",
       });
       return created;
     } catch (err) {

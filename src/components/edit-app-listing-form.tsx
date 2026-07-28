@@ -5,7 +5,9 @@ import {
   updateAppListing,
   type UpdateListingState,
 } from "@/app/actions/listings";
+import type { ListingScreenshotDto } from "@/app/actions/screenshots";
 import { DeleteListingButton } from "@/components/delete-listing-button";
+import { ScreenshotManager } from "@/components/screenshot-manager";
 import { SubmitButton } from "@/components/submit-button";
 import { statusOptionsFor } from "@/lib/listing-status";
 import { umamiEvent } from "@/lib/umami";
@@ -35,10 +37,12 @@ export type EditListingDefaults = {
 export function EditAppListingForm({
   listingId,
   defaults,
+  initialScreenshots,
   className,
 }: {
   listingId: string;
   defaults: EditListingDefaults;
+  initialScreenshots: ListingScreenshotDto[];
   className?: string;
 }) {
   const action = updateAppListing.bind(null, listingId);
@@ -48,7 +52,10 @@ export function EditAppListingForm({
 
   return (
     <>
-    <form action={formAction} className={cn("flex w-full max-w-xl flex-col gap-5", className)}>
+      <form
+        action={formAction}
+        className={cn("flex w-full max-w-xl flex-col gap-5", className)}
+      >
       <div>
         <label htmlFor="edit-app-name" className={labelClassName}>
           App name
@@ -142,12 +149,39 @@ export function EditAppListingForm({
           Private tester invitation
         </legend>
         <p className="mt-1 text-sm text-ink-muted">
-          Sent only to testers after you accept their request. It is never shown
-          on the public listing.
+          Sent only when you accept a tester. It is never displayed on your
+          public listing.
         </p>
         <div className="mt-5">
+          <label htmlFor="edit-app-tester-capacity" className={labelClassName}>
+            Testers needed <span className="font-medium text-ink-muted">(optional)</span>
+          </label>
+          <input
+            id="edit-app-tester-capacity"
+            name="testerCapacity"
+            type="number"
+            min={1}
+            max={10000}
+            inputMode="numeric"
+            defaultValue={defaults.testerCapacity ?? ""}
+            placeholder="For example: 10"
+            className={cn(fieldClassName, "h-12")}
+            aria-invalid={Boolean(state.fieldErrors?.testerCapacity)}
+          />
+          <p className="mt-1 text-sm text-ink-muted">
+            Set the total number of testers you want to accept. Leave blank for
+            no fixed limit.
+          </p>
+          {state.fieldErrors?.testerCapacity ? (
+            <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
+              {state.fieldErrors.testerCapacity}
+            </p>
+          ) : null}
+        </div>
+        <div className="mt-5">
           <label htmlFor="edit-app-testing-link" className={labelClassName}>
-            Testing access link <span className="font-medium text-ink-muted">(optional)</span>
+            Testing access link{" "}
+            <span className="font-medium text-ink-muted">(optional)</span>
           </label>
           <input
             id="edit-app-testing-link"
@@ -166,8 +200,12 @@ export function EditAppListingForm({
           ) : null}
         </div>
         <div className="mt-5">
-          <label htmlFor="edit-app-tester-instructions" className={labelClassName}>
-            Tester instructions <span className="font-medium text-ink-muted">(optional)</span>
+          <label
+            htmlFor="edit-app-tester-instructions"
+            className={labelClassName}
+          >
+            Tester instructions{" "}
+            <span className="font-medium text-ink-muted">(optional)</span>
           </label>
           <textarea
             id="edit-app-tester-instructions"
@@ -186,33 +224,6 @@ export function EditAppListingForm({
           ) : null}
         </div>
       </fieldset>
-
-      <div>
-        <label htmlFor="edit-app-tester-capacity" className={labelClassName}>
-          Testers needed <span className="font-medium text-ink-muted">(optional)</span>
-        </label>
-        <input
-          id="edit-app-tester-capacity"
-          name="testerCapacity"
-          type="number"
-          min={1}
-          max={10000}
-          inputMode="numeric"
-          defaultValue={defaults.testerCapacity ?? ""}
-          placeholder="For example: 10"
-          className={cn(fieldClassName, "h-12")}
-          aria-invalid={Boolean(state.fieldErrors?.testerCapacity)}
-        />
-        <p className="mt-1 text-sm text-ink-muted">
-          Set the total number of testers you want to accept. Leave blank for no fixed limit.
-          Accepted testers count toward this limit; each acceptance costs one review point.
-        </p>
-        {state.fieldErrors?.testerCapacity ? (
-          <p className="mt-1 text-sm font-semibold text-red-600" role="alert">
-            {state.fieldErrors.testerCapacity}
-          </p>
-        ) : null}
-      </div>
 
       <div>
         <label htmlFor="edit-app-status" className={labelClassName}>
@@ -291,26 +302,51 @@ export function EditAppListingForm({
         </label>
       </div>
 
-      <SubmitButton size="lg" pendingLabel="Saving…" className="w-full sm:w-auto" {...umamiEvent("app_listing_update_click", { status })}>
-        Save changes
-      </SubmitButton>
+      <div className="mt-3 flex flex-col gap-3 border-t-2 border-line pt-6 sm:items-start">
+        <SubmitButton
+          size="lg"
+          pendingLabel="Saving…"
+          className="w-full sm:w-auto"
+          {...umamiEvent("app_listing_update_click", { status })}
+        >
+          Save changes
+        </SubmitButton>
 
-      {state.message && !state.ok ? (
-        <p className="text-sm font-semibold text-red-600" role="alert">
-          {state.message}
-        </p>
-      ) : null}
-    </form>
-
-    <div className="mt-12 max-w-xl border-t-2 border-line pt-8">
-      <h2 className="font-display text-lg font-extrabold text-ink">Danger zone</h2>
-      <p className="mt-2 text-sm text-ink-muted">
-        Permanently remove this listing and cancel related tests.
-      </p>
-      <div className="mt-4">
-        <DeleteListingButton listingId={listingId} />
+        {state.message && !state.ok ? (
+          <p className="text-sm font-semibold text-red-600" role="alert">
+            {state.message}
+          </p>
+        ) : null}
       </div>
-    </div>
+      </form>
+
+      <section className="mt-12 max-w-xl border-t-2 border-ink pt-8">
+        <h2 className="font-display text-2xl font-extrabold text-ink">
+          Screenshots
+        </h2>
+        <p className="mt-2 text-ink-muted">
+          Optional but recommended. Drag to reorder; visitors see these above
+          About on your listing.
+        </p>
+        <ScreenshotManager
+          listingId={listingId}
+          mode="edit"
+          initialScreenshots={initialScreenshots}
+          className="mt-6"
+        />
+      </section>
+
+      <section className="mt-12 max-w-xl rounded-2xl border-2 border-red-700 bg-red-50 p-5 shadow-brutal sm:p-6">
+        <h2 className="font-display text-lg font-extrabold text-red-800">
+          Danger zone
+        </h2>
+        <p className="mt-2 text-sm text-red-800/80">
+          Permanently remove this listing and cancel related tests.
+        </p>
+        <div className="mt-4">
+          <DeleteListingButton listingId={listingId} />
+        </div>
+      </section>
     </>
   );
 }

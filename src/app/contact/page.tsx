@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { currentUser } from "@clerk/nextjs/server";
 import { ContactForm } from "@/components/contact-form";
 import { JsonLd } from "@/components/json-ld";
 import { Container, Section, SectionHeading } from "@/components/ui/section";
@@ -41,7 +42,13 @@ const jsonLd = {
   inLanguage: "en-US",
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const user = await currentUser();
+  const email =
+    user?.primaryEmailAddress?.emailAddress ??
+    user?.emailAddresses[0]?.emailAddress ??
+    "";
+
   return (
     <>
       <JsonLd data={jsonLd} />
@@ -51,7 +58,7 @@ export default function ContactPage() {
             title="Get in touch"
             description={contactDescription}
           />
-          <ContactForm />
+          <ContactForm defaultEmail={email} />
         </Container>
       </Section>
     </>

@@ -14,7 +14,13 @@ const inputClass =
 
 const labelClass = "mb-1.5 block text-sm font-semibold text-ink";
 
-export function ContactForm({ className }: { className?: string }) {
+export function ContactForm({
+  className,
+  defaultEmail = "",
+}: {
+  className?: string;
+  defaultEmail?: string;
+}) {
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [state, formAction] = useActionState(
     async (prev: ContactState, formData: FormData) => {
@@ -78,6 +84,7 @@ export function ContactForm({ className }: { className?: string }) {
             id="contact-email"
             name="email"
             type="email"
+            defaultValue={defaultEmail}
             required
             maxLength={254}
             autoComplete="email"
