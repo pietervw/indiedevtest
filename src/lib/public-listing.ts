@@ -12,6 +12,7 @@ import {
 import { EVIDENCE_IMAGE_LIMITS } from "@/lib/storage/image-limits";
 import {
   isCompleteEvidence,
+  MAX_IMPROVEMENT_LENGTH,
   MIN_IMPROVEMENT_LENGTH,
 } from "@/lib/test-evidence";
 
@@ -146,7 +147,7 @@ async function fetchCompleteFeedback(listingId: string) {
     WHERE r.app_listing_id = ${listingId}
       AND length(
         regexp_replace(r.improvement_suggestion, E'^\\s+|\\s+$', '', 'g')
-      ) >= ${MIN_IMPROVEMENT_LENGTH}
+      ) BETWEEN ${MIN_IMPROVEMENT_LENGTH} AND ${MAX_IMPROVEMENT_LENGTH}
       AND (
         SELECT COUNT(*)::int
         FROM review_screenshots s
