@@ -18,10 +18,11 @@ WHERE c.tester_user_id = u.id;
 
 UPDATE "users"
 SET "reviews_written_count" = 0
-WHERE id NOT IN (
-  SELECT DISTINCT r.tester_user_id
+WHERE NOT EXISTS (
+  SELECT 1
   FROM "reviews" r
-  WHERE length(btrim(r.improvement_suggestion)) BETWEEN 10 AND 500
+  WHERE r.tester_user_id = "users".id
+    AND length(btrim(r.improvement_suggestion)) BETWEEN 10 AND 500
     AND (
       SELECT COUNT(*)::int
       FROM "review_screenshots" s
