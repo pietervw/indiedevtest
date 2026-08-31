@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "target": "ES2022", "module": "CommonJS", "moduleResolution": "Node", "esModuleInterop": true, "outDir": ".test-output", "noEmitOnError": true, "strict": true, "skipLibCheck": true },
+  "include": ["tests/unit/**/*.ts", "src/lib/validation.ts", "src/lib/storage/image-limits.ts"]
+}
