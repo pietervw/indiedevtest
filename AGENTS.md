@@ -17,7 +17,7 @@ npm install
 
 - `npm run lint` — ESLint.
 - `npm run test:unit` — compiles `tsconfig.test.json` and runs unit tests (e.g. validation and image limits).
-- Note: a `verify:fast` interface is not yet defined in `package.json`. An untracked `.github/workflows/verify-fast.yml` exists pending its scripts — land the scripts and the workflow together (never commit the workflow alone).
+- Note: a `verify:fast` interface is not yet defined in `package.json`; do not commit a CI workflow that calls it - land the scripts and any workflow together in a single PR.
 
 ## Architecture
 
