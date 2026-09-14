@@ -28,7 +28,7 @@ Apply the database schema once (uses `DIRECT_URL`):
 npm run db:migrate
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and use Clerk’s **Sign in** / **Sign up** buttons (Account Portal — hosted by Clerk, not custom app routes).
+Open [http://localhost:3000](http://localhost:3000) and use the **Sign in** / **Sign up** buttons — these are app routes (`src/app/sign-in/[[...sign-in]]/page.tsx`, `src/app/sign-up/[[...sign-up]]/page.tsx`) that render Clerk's hosted components locally (not Clerk Account Portal redirects).
 
 ## Environment variables
 
@@ -130,6 +130,7 @@ Useful checks after go-live:
 npm run lint
 npm run build
 npm start
+npm run test:unit   # unit tests (validation, image limits)
 npm run db:migrate   # create / apply migrations (dev)
 npm run db:push      # push schema without migration files
 npm run db:seed      # seed demo community users + apps
