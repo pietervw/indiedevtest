@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { AppLogo } from "@/components/app-logo";
 import { JsonLd } from "@/components/json-ld";
@@ -38,7 +38,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const listing = await getPublicListing(id);
 
   if (!listing) {
-    return { title: "App not found" };
+    return {
+      title: "App not found",
+      robots: { index: false, follow: true },
+    };
   }
 
   const ogImages =
@@ -85,7 +88,9 @@ export default async function AppListingPage({ params }: Props) {
     }
   }
   if (!listing) {
-    notFound();
+    // Deleted / unpublished listings used to 404 + noindex, which GSC reports
+    // as crawl failures. Send equity to the live board instead.
+    permanentRedirect("/browse");
   }
 
   const showFeedbackSection = isReviewableListingStatus(listing.status);

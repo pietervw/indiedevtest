@@ -9,7 +9,7 @@
     "check:storage-env": "node scripts/check-storage-env.mjs",
     "apply:r2-cors": "node scripts/apply-r2-cors.mjs",
     "lint": "eslint .",
-    "test:unit": "tsc -p tsconfig.test.json && node --test .test-output/tests/unit/validation-and-image-limits.test.js",
+    "test:unit": "tsc -p tsconfig.test.json && node --test .test-output/tests/unit/*.test.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

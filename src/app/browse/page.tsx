@@ -3,20 +3,29 @@ import { BrowseAddButton, BrowseEmptyCta } from "@/components/browse-add-button"
 import { BrowseFilters } from "@/components/browse-filters";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { getBrowseApps, parseBrowseFilters } from "@/lib/browse-apps";
+import { browseSearchParamsAreIndexable } from "@/lib/browse-indexability";
 import { getOptionalDbUser } from "@/lib/auth-guards";
 import { canonicalMetadata, siteConfig } from "@/lib/site";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 
-export const metadata: Metadata = {
-  ...canonicalMetadata("/browse"),
-  title: "Browse",
-  description: `Browse open testing listings on ${siteConfig.name}.`,
-};
-
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const params = await searchParams;
+  const indexable = browseSearchParamsAreIndexable(params);
+
+  return {
+    ...canonicalMetadata("/browse"),
+    title: "Browse",
+    description: `Browse open testing listings on ${siteConfig.name}.`,
+    ...(indexable
+      ? {}
+      : { robots: { index: false, follow: true } }),
+  };
+}
 
 export default async function BrowsePage({ searchParams }: Props) {
   await connection();

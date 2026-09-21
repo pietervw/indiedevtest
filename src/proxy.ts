@@ -1,24 +1,28 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-
-const APEX_HOST = "indiedevtest.com";
-const WWW_HOST = `www.${APEX_HOST}`;
+import {
+  canonicalHttpsRedirectUrl,
+  forwardedProtocol,
+} from "@/lib/canonical-request";
 
 export default clerkMiddleware(async (_auth, request) => {
-  const hostname = (request.headers.get("host") ?? "")
-    .toLowerCase()
-    .split(":")[0];
+  const hostname = request.headers.get("host") ?? request.nextUrl.hostname;
+  const protocol = forwardedProtocol(
+    request.headers.get("x-forwarded-proto"),
+    request.nextUrl.protocol
+  );
+  const canonical = canonicalHttpsRedirectUrl({
+    hostname,
+    protocol,
+    pathname: request.nextUrl.pathname,
+    search: request.nextUrl.search,
+  });
 
-  if (hostname !== WWW_HOST) {
+  if (!canonical) {
     return;
   }
 
-  const url = request.nextUrl.clone();
-  url.hostname = APEX_HOST;
-  url.protocol = "https:";
-  url.port = "";
-
-  return NextResponse.redirect(url, 308);
+  return NextResponse.redirect(canonical, 308);
 });
 
 export const config = {
