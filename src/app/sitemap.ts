@@ -8,7 +8,6 @@ import { absoluteUrl, siteRoutes } from "@/lib/site";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const ogImage = absoluteUrl("/opengraph-image");
   const now = new Date();
 
   const staticEntries: MetadataRoute.Sitemap = siteRoutes.map((route) => ({
@@ -16,7 +15,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: now,
     changeFrequency: route.changeFrequency,
     priority: route.priority,
-    ...(route.path === "/" ? { images: [ogImage] } : {}),
   }));
 
   if (!process.env.DATABASE_URL) {
@@ -32,11 +30,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         take: 5000,
       }),
       prisma.user.findMany({
-        where: {
-          appListings: {
-            some: { status: { in: [...PUBLIC_LISTING_STATUSES] }, moderationStatus: "visible" },
-          },
-        },
         select: { profileSlug: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
         take: 5000,

@@ -165,7 +165,12 @@ export function legalWebPageJsonLd(options: {
 
 export function absoluteUrl(path = "/"): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${siteConfig.url}${normalized === "/" ? "" : normalized}`;
+  // Trailing slash on the homepage so <loc>, canonical, and Google's preferred
+  // form (https://indiedevtest.com/) stay identical.
+  if (normalized === "/") {
+    return `${siteConfig.url}/`;
+  }
+  return `${siteConfig.url}${normalized}`;
 }
 
 /** Shared canonical + OG URL metadata for indexable pages. */
