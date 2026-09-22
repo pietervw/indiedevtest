@@ -103,11 +103,14 @@ Every repo exposes one verification interface:
 | `npm run verify` | verify:fast + build |
 | `npm run verify:full` | verify + E2E |
 
-The table is the contract repos should implement, not a guarantee. Read the
-repo's package.json / AGENTS.md for what the commands actually chain —
-definitions vary (some repos omit typecheck or unit tests from verify:fast;
-one adds type generation). Run any stage the risk level requires that the
-repo's script leaves out, and report the stages that actually ran.
+The table describes the interface where a repo defines it - it is not a
+mandate. Whether a repo exposes these commands at all, and which run in CI,
+is Pete's per-repo decision: never add, restore, or "complete" verify
+scripts or CI checks to satisfy the table. Read the repo's package.json /
+AGENTS.md for what the commands actually chain (definitions vary: some omit
+typecheck or unit tests; one adds type generation), run any stage the risk
+level requires that the repo's scripts leave out, and report the stages
+that actually ran.
 
 Non-Node repos (Flutter, .NET, static) document the exact equivalent commands in
 their AGENTS.md. Agents only need to learn "run verify"; the repo decides what
