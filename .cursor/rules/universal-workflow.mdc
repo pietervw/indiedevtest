@@ -58,9 +58,14 @@ question before building anything.
 - Before editing, inspect `git status`. If the checkout contains unrelated
   changes, stop and report them. Do not stash, reset, discard, or move those
   changes automatically.
-- Create a normal feature branch in the current checkout.
-- Never push directly to `main`/`master`. Push the feature branch and open a PR.
-  Pete merges it himself; the merge is the deploy trigger.
+- Create a normal feature branch in the current checkout (same exception as
+  below: memory/ops repos that document a direct-to-main carve-out in their
+  AGENTS.md may commit on the default branch for changes that carve-out
+  covers).
+- Never push directly to `main`/`master` (exception: memory/ops repos that
+  document a direct-to-main carve-out in their AGENTS.md). Otherwise push the
+  feature branch and open a PR. Pete merges it himself; the merge is the
+  deploy trigger.
 - Never run `gh pr merge`, never force-push or rewrite `main`/`master`
   history. A rebased feature branch may be pushed with
   `git push --force-with-lease`.
@@ -88,14 +93,13 @@ Owning a task end-to-end includes the PR lifecycle; do not stop at "PR open".
    (Coolify per tenant where applicable). Report failures proactively with
    cause and next step; never wait to be asked.
 4. **Done**: a task ends only when every change is committed and pushed
-   (as a PR in repos whose git workflow uses PRs — memory/ops repos may
-   commit directly to main), leftovers are gh issues, linked issues are
+   per the git workflow above, leftovers are gh issues, linked issues are
    closed, and the closing report says "nothing outstanding" — or lists
    exactly what is.
 
 ## Verification
 
-Every repo exposes one verification interface:
+Where a repo defines a verification interface, this is it:
 
 | Command | Intended meaning |
 | --- | --- |
@@ -103,8 +107,7 @@ Every repo exposes one verification interface:
 | `npm run verify` | verify:fast + build |
 | `npm run verify:full` | verify + E2E |
 
-The table describes the interface where a repo defines it - it is not a
-mandate. Whether a repo exposes these commands at all, and which run in CI,
+Whether a repo exposes these commands at all, and which run in CI,
 is Pete's per-repo decision: never add, restore, or "complete" verify
 scripts or CI checks to satisfy the table. Read the repo's package.json /
 AGENTS.md for what the commands actually chain (definitions vary: some omit
