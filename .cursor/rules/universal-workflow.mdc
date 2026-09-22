@@ -97,11 +97,17 @@ Owning a task end-to-end includes the PR lifecycle; do not stop at "PR open".
 
 Every repo exposes one verification interface:
 
-| Command | Meaning |
+| Command | Intended meaning |
 | --- | --- |
 | `npm run verify:fast` | lint + typecheck + unit tests |
 | `npm run verify` | verify:fast + build |
 | `npm run verify:full` | verify + E2E |
+
+The table is the contract repos should implement, not a guarantee. Read the
+repo's package.json / AGENTS.md for what the commands actually chain —
+definitions vary (some repos omit typecheck or unit tests from verify:fast;
+one adds type generation). Run any stage the risk level requires that the
+repo's script leaves out, and report the stages that actually ran.
 
 Non-Node repos (Flutter, .NET, static) document the exact equivalent commands in
 their AGENTS.md. Agents only need to learn "run verify"; the repo decides what
