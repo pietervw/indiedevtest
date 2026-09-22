@@ -1,0 +1,126 @@
+---
+description: Universal agent workflow (Pete) - autonomy, checkpoints, git, verification, review. Synced from personal-ai scripts/sync-agent.rules.ps1; edit there, not here.
+alwaysApply: true
+---
+
+# Universal agent workflow
+
+Applies to all of Pete's repositories and all coding agents (Claude Code, Codex,
+Cursor, OpenCode). Repository AGENTS.md files add repo-specific detail on top of
+these rules; they never weaken them.
+
+## Autonomy and checkpoints
+
+Default to autonomy for reversible, in-scope work. Checkpoint — stop, present
+2-3 options (including "do nothing") with one-line trade-offs and an explicit
+recommendation, then wait for Pete's decision — when any of these apply:
+
+- **Irreversible or high-risk**: payment or auth flows, public-facing
+  behavior, schema or data changes outside the scoped work, destructive
+  operations, or rewriting a working production flow when no user-facing
+  failure has been demonstrated.
+- **Unconventional solution**: new infrastructure, scripts, runners,
+  crons/timers/scheduled jobs, new dependencies, building software from
+  source, or reimplementing something the platform already provides.
+- **Out of scope**: fixing problems nobody reported, speculative improvements
+  beyond the stated task, or a diff growing beyond the stated risk. Report
+  adjacent findings; do not fix them silently.
+- **Effort escalation**: setup would exceed ~15 minutes, or the cheap path
+  failed and the next step is materially heavier (large downloads, compiling,
+  system package installs). Checkpoint at the first jump in effort, never
+  after sinking cost into it.
+
+A checkpoint means wait for a decision, not "proceed unless vetoed". If the
+request was exploratory ("can you...", "is it possible..."), answer the
+question before building anything.
+
+## Solution quality
+
+- Long-term fix by default. Band-aids only when explicitly scoped as
+  temporary, and labeled in the PR with what they do not fix plus the
+  follow-up.
+- Never swallow errors to manufacture success: catching an error and
+  acknowledging, skipping, or pretending success hides real conflicts (e.g.
+  webhook provisioning, account ownership). Handle it, surface it, or fail
+  loudly.
+- Every PR proactively answers: root cause or band-aid? What does it not
+  fix? What risk does it add?
+- Tooling and process artifacts (local helper scripts, patch files, prompt
+  files, scratch tooling) never get committed to project repos.
+
+## Git workflow
+
+- Work in the current local checkout by default.
+- Do not create a Git worktree unless the user explicitly requests one, or the
+  work is genuinely complex or parallel and the user agrees. In that case use
+  `C:\git\.worktrees\<repo>\<task>` and nothing else.
+- The user normally works on one feature at a time.
+- Before editing, inspect `git status`. If the checkout contains unrelated
+  changes, stop and report them. Do not stash, reset, discard, or move those
+  changes automatically.
+- Create a normal feature branch in the current checkout.
+- Never push directly to `main`/`master`. Push the feature branch and open a PR.
+  Pete merges it himself; the merge is the deploy trigger.
+- Never run `gh pr merge`, never force-push or rewrite `main`/`master`
+  history. A rebased feature branch may be pushed with
+  `git push --force-with-lease`.
+- After merge the head branch is deleted automatically on GitHub; delete the
+  local branch as cleanup. If (and only if) a worktree was used, clean it up with
+  `pwsh C:\git\personal-ai\scripts\finish-task.ps1 -WorktreePath <path>`
+  (dry-run by default; `-Apply` executes; it refuses dirty worktrees).
+- `GIT_ALLOW_MAIN_PUSH=1 git push ...` is the emergency override for production
+  incidents only. State explicitly if it was used.
+
+## PR lifecycle ownership
+
+Owning a task end-to-end includes the PR lifecycle; do not stop at "PR open".
+
+1. **Review**: request it yourself — `/cursor-prep` or the CodeRabbit
+   CLI / OpenCode review before opening the PR (see
+   `docs/agent-rules/review-stack.md` in personal-ai), or `/babysit-reviews`
+   after. Poll PR comments, evaluate every finding, implement warranted
+   fixes, and push. Bring Pete only genuine product decisions.
+2. **Landing**: poll `gh pr view --json state,mergeable,statusCheckRollup`
+   rather than waiting to be told. If the base moves, rebase and resolve
+   conflicts autonomously. When checks are green, report the PR as ready to
+   merge (Pete still merges).
+3. **Deployment**: after merge, follow CI and the repo's deployment path
+   (Coolify per tenant where applicable). Report failures proactively with
+   cause and next step; never wait to be asked.
+4. **Done**: a task ends only when every change is committed and pushed
+   (as a PR in repos whose git workflow uses PRs — memory/ops repos may
+   commit directly to main), leftovers are gh issues, linked issues are
+   closed, and the closing report says "nothing outstanding" — or lists
+   exactly what is.
+
+## Verification
+
+Every repo exposes one verification interface:
+
+| Command | Meaning |
+| --- | --- |
+| `npm run verify:fast` | lint + typecheck + unit tests |
+| `npm run verify` | verify:fast + build |
+| `npm run verify:full` | verify + E2E |
+
+Non-Node repos (Flutter, .NET, static) document the exact equivalent commands in
+their AGENTS.md. Agents only need to learn "run verify"; the repo decides what
+that means.
+
+Run the level the change warrants (risk-based):
+
+- Copy/docs only: lint + build.
+- Ordinary code: lint, typecheck, unit tests, build.
+- UI: ordinary checks plus browser smoke / visual inspection.
+- Auth, billing, permissions, database, analytics: integration tests,
+  critical-path E2E, independent review, post-deploy smoke.
+- Full slow E2E: nightly and high-risk PRs, not every trivial PR.
+
+Never claim a check passed that you did not run. Report the exact commands run
+and their actual outcomes.
+
+## Repeated mistakes
+
+When an agent repeats a mistake, the fix is an executable test, lint rule,
+contract check, or CI gate - not another paragraph of instructions. Prefer
+adding the gate over adding prose.
